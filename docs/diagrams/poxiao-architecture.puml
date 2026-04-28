@@ -1,0 +1,217 @@
+@startuml
+title 图 6-1 南工破晓客户端总体架构图
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam roundcorner 16
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam defaultFontName Microsoft YaHei
+skinparam ArrowColor #4E6E5D
+skinparam PackageBorderColor #6A8A78
+skinparam PackageBackgroundColor #F7FBF8
+skinparam ComponentBorderColor #6A8A78
+skinparam ComponentBackgroundColor #FFFFFF
+skinparam DatabaseBorderColor #6A8A78
+skinparam DatabaseBackgroundColor #F1F7F3
+
+legend right
+|= 图例 |= 含义 |
+| 圆角矩形 | 应用内模块 |
+| database | 持久化存储 |
+| 实线箭头 | 同步调用 |
+| 虚线箭头 | 异步处理/调度 |
+| 外部方框 | 外部系统 |
+endlegend
+
+actor "用户" as User
+rectangle "Android App :app" {
+  component "MainActivity" as MainActivity
+  component "PoxiaoApp\n导航与页面编排" as PoxiaoApp
+  package "业务页面" {
+    component "首页/智能体" as Home
+    component "课表" as Schedule
+    component "待办" as Todo
+    component "番茄钟" as Pomodoro
+    component "更多" as More
+    component "课程笔记" as Notes
+    component "复习计划" as Review
+    component "导出中心" as Export
+  }
+  package "接入层" {
+    component "AssistantGatewayFactory" as AssistantFactory
+    component "SparkAssistantGateway" as Spark
+    component "DeepSeekAssistantGateway" as DeepSeek
+    component "HitaScheduleRepository" as HitaRepo
+    component "HitaScheduleGatewayImpl" as HitaGateway
+  }
+  package "存储层" {
+    database "SharedPreferences" as Prefs
+    database "AndroidKeyStore\nSecurePrefs" as Keystore
+    database "App Files\ncourse_note_assets" as Files
+  }
+}
+
+rectangle "Spark Assistant Service" as SparkService
+rectangle "HITA 教务系统" as HITA
+
+User --> MainActivity
+MainActivity --> PoxiaoApp
+PoxiaoApp --> Home
+PoxiaoApp --> Schedule
+PoxiaoApp --> Todo
+PoxiaoApp --> Pomodoro
+PoxiaoApp --> More
+More --> Notes
+More --> Review
+More --> Export
+
+Home --> AssistantFactory
+AssistantFactory --> Spark
+AssistantFactory --> DeepSeek
+Spark --> SparkService
+
+Schedule --> HitaRepo
+HitaRepo --> HitaGateway
+HitaGateway --> HITA
+
+Todo --> Prefs
+Review --> Prefs
+Notes --> Prefs
+Notes --> Files
+Schedule --> Prefs
+More --> Prefs
+Prefs --> Keystore
+
+@enduml
+
+@startuml
+title 图 8-1 智能体文本调用时序图
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName Microsoft YaHei
+
+actor 用户 as User
+participant "首页智能体 UI" as UI
+participant "AssistantGatewayFactory" as Factory
+participant "SparkAssistantGateway" as Spark
+participant "Spark Service" as Service
+
+User -> UI : 输入问题并发送
+UI -> Factory : create()
+Factory --> UI : SparkAssistantGateway
+UI -> Spark : sendText(message, history)
+alt 配置缺失
+  Spark --> UI : 返回缺少配置字段提示
+else 配置完整
+  Spark -> Spark : 构造签名 URL
+  Spark -> Service : 建立 WebSocket 连接
+  Spark -> Service : 发送 payload
+  Service --> Spark : 分片返回 text
+  Spark --> UI : 聚合 assistant 文本
+end
+UI --> User : 展示回复
+
+@enduml
+
+@startuml
+title 图 8-2 HITA 登录与课表加载时序图
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName Microsoft YaHei
+
+actor 用户 as User
+participant "课表 UI" as UI
+participant "HitaScheduleRepository" as Repo
+participant "HitaScheduleGatewayImpl" as Gateway
+participant "HITA" as HITA
+
+User -> UI : 输入学号密码并登录
+UI -> Repo : connectAndLoad(studentId, password)
+Repo -> Gateway : login(studentId, password)
+Gateway -> HITA : InitRoute
+Gateway -> HITA : FetchRsa
+Gateway -> HITA : LdapLogin
+HITA --> Gateway : access_token/session
+Gateway --> Repo : HitaAuthSession
+Repo -> Gateway : fetchTerms()
+Repo -> Gateway : fetchWeeks()
+Repo -> Gateway : fetchWeekSchedule()
+Repo -> Gateway : fetchDaySchedule()
+Gateway --> Repo : 课表/课程数据
+Repo --> UI : 更新 HitaScheduleUiState
+UI --> User : 展示已连接教务数据
+
+@enduml
+
+@startuml
+title 图 9-1 核心数据模型 ER 图
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam roundcorner 12
+skinparam defaultFontName Microsoft YaHei
+hide circle
+
+entity "CourseNote" as CourseNote {
+  *id : String
+  --
+  courseName : String
+  title : String
+  content : String
+  teacher : String
+  classroom : String
+  createdAt : Long
+  updatedAt : Long
+}
+
+entity "CourseNoteAttachment" as Attachment {
+  *id : String
+  --
+  displayName : String
+  mimeType : String
+  relativePath : String
+  sizeBytes : Long
+  addedAt : Long
+}
+
+entity "ReviewItem" as ReviewItem {
+  *id : String
+  --
+  noteId : String
+  courseName : String
+  noteTitle : String
+  nextReviewAt : Long
+  mastery : Float
+  importance : Enum
+}
+
+entity "TodoTask" as TodoTask {
+  *id : String
+  --
+  title : String
+  quadrant : Enum
+  priority : Enum
+  dueText : String
+  done : Boolean
+}
+
+entity "HitaWeekSchedule" as HitaWeekSchedule {
+  *term : HitaTerm
+  *week : HitaWeek
+  --
+  days : List
+  timeSlots : List
+  courses : List
+}
+
+CourseNote ||--o{ Attachment : contains
+CourseNote ||--o{ ReviewItem : generates
+ReviewItem }o--o{ TodoTask : bridges_to
+HitaWeekSchedule }o--o{ TodoTask : references
+
+@enduml
