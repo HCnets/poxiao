@@ -1,4 +1,5 @@
-﻿.gradle/
+.gradle/
+.kotlin/
 .idea/
 build/
 */build/
@@ -13,6 +14,9 @@ Thumbs.db
 # Android local outputs
 app/release/
 app/debug/
+*.apk
+*.aab
+*.ap_
 
 # Exclude non-Android large historical assets
 system/

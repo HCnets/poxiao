@@ -2,6 +2,12 @@
 
 这是一个按需求文档从零搭建的 Android 原生首版骨架，采用 Kotlin + Jetpack Compose。
 
+维护入口：
+
+- GitHub 仓库：`https://github.com/HCnets/poxiao`
+- 日常维护手册：`docs/升级维护路线图.md`
+- 当前主工程：`C:\Users\HCnets\Desktop\AI`
+
 当前已完成：
 
 - 首版 Android 工程结构与 Gradle 配置
