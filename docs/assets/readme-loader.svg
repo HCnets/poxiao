@@ -1,0 +1,27 @@
+<svg width="160" height="48" viewBox="0 0 160 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pulse" x1="12" y1="8" x2="148" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#84CC16"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="152" height="40" rx="20" fill="#0F172A" fill-opacity="0.92"/>
+  <rect x="10" y="10" width="140" height="28" rx="14" fill="white" fill-opacity="0.08"/>
+
+  <circle cx="34" cy="24" r="6" fill="url(#pulse)">
+    <animate attributeName="opacity" values="0.24;1;0.24" dur="1.2s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="5;6.5;5" dur="1.2s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="58" cy="24" r="6" fill="url(#pulse)">
+    <animate attributeName="opacity" values="0.24;1;0.24" dur="1.2s" begin="0.18s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="5;6.5;5" dur="1.2s" begin="0.18s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="82" cy="24" r="6" fill="url(#pulse)">
+    <animate attributeName="opacity" values="0.24;1;0.24" dur="1.2s" begin="0.36s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="5;6.5;5" dur="1.2s" begin="0.36s" repeatCount="indefinite"/>
+  </circle>
+
+  <text x="98" y="29" fill="white" fill-opacity="0.88" font-size="12" font-family="Segoe UI, Arial, sans-serif" letter-spacing="1.2">LOADING</text>
+</svg>
