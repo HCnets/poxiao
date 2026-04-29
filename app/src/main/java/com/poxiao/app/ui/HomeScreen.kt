@@ -549,68 +549,18 @@ internal fun HomeScreen(
             }
         }
     }
-    val gradeSearchResults = remember(searchQuery, gradeSearchCards, cachedGradeCards) {
-        if (searchQuery.isBlank()) {
-            emptyList()
-        } else {
-            val keyword = searchQuery.trim()
-            val liveMatches = gradeSearchCards.filter {
-                it.title.contains(keyword, ignoreCase = true) ||
-                    it.description.contains(keyword, ignoreCase = true) ||
-                    it.source.contains(keyword, ignoreCase = true)
-            }
-            val fallbackMatches = cachedGradeCards.filter {
-                it.title.contains(keyword, ignoreCase = true) ||
-                    it.description.contains(keyword, ignoreCase = true) ||
-                    it.source.contains(keyword, ignoreCase = true)
-            }
-            (if (liveMatches.isNotEmpty()) liveMatches else fallbackMatches).take(6).map { card ->
-                HomeSearchResult(
-                    id = "grade_${card.id}",
-                    category = HomeSearchCategory.Grade,
-                    title = card.title,
-                    subtitle = card.source,
-                    detail = card.description,
-                )
-            }
-        }
+    val gradeSearchResults: List<HomeSearchResult> = remember(searchQuery, gradeSearchCards, cachedGradeCards) {
+        buildHomeGradeSearchResults(searchQuery, gradeSearchCards, cachedGradeCards)
     }
     LaunchedEffect(searchQuery) {
-        if (searchQuery.isBlank()) {
-            gradeSearchCards = emptyList()
-            gradeSearchStatus = ""
-            gradeSearchLoading = false
-            return@LaunchedEffect
-        }
-        val studentId = SecurePrefs.getString(authPrefs, "student_id_secure", "student_id")
-        val password = SecurePrefs.getString(authPrefs, "password_secure", "password")
-        if (studentId.isBlank() || password.isBlank()) {
-            gradeSearchCards = loadHomeGradeCache(campusPrefs)
-            gradeSearchStatus = if (gradeSearchCards.isEmpty()) "鐧诲綍鏁欏姟鍚庡彲鎼滅储鐪熷疄鎴愮哗锟? else ""
-            gradeSearchLoading = false
-            return@LaunchedEffect
-        }
-        gradeSearchLoading = true
-        gradeSearchStatus = "姝ｅ湪妫€绱㈡垚锟?.."
-        try {
-            val gateway = HitaAcademicGateway(studentId, password)
-            val recentTerms: List<HitaTerm> = gateway.fetchTerms().take(3)
-            val cards: List<FeedCard> = buildList {
-                recentTerms.forEach { term ->
-                    addAll(gateway.fetchGradesForTerm(term))
-                }
-            }
-            if (cards.isNotEmpty()) {
-                gradeSearchCards = cards
-                gradeSearchStatus = ""
-            } else {
-                gradeSearchCards = loadHomeGradeCache(campusPrefs)
-                gradeSearchStatus = if (gradeSearchCards.isEmpty()) "褰撳墠娌℃湁鍙悳绱㈢殑鎴愮哗璁板綍锟? else "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
-            }
-        } catch (error: Throwable) {
-            gradeSearchCards = loadHomeGradeCache(campusPrefs)
-            gradeSearchStatus = if (gradeSearchCards.isEmpty()) (error.message ?: "鎴愮哗妫€绱㈠け璐ワ拷?) else "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
-        }
+        gradeSearchLoading = searchQuery.isNotBlank()
+        val searchState = loadHomeGradeSearchState(
+            query = searchQuery,
+            authPrefs = authPrefs,
+            campusPrefs = campusPrefs,
+        )
+        gradeSearchCards = searchState.cards
+        gradeSearchStatus = searchState.status
         gradeSearchLoading = false
     }
     val activeConversation = conversations.firstOrNull { it.id == activeConversationId } ?: conversations.first()
@@ -1969,4 +1919,85 @@ private fun loadHomeGradeCache(
             }
         }
     }.getOrDefault(emptyList())
+}
+
+private data class HomeGradeSearchState(
+    val cards: List<FeedCard>,
+    val status: String,
+)
+
+private fun buildHomeGradeSearchResults(
+    query: String,
+    gradeSearchCards: List<FeedCard>,
+    cachedGradeCards: List<FeedCard>,
+): List<HomeSearchResult> {
+    if (query.isBlank()) return emptyList()
+    val keyword = query.trim()
+    val liveMatches = gradeSearchCards.filter { card ->
+        card.title.contains(keyword, ignoreCase = true) ||
+            card.description.contains(keyword, ignoreCase = true) ||
+            card.source.contains(keyword, ignoreCase = true)
+    }
+    val fallbackMatches = cachedGradeCards.filter { card ->
+        card.title.contains(keyword, ignoreCase = true) ||
+            card.description.contains(keyword, ignoreCase = true) ||
+            card.source.contains(keyword, ignoreCase = true)
+    }
+    val matchedCards: List<FeedCard> = if (liveMatches.isNotEmpty()) liveMatches else fallbackMatches
+    return matchedCards.take(6).map { card ->
+        HomeSearchResult(
+            id = "grade_${card.id}",
+            category = HomeSearchCategory.Grade,
+            title = card.title,
+            subtitle = card.source,
+            detail = card.description,
+        )
+    }
+}
+
+private suspend fun loadHomeGradeSearchState(
+    query: String,
+    authPrefs: android.content.SharedPreferences,
+    campusPrefs: android.content.SharedPreferences,
+): HomeGradeSearchState {
+    if (query.isBlank()) {
+        return HomeGradeSearchState(cards = emptyList(), status = "")
+    }
+
+    val studentId = SecurePrefs.getString(authPrefs, "student_id_secure", "student_id")
+    val password = SecurePrefs.getString(authPrefs, "password_secure", "password")
+    if (studentId.isBlank() || password.isBlank()) {
+        val cachedCards = loadHomeGradeCache(campusPrefs)
+        val status = if (cachedCards.isEmpty()) "鐧诲綍鏁欏姟鍚庡彲鎼滅储鐪熷疄鎴愮哗锟? else ""
+        return HomeGradeSearchState(cards = cachedCards, status = status)
+    }
+
+    return try {
+        val gateway = HitaAcademicGateway(studentId, password)
+        val recentTerms: List<HitaTerm> = gateway.fetchTerms().take(3)
+        val cards: List<FeedCard> = buildList {
+            recentTerms.forEach { term ->
+                addAll(gateway.fetchGradesForTerm(term))
+            }
+        }
+        if (cards.isNotEmpty()) {
+            HomeGradeSearchState(cards = cards, status = "")
+        } else {
+            val cachedCards = loadHomeGradeCache(campusPrefs)
+            val status = if (cachedCards.isEmpty()) {
+                "褰撳墠娌℃湁鍙悳绱㈢殑鎴愮哗璁板綍锟?
+            } else {
+                "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
+            }
+            HomeGradeSearchState(cards = cachedCards, status = status)
+        }
+    } catch (error: Throwable) {
+        val cachedCards = loadHomeGradeCache(campusPrefs)
+        val status = if (cachedCards.isEmpty()) {
+            error.message ?: "鎴愮哗妫€绱㈠け璐ワ拷?
+        } else {
+            "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
+        }
+        HomeGradeSearchState(cards = cachedCards, status = status)
+    }
 }
