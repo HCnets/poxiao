@@ -594,9 +594,12 @@ internal fun HomeScreen(
         gradeSearchStatus = "姝ｅ湪妫€绱㈡垚锟?.."
         runCatching {
             val gateway = HitaAcademicGateway(studentId, password)
-            gateway.fetchTerms()
-                .take(3)
-                .flatMap { term -> gateway.fetchGradesForTerm(term) }
+            val recentTerms: List<HitaTerm> = gateway.fetchTerms().take(3)
+            buildList<FeedCard> {
+                recentTerms.forEach { term ->
+                    addAll(gateway.fetchGradesForTerm(term))
+                }
+            }
         }.onSuccess { cards ->
             if (cards.isNotEmpty()) {
                 gradeSearchCards = cards
