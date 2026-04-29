@@ -592,15 +592,14 @@ internal fun HomeScreen(
         }
         gradeSearchLoading = true
         gradeSearchStatus = "姝ｅ湪妫€绱㈡垚锟?.."
-        runCatching {
+        try {
             val gateway = HitaAcademicGateway(studentId, password)
             val recentTerms: List<HitaTerm> = gateway.fetchTerms().take(3)
-            buildList<FeedCard> {
+            val cards: List<FeedCard> = buildList {
                 recentTerms.forEach { term ->
                     addAll(gateway.fetchGradesForTerm(term))
                 }
             }
-        }.onSuccess { cards ->
             if (cards.isNotEmpty()) {
                 gradeSearchCards = cards
                 gradeSearchStatus = ""
@@ -608,9 +607,9 @@ internal fun HomeScreen(
                 gradeSearchCards = loadHomeGradeCache(campusPrefs)
                 gradeSearchStatus = if (gradeSearchCards.isEmpty()) "褰撳墠娌℃湁鍙悳绱㈢殑鎴愮哗璁板綍锟? else "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
             }
-        }.onFailure {
+        } catch (error: Throwable) {
             gradeSearchCards = loadHomeGradeCache(campusPrefs)
-            gradeSearchStatus = if (gradeSearchCards.isEmpty()) (it.message ?: "鎴愮哗妫€绱㈠け璐ワ拷?) else "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
+            gradeSearchStatus = if (gradeSearchCards.isEmpty()) (error.message ?: "鎴愮哗妫€绱㈠け璐ワ拷?) else "褰撳墠鏄剧ず鐨勬槸鏈€杩戝悓姝ョ殑鎴愮哗缂撳瓨锟?
         }
         gradeSearchLoading = false
     }
