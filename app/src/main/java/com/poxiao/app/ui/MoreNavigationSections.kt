@@ -25,14 +25,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.ui.theme.PoxiaoThemeState
 
-internal data class MoreNavigationItem(
-    val title: String,
-    val icon: ImageVector,
-    val accent: Color,
-    val actionLabel: String,
-    val onClick: () -> Unit,
-)
-
 @Composable
 internal fun MoreNavigationSections(
     learningEntries: List<MoreNavigationItem>,
