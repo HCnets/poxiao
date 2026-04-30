@@ -50,7 +50,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.poxiao.app.campus.HitaAcademicGateway
 import com.poxiao.app.notes.CourseNoteSeed
 import com.poxiao.app.schedule.HitaCourseBlock
 import com.poxiao.app.schedule.HitaScheduleRepository
@@ -69,7 +68,6 @@ import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.YearMonth
 import kotlinx.coroutines.launch
 
@@ -113,74 +111,34 @@ internal fun ScheduleScreen(
         runCatching { YearMonth.from(LocalDate.parse(uiState.selectedDate)) }.getOrElse { YearMonth.now() }
     }
 
-    LaunchedEffect(Unit) {
-        if (!restored) {
-            restored = true
-            loadCachedScheduleUiState(prefs)?.let { repository.restoreCachedState(it) }
-            if (savedStudentId.isNotBlank() && savedPassword.isNotBlank()) {
-                repository.connectAndLoad(savedStudentId, savedPassword)
-            }
-        }
-    }
-
-    LaunchedEffect(uiState.loggedIn, uiState.terms, uiState.studentId) {
-        val currentStudentId = SecurePrefs.getString(prefs, "student_id_secure", "student_id")
-        val currentPassword = SecurePrefs.getString(prefs, "password_secure", "password")
-        val academicGateway = if (currentStudentId.isNotBlank() && currentPassword.isNotBlank()) {
-            HitaAcademicGateway(currentStudentId, currentPassword)
-        } else {
-            null
-        }
-        if (!uiState.loggedIn || academicGateway == null) {
-            gradeTrend = emptyList()
-            gradeTrendStatus = "登录后可查看成绩趋势。"
-            return@LaunchedEffect
-        }
-        gradeTrendLoading = true
-        gradeTrendStatus = "正在整理各学期成绩趋势..."
-        runCatching {
-            val cardsByTerm = uiState.terms.mapNotNull { term ->
-                val cards = academicGateway.fetchGradesForTerm(term)
-                if (cards.isEmpty()) null else term.name to cards
-            }
-            buildGradeTrendPoints(cardsByTerm)
-        }.onSuccess { points ->
-            gradeTrend = points
-            selectedTrendTerm = selectedTrendTerm?.takeIf { target -> points.any { it.termName == target } }
-                ?: points.firstOrNull()?.termName
-            gradeTrendStatus = if (points.isEmpty()) "当前还没有可用于分析的成绩记录。" else "已生成 ${points.size} 个学期的成绩趋势。"
-        }.onFailure {
-            gradeTrend = emptyList()
-            gradeTrendStatus = it.message ?: "成绩趋势加载失败。"
-        }
-        gradeTrendLoading = false
-    }
-
-    LaunchedEffect(
-        uiState.loggedIn,
-        uiState.loading,
-        uiState.currentTerm,
-        uiState.currentWeek,
-        uiState.selectedDate,
-        uiState.weekSchedule,
-        uiState.selectedDateCourses,
-    ) {
-        if (uiState.loggedIn && !uiState.loading) {
-            saveCachedScheduleUiState(prefs, uiState)
-            val syncText = formatSyncTime(LocalDateTime.now())
-            lastSyncTime = syncText
-            prefs.edit().putString("schedule_last_sync", syncText).apply()
-        }
-    }
-
-    LaunchedEffect(
-        uiState.weekSchedule.week.title,
-        uiState.selectedDate,
-        extraEvents.joinToString("|") { "${it.id}:${it.date}:${it.time}:${it.title}:${it.type}" },
-        completedExamWeekIds.joinToString("|"),
-    ) {
-        refreshLocalReminderSchedule(context)
-    }
+    ScheduleBootstrapEffect(
+        restored = restored,
+        prefs = prefs,
+        repository = repository,
+        savedStudentId = savedStudentId,
+        savedPassword = savedPassword,
+        onRestoredChange = { restored = it },
+    )
+    ScheduleGradeTrendEffect(
+        uiState = uiState,
+        prefs = prefs,
+        selectedTrendTerm = selectedTrendTerm,
+        onGradeTrendChange = { gradeTrend = it },
+        onGradeTrendLoadingChange = { gradeTrendLoading = it },
+        onGradeTrendStatusChange = { gradeTrendStatus = it },
+        onSelectedTrendTermChange = { selectedTrendTerm = it },
+    )
+    ScheduleUiStatePersistenceEffect(
+        uiState = uiState,
+        prefs = prefs,
+        onLastSyncTimeChange = { lastSyncTime = it },
+    )
+    ScheduleReminderRefreshEffect(
+        context = context,
+        uiState = uiState,
+        extraEvents = extraEvents,
+        completedExamWeekIds = completedExamWeekIds,
+    )
 
     ScreenColumn {
         item {
@@ -601,69 +559,36 @@ private fun DayScheduleCard(
     val context = LocalContext.current
     val draftPrefs = remember { context.getSharedPreferences("schedule_event_draft", Context.MODE_PRIVATE) }
     var draftTitle by remember(selectedDate) { mutableStateOf("") }
-    var draftTime by remember(selectedDate) { mutableStateOf("19:30") }
-    var draftType by remember(selectedDate) { mutableStateOf("作业") }
+    var draftTime by remember(selectedDate) { mutableStateOf(DefaultScheduleEventTime) }
+    var draftType by remember(selectedDate) { mutableStateOf(DefaultScheduleEventType) }
     var draftNote by remember(selectedDate) { mutableStateOf("") }
     var eventHint by remember(selectedDate) { mutableStateOf("") }
     var draftReady by remember(selectedDate) { mutableStateOf(false) }
     val timelineEntries = buildDayTimelineEntries(courses, events)
     val editingEvent = events.firstOrNull { it.id == selectedEventId }
 
-    LaunchedEffect(selectedDate, editingEvent?.id) {
-        val restoredDraft = loadScheduleEventDraft(draftPrefs)
-        if (editingEvent != null) {
-            if (restoredDraft != null && restoredDraft.eventId == editingEvent.id) {
-                draftTitle = restoredDraft.title
-                draftTime = restoredDraft.time.ifBlank { editingEvent.time }
-                draftType = restoredDraft.type.ifBlank { editingEvent.type }
-                draftNote = restoredDraft.note
-                eventHint = "已恢复 ${editingEvent.title} 的未完成编辑。"
-            } else {
-                draftTitle = editingEvent.title
-                draftTime = editingEvent.time
-                draftType = editingEvent.type
-                draftNote = editingEvent.note
-                eventHint = "正在编辑 ${editingEvent.title}"
-            }
-        } else {
-            if (restoredDraft != null && restoredDraft.date == selectedDate && restoredDraft.eventId == null) {
-                draftTitle = restoredDraft.title
-                draftTime = restoredDraft.time.ifBlank { "19:30" }
-                draftType = restoredDraft.type.ifBlank { "作业" }
-                draftNote = restoredDraft.note
-                eventHint = if (restoredDraft.title.isNotBlank() || restoredDraft.note.isNotBlank()) {
-                    "已恢复 $selectedDate 的未完成事件草稿。"
-                } else {
-                    ""
-                }
-            } else {
-                draftTitle = ""
-                draftTime = "19:30"
-                draftType = "作业"
-                draftNote = ""
-            }
-        }
-        draftReady = true
-    }
-
-    LaunchedEffect(selectedDate, draftTitle, draftTime, draftType, draftNote, editingEvent?.id, draftReady) {
-        if (!draftReady) return@LaunchedEffect
-        if (draftTitle.isBlank() && draftNote.isBlank() && draftTime == "19:30" && draftType == "作业") {
-            clearScheduleEventDraft(draftPrefs)
-        } else {
-            saveScheduleEventDraft(
-                draftPrefs,
-                ScheduleEventDraft(
-                    eventId = editingEvent?.id,
-                    date = selectedDate,
-                    title = draftTitle,
-                    time = draftTime,
-                    type = draftType,
-                    note = draftNote,
-                ),
-            )
-        }
-    }
+    DayScheduleDraftRestoreEffect(
+        selectedDate = selectedDate,
+        editingEventId = editingEvent?.id,
+        draftPrefs = draftPrefs,
+        onDraftTitleChange = { draftTitle = it },
+        onDraftTimeChange = { draftTime = it },
+        onDraftTypeChange = { draftType = it },
+        onDraftNoteChange = { draftNote = it },
+        onEventHintChange = { eventHint = it },
+        onDraftReadyChange = { draftReady = it },
+        findEditingEvent = { id -> events.firstOrNull { it.id == id } },
+    )
+    DayScheduleDraftPersistenceEffect(
+        selectedDate = selectedDate,
+        editingEventId = editingEvent?.id,
+        draftTitle = draftTitle,
+        draftTime = draftTime,
+        draftType = draftType,
+        draftNote = draftNote,
+        draftReady = draftReady,
+        draftPrefs = draftPrefs,
+    )
     GlassCard {
         Text("当天安排", style = MaterialTheme.typography.titleLarge, color = PineInk)
         Spacer(modifier = Modifier.height(10.dp))
@@ -733,30 +658,24 @@ private fun DayScheduleCard(
         Spacer(modifier = Modifier.height(10.dp))
         Button(
             onClick = {
+                eventHint = submitScheduleEventDraft(
+                    selectedDate = selectedDate,
+                    editingEvent = editingEvent,
+                    draftTitle = draftTitle,
+                    draftTime = draftTime,
+                    draftType = draftType,
+                    draftNote = draftNote,
+                    draftPrefs = draftPrefs,
+                    onAddEvent = onAddEvent,
+                    onUpdateEvent = onUpdateEvent,
+                )
                 if (draftTitle.isNotBlank()) {
-                    val updatedEvent = ScheduleExtraEvent(
-                        id = editingEvent?.id ?: "event-${System.currentTimeMillis()}",
-                        date = selectedDate,
-                        title = draftTitle,
-                        time = draftTime,
-                        type = draftType.ifBlank { "事件" },
-                        note = draftNote,
+                    resetScheduleEventDraftState(
+                        onDraftTitleChange = { draftTitle = it },
+                        onDraftTimeChange = { draftTime = it },
+                        onDraftTypeChange = { draftType = it },
+                        onDraftNoteChange = { draftNote = it },
                     )
-                    if (editingEvent == null) {
-                        onAddEvent(updatedEvent)
-                        eventHint = "已加入 $selectedDate $draftTime 的${draftType.ifBlank { "学习" }}事件"
-                        clearScheduleEventDraft(draftPrefs)
-                    } else {
-                        onUpdateEvent(updatedEvent)
-                        eventHint = "已更新 ${updatedEvent.title}"
-                        clearScheduleEventDraft(draftPrefs)
-                    }
-                    draftTitle = ""
-                    draftTime = "19:30"
-                    draftType = "作业"
-                    draftNote = ""
-                } else {
-                    eventHint = "请先填写事件标题"
                 }
             },
             shape = RoundedCornerShape(22.dp),
@@ -769,13 +688,17 @@ private fun DayScheduleCard(
             Spacer(modifier = Modifier.height(10.dp))
             OutlinedButton(
                 onClick = {
-                    onDeleteEvent(editingEvent.id)
-                    clearScheduleEventDraft(draftPrefs)
-                    draftTitle = ""
-                    draftTime = "19:30"
-                    draftType = "作业"
-                    draftNote = ""
-                    eventHint = "已删除 ${editingEvent.title}"
+                    eventHint = deleteScheduleEventDraft(
+                        editingEvent = editingEvent,
+                        draftPrefs = draftPrefs,
+                        onDeleteEvent = onDeleteEvent,
+                    )
+                    resetScheduleEventDraftState(
+                        onDraftTitleChange = { draftTitle = it },
+                        onDraftTimeChange = { draftTime = it },
+                        onDraftTypeChange = { draftType = it },
+                        onDraftNoteChange = { draftNote = it },
+                    )
                 },
                 shape = RoundedCornerShape(22.dp),
                 modifier = Modifier.fillMaxWidth(),

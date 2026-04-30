@@ -41,15 +41,11 @@ internal fun refreshLocalReminderSchedule(context: Context) {
         .sortedBy { it.triggerAtMillis }
         .distinctBy { it.id }
         .take(48)
-    val nextIds = plans.map { it.id }
-    val nextSnapshot = plans.joinToString("|") { plan ->
-        "${plan.id}@${plan.triggerAtMillis}@${plan.title.hashCode()}@${plan.body.hashCode()}"
-    }
-    val previousIds = loadReminderScheduleIds(schedulerPrefs)
-    val previousSnapshot = schedulerPrefs.getString("scheduled_snapshot", "").orEmpty()
-    if (nextIds == previousIds && nextSnapshot == previousSnapshot) return
+    val nextSnapshot = buildReminderScheduleSnapshot(plans)
+    val previousSnapshot = loadReminderScheduleSnapshot(schedulerPrefs)
+    if (nextSnapshot == previousSnapshot) return
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-    previousIds.forEach { id ->
+    previousSnapshot.ids.forEach { id ->
         alarmManager.cancel(buildReminderPendingIntent(context, id, "", ""))
     }
     plans.forEach { plan ->
@@ -59,19 +55,5 @@ internal fun refreshLocalReminderSchedule(context: Context) {
             buildReminderPendingIntent(context, plan.id, plan.title, plan.body),
         )
     }
-    saveReminderScheduleIds(schedulerPrefs, nextIds)
-    schedulerPrefs.edit().putString("scheduled_snapshot", nextSnapshot).apply()
-}
-
-private fun loadReminderScheduleIds(prefs: android.content.SharedPreferences): List<String> {
-    val raw = prefs.getString("scheduled_ids", "").orEmpty()
-    if (raw.isBlank()) return emptyList()
-    return raw.split("|").filter { it.isNotBlank() }
-}
-
-private fun saveReminderScheduleIds(
-    prefs: android.content.SharedPreferences,
-    ids: List<String>,
-) {
-    prefs.edit().putString("scheduled_ids", ids.joinToString("|")).apply()
+    saveReminderScheduleSnapshot(schedulerPrefs, nextSnapshot)
 }
