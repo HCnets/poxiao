@@ -78,6 +78,19 @@ android {
         )
     }
 
+    flavorDimensions += "school"
+    productFlavors {
+        create("hitsz") {
+            dimension = "school"
+            // 默认渠道，保持原包名
+        }
+        create("generic") {
+            dimension = "school"
+            applicationIdSuffix = ".generic"
+            versionNameSuffix = "-generic"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
