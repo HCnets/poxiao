@@ -170,12 +170,12 @@ import com.poxiao.app.notifications.LocalReminderReceiver
 import com.poxiao.app.reports.ExportCenterScreen
 import com.poxiao.app.review.ReviewPlannerScreen
 import com.poxiao.app.review.ReviewPlannerSeed
-import com.poxiao.app.review.ReviewItem
+import com.poxiao.app.review.ReviewPlannerSeed
 import com.poxiao.app.review.ReviewPlannerStore
 import com.poxiao.app.settings.NotificationPreferencesScreen
+import com.poxiao.app.schedule.AcademicRepository
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaScheduleUiState
-import com.poxiao.app.schedule.HitaScheduleRepository
 import com.poxiao.app.schedule.HitaTerm
 import com.poxiao.app.schedule.HitaTimeSlot
 import com.poxiao.app.schedule.HitaWeek

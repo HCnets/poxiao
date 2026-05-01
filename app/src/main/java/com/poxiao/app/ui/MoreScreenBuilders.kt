@@ -12,7 +12,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp as lerpColor
-import com.poxiao.app.schedule.HitaScheduleUiState
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.ui.theme.PoxiaoPalette
 
@@ -32,7 +32,7 @@ internal data class MoreNavigationContent(
 
 internal fun buildMoreAccountSummary(
     schedulePrefs: SharedPreferences,
-    uiState: HitaScheduleUiState,
+    uiState: AcademicUiState,
     palette: PoxiaoPalette,
 ): MoreAccountSummary {
     val sessionStudentId = uiState.studentId.trim()

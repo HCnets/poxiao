@@ -3,8 +3,9 @@ package com.poxiao.app.ui
 import com.poxiao.app.data.FeedCard
 import com.poxiao.app.notes.CourseNote
 import com.poxiao.app.review.ReviewItem
+import com.poxiao.app.review.ReviewPlannerStore
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaScheduleUiState
 import com.poxiao.app.todo.TodoTask
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo

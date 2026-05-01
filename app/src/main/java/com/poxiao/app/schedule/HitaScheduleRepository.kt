@@ -1,35 +1,19 @@
-﻿package com.poxiao.app.schedule
+package com.poxiao.app.schedule
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.LocalDate
 
-data class HitaScheduleUiState(
-    val loading: Boolean = false,
-    val loggedIn: Boolean = false,
-    val authExpired: Boolean = false,
-    val studentId: String = "",
-    val studentName: String = "",
-    val terms: List<HitaTerm> = HitaSchedulePreview.terms,
-    val currentTerm: HitaTerm = HitaSchedulePreview.currentTerm,
-    val weeks: List<HitaWeek> = HitaSchedulePreview.weeks,
-    val currentWeek: HitaWeek = HitaSchedulePreview.weeks.first(),
-    val weekSchedule: HitaWeekSchedule = HitaSchedulePreview.schedule,
-    val selectedDate: String = HitaSchedulePreview.schedule.days.first().fullDate,
-    val selectedDateCourses: List<HitaCourseBlock> = HitaSchedulePreview.schedule.courses.filter { it.dayOfWeek == 1 },
-    val status: String = "已接入教务接口，等待连接。",
-)
-
 class HitaScheduleRepository(
     private val gateway: HitaScheduleGateway = HitaScheduleGatewayImpl(),
-) {
-    private val uiState = MutableStateFlow(HitaScheduleUiState())
+) : AcademicRepository {
+    private val uiState = MutableStateFlow(AcademicUiState())
     private var session: HitaAuthSession? = null
     private var authRequestVersion: Long = 0
 
-    fun observeUiState(): StateFlow<HitaScheduleUiState> = uiState
+    override fun observeUiState(): StateFlow<AcademicUiState> = uiState
 
-    fun restoreCachedState(cached: HitaScheduleUiState) {
+    fun restoreCachedState(cached: AcademicUiState) {
         uiState.value = cached.copy(
             loading = false,
             loggedIn = false,
@@ -38,7 +22,7 @@ class HitaScheduleRepository(
         )
     }
 
-    suspend fun connectAndLoad(studentId: String, password: String) {
+    override suspend fun login(studentId: String, password: String) {
         val requestVersion = ++authRequestVersion
         if (studentId.isBlank() || password.isBlank()) {
             uiState.value = uiState.value.copy(status = "请输入学号和密码。")
@@ -96,7 +80,7 @@ class HitaScheduleRepository(
         }
     }
 
-    fun logout() {
+    override fun logout() {
         authRequestVersion++
         session = null
         uiState.value = uiState.value.copy(
@@ -109,7 +93,7 @@ class HitaScheduleRepository(
         )
     }
 
-    suspend fun refreshCurrent() {
+    override suspend fun refresh() {
         val auth = session ?: run {
             uiState.value = uiState.value.copy(status = "当前还没有可刷新的登录会话。")
             return
@@ -144,7 +128,7 @@ class HitaScheduleRepository(
         }
     }
 
-    suspend fun selectTerm(term: HitaTerm) {
+    override suspend fun selectTerm(term: HitaTerm) {
         val auth = session ?: run {
             uiState.value = uiState.value.copy(currentTerm = term, status = "当前为预览模式，登录后可加载真实学期。")
             return
@@ -176,7 +160,7 @@ class HitaScheduleRepository(
         }
     }
 
-    suspend fun selectWeek(week: HitaWeek) {
+    override suspend fun selectWeek(week: HitaWeek) {
         val auth = session ?: run {
             uiState.value = uiState.value.copy(currentWeek = week, status = "当前为预览模式，登录后可加载真实周课表。")
             return
@@ -205,7 +189,7 @@ class HitaScheduleRepository(
         }
     }
 
-    suspend fun selectDate(date: String) {
+    override suspend fun selectDate(date: String) {
         val auth = session ?: return
         runCatching {
             val courses = gateway.fetchDaySchedule(auth, date)
@@ -223,6 +207,14 @@ class HitaScheduleRepository(
                 status = it.message ?: "日课表加载失败。",
             )
         }
+    }
+
+    override suspend fun syncToCloud() {
+        // HITA 暂时不支持云端同步
+    }
+
+    override suspend fun importFromCloud() {
+        // HITA 暂时不支持云端导入
     }
 
     private fun filterTerms(terms: List<HitaTerm>, studentId: String): List<HitaTerm> {

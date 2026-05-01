@@ -1,8 +1,8 @@
 package com.poxiao.app.ui
 
 import android.content.SharedPreferences
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaScheduleUiState
 import com.poxiao.app.schedule.HitaTerm
 import com.poxiao.app.schedule.HitaTimeSlot
 import com.poxiao.app.schedule.HitaWeek
@@ -104,7 +104,7 @@ internal fun clearScheduleEventDraft(prefs: SharedPreferences) {
 
 internal fun saveCachedScheduleUiState(
     prefs: SharedPreferences,
-    state: HitaScheduleUiState,
+    state: AcademicUiState,
 ) {
     val root = JSONObject().apply {
         put("loggedIn", state.loggedIn)
@@ -123,7 +123,7 @@ internal fun saveCachedScheduleUiState(
 
 internal fun loadCachedScheduleUiState(
     prefs: SharedPreferences,
-): HitaScheduleUiState? {
+): AcademicUiState? {
     val raw = prefs.getString(ScheduleCacheKey, "").orEmpty()
     if (raw.isBlank()) return null
     return runCatching {
@@ -135,7 +135,7 @@ internal fun loadCachedScheduleUiState(
         val currentWeek = root.optJSONObject("currentWeek")?.let(::weekFromJson) ?: weekSchedule.week
         val selectedDate = root.optString("selectedDate", weekSchedule.days.firstOrNull()?.fullDate.orEmpty())
         val selectedDateCourses = root.optJSONArray("selectedDateCourses")?.let(::coursesFromJson).orEmpty()
-        HitaScheduleUiState(
+        AcademicUiState(
             loading = false,
             loggedIn = root.optBoolean("loggedIn", false),
             studentId = root.optString("studentId", ""),

@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.poxiao.app.campus.HitaAcademicGateway
-import com.poxiao.app.schedule.HitaScheduleRepository
-import com.poxiao.app.schedule.HitaScheduleUiState
+import com.poxiao.app.schedule.AcademicRepository
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.security.SecurePrefs
 import java.time.LocalDateTime
 
@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 internal fun ScheduleBootstrapEffect(
     restored: Boolean,
     prefs: SharedPreferences,
-    repository: HitaScheduleRepository,
+    repository: AcademicRepository,
     savedStudentId: String,
     savedPassword: String,
     onRestoredChange: (Boolean) -> Unit,
@@ -22,9 +22,13 @@ internal fun ScheduleBootstrapEffect(
     LaunchedEffect(Unit) {
         if (!restored) {
             onRestoredChange(true)
-            loadCachedScheduleUiState(prefs)?.let { repository.restoreCachedState(it) }
+            loadCachedScheduleUiState(prefs)?.let {
+                if (repository is com.poxiao.app.schedule.HitaScheduleRepository) {
+                    repository.restoreCachedState(it)
+                }
+            }
             if (savedStudentId.isNotBlank() && savedPassword.isNotBlank()) {
-                repository.connectAndLoad(savedStudentId, savedPassword)
+                repository.login(savedStudentId, savedPassword)
             }
         }
     }
@@ -32,7 +36,7 @@ internal fun ScheduleBootstrapEffect(
 
 @Composable
 internal fun ScheduleGradeTrendEffect(
-    uiState: HitaScheduleUiState,
+    uiState: AcademicUiState,
     prefs: SharedPreferences,
     selectedTrendTerm: String?,
     onGradeTrendChange: (List<GradeTrendPoint>) -> Unit,
@@ -84,7 +88,7 @@ internal fun ScheduleGradeTrendEffect(
 
 @Composable
 internal fun ScheduleUiStatePersistenceEffect(
-    uiState: HitaScheduleUiState,
+    uiState: AcademicUiState,
     prefs: SharedPreferences,
     onLastSyncTimeChange: (String) -> Unit,
 ) {
@@ -109,7 +113,7 @@ internal fun ScheduleUiStatePersistenceEffect(
 @Composable
 internal fun ScheduleReminderRefreshEffect(
     context: Context,
-    uiState: HitaScheduleUiState,
+    uiState: AcademicUiState,
     extraEvents: List<ScheduleExtraEvent>,
     completedExamWeekIds: List<String>,
 ) {

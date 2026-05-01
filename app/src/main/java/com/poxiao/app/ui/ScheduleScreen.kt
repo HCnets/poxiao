@@ -51,8 +51,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.notes.CourseNoteSeed
+import com.poxiao.app.schedule.AcademicRepository
 import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaScheduleRepository
 import com.poxiao.app.schedule.HitaTimeSlot
 import com.poxiao.app.schedule.HitaWeekDay
 import com.poxiao.app.security.SecurePrefs
@@ -73,7 +73,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun ScheduleScreen(
-    repository: HitaScheduleRepository,
+    repository: AcademicRepository,
     active: Boolean = true,
     initialMode: ScheduleMode = ScheduleMode.Week,
     initialWorkbench: ScheduleWorkbench = ScheduleWorkbench.Timetable,
@@ -177,7 +177,7 @@ internal fun ScheduleScreen(
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
-                    onClick = { scope.launch { repository.refreshCurrent() } },
+                    onClick = { scope.launch { repository.refresh() } },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MossGreen),
                     modifier = Modifier.fillMaxWidth(),

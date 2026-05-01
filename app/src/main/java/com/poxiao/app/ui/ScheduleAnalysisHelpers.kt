@@ -1,9 +1,10 @@
 package com.poxiao.app.ui
 
 import androidx.compose.ui.graphics.Color
+import com.poxiao.app.schedule.AcademicUiState
 import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaScheduleUiState
 import com.poxiao.app.schedule.HitaTimeSlot
+import com.poxiao.app.schedule.HitaWeek
 import com.poxiao.app.schedule.HitaWeekDay
 import com.poxiao.app.schedule.HitaWeekSchedule
 import com.poxiao.app.ui.theme.ForestGreen
@@ -15,34 +16,27 @@ internal fun weeklyFreeTimeSummary(
     slots: List<HitaTimeSlot>,
     days: List<HitaWeekDay>,
     courses: List<HitaCourseBlock>,
-): List<FreeTimeDaySummary> {
-    return days.map { day ->
-        val occupied = courses.filter { it.dayOfWeek == day.weekDay }.map { it.majorIndex }.toSet()
-        val freeSlots = slots.filter { it.majorIndex !in occupied }
-        FreeTimeDaySummary(
-            dayLabel = day.label,
-            freeCount = freeSlots.size,
-            labels = if (freeSlots.isEmpty()) listOf("当天课程已满") else freeSlots.map { it.label },
-        )
-    }
+): String {
+    val totalSlots = slots.size * days.size
+    val occupied = courses.size
+    val free = totalSlots - occupied
+    return "本周共有 $free 个空闲大节，建议安排复习计划。"
 }
 
 internal fun weeklyCourseAnalysis(
     days: List<HitaWeekDay>,
     courses: List<HitaCourseBlock>,
-): List<DayAnalysisSummary> {
-    return days.mapNotNull { day ->
-        val dayCourses = courses.filter { it.dayOfWeek == day.weekDay }.sortedBy { it.majorIndex }
-        if (dayCourses.isEmpty()) return@mapNotNull null
-        val conflictTags = dayCourses.groupBy { it.majorIndex }
-            .filterValues { it.size > 1 }
-            .map { (majorIndex, items) -> "冲突 第 ${majorIndex} 大节 ${items.size} 门" }
-        val contiguousTags = dayCourses.zipWithNext()
-            .filter { (left, right) -> right.majorIndex - left.majorIndex == 1 }
-            .map { (left, right) -> "连堂 ${left.courseName} → ${right.courseName}" }
-        val tags = (conflictTags + contiguousTags).distinct()
-        if (tags.isEmpty()) null else DayAnalysisSummary(day.label, tags)
-    }
+): String {
+    val dayMap = courses.groupBy { it.dayOfWeek }
+    val maxDay = dayMap.maxByOrNull { it.value.size }?.key ?: return "本周课程分布均匀。"
+    val dayLabel = days.find { it.weekDay == maxDay }?.label ?: "某天"
+    return "$dayLabel 课程最密集，共有 ${dayMap[maxDay]?.size} 节课。"
+}
+
+internal fun buildFocusDayStats(records: List<FocusRecord>): Map<String, Int> {
+    return records.groupBy { 
+        java.time.Instant.ofEpochMilli(it.timestamp).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
+    }.mapValues { it.value.size }
 }
 
 internal fun dayCourseTags(

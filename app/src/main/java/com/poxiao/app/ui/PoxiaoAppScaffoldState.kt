@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.poxiao.app.notes.CourseNoteSeed
 import com.poxiao.app.review.ReviewPlannerSeed
+import com.poxiao.app.schedule.AcademicRepository
 import com.poxiao.app.schedule.HitaScheduleRepository
 
 internal class PoxiaoAppScaffoldState(
@@ -31,7 +32,7 @@ internal class PoxiaoAppScaffoldState(
     val sectionSweepProgress: Animatable<Float, *>,
     val sectionOrder: List<PrimarySection>,
     val residentSections: SnapshotStateList<PrimarySection>,
-    val repository: HitaScheduleRepository,
+    val repository: AcademicRepository,
 ) {
     var pendingDrawerAction by pendingDrawerActionState
     var section by sectionState

@@ -35,7 +35,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.poxiao.app.schedule.HitaScheduleRepository
+import com.poxiao.app.schedule.AcademicRepository
 import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun AcademicAccountScreen(
-    repository: HitaScheduleRepository,
+    repository: AcademicRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -341,7 +341,7 @@ internal fun AcademicAccountScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             ActionPill("刷新课表", MossGreen) {
-                                scope.launch { repository.refreshCurrent() }
+                                scope.launch { repository.refresh() }
                             }
                             ActionPill("退出登录", WarmMist) {
                                 logoutInProgress = true
@@ -383,7 +383,7 @@ internal fun AcademicAccountScreen(
                             background = ForestGreen,
                         ) {
                             scope.launch {
-                                repository.connectAndLoad(loginStudentId.trim(), loginPassword)
+                                repository.login(loginStudentId.trim(), loginPassword)
                             }
                         }
                     }
