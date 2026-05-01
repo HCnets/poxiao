@@ -29,11 +29,16 @@ internal fun submitTodoEditor(
 }
 
 internal fun deleteTodoTask(
+    context: Context,
     tasks: MutableList<TodoTask>,
     prefs: SharedPreferences,
     draftPrefs: SharedPreferences,
     task: TodoTask,
 ): String {
+    if (task.id.startsWith("assistant-review-")) {
+        val reviewItemId = task.id.removePrefix("assistant-review-")
+        clearReviewExecutionLink(context, reviewItemId)
+    }
     tasks.removeAll { it.id == task.id }
     saveTodoTasks(prefs, tasks)
     clearTodoDraft(draftPrefs)
@@ -51,15 +56,27 @@ internal fun clearCompletedTodoTasks(
 }
 
 internal fun toggleTodoTaskAction(
+    context: Context,
     tasks: MutableList<TodoTask>,
     prefs: SharedPreferences,
     task: TodoTask,
 ): String? {
     val taskIndex = tasks.indexOfFirst { it.id == task.id }
     if (taskIndex < 0) return null
+    val oldDone = tasks[taskIndex].done
     val hint = toggleTodoTask(tasks, taskIndex)
+    val newDone = tasks[taskIndex].done
+
+    var finalHint = hint
+    if (!oldDone && newDone) {
+        val linkageHint = handleReviewTaskCompletion(context, task.id)
+        if (linkageHint != null) {
+            finalHint = (hint ?: "") + " · " + linkageHint
+        }
+    }
+
     saveTodoTasks(prefs, tasks)
-    return hint
+    return finalHint
 }
 
 internal fun toggleTodoSubtask(

@@ -74,6 +74,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ScheduleScreen(
     repository: HitaScheduleRepository,
+    active: Boolean = true,
     initialMode: ScheduleMode = ScheduleMode.Week,
     initialWorkbench: ScheduleWorkbench = ScheduleWorkbench.Timetable,
     onOpenAcademicAccount: () -> Unit = {},
@@ -109,6 +110,22 @@ internal fun ScheduleScreen(
     }
     val month = remember(uiState.selectedDate) {
         runCatching { YearMonth.from(LocalDate.parse(uiState.selectedDate)) }.getOrElse { YearMonth.now() }
+    }
+    val todoTasks = remember { mutableStateListOf<TodoTask>() }
+    val reviewBlocks = remember(todoTasks, uiState.weekSchedule) {
+        buildScheduleReviewBlocks(
+            todoTasks,
+            uiState.weekSchedule.days,
+            uiState.weekSchedule.timeSlots,
+            uiState.weekSchedule.courses
+        )
+    }
+
+    LaunchedEffect(active) {
+        if (active) {
+            todoTasks.clear()
+            todoTasks.addAll(loadTodoTasks(todoPrefs))
+        }
     }
 
     ScheduleBootstrapEffect(
@@ -236,14 +253,25 @@ internal fun ScheduleScreen(
                         slots = uiState.weekSchedule.timeSlots,
                         days = uiState.weekSchedule.days,
                         courses = uiState.weekSchedule.courses,
+                        reviewBlocks = reviewBlocks,
                         selectedCourse = selectedCourse,
                         onSelectCourse = { selectedCourse = it },
+                        onSelectReview = { block ->
+                            if (block.suggestedMajorIndex != null) {
+                                val hint = applyScheduleReviewOptimization(context, block)
+                                exportHint = hint
+                                // 刷新本地列表
+                                todoTasks.clear()
+                                todoTasks.addAll(loadTodoTasks(todoPrefs))
+                            }
+                        }
                     )
                     ScheduleMode.Day -> DayScheduleCard(
                         dates = uiState.weekSchedule.days.map { it.fullDate },
                         selectedDate = uiState.selectedDate,
                         courses = uiState.selectedDateCourses,
                         events = selectedDateEvents,
+                        reviewBlocks = reviewBlocks,
                         selectedCourse = selectedCourse,
                         selectedEventId = selectedExtraEventId,
                         onSelectDate = {
@@ -258,6 +286,14 @@ internal fun ScheduleScreen(
                         onSelectEvent = { event ->
                             selectedCourse = null
                             selectedExtraEventId = event.id
+                        },
+                        onSelectReview = { block ->
+                            if (block.suggestedMajorIndex != null) {
+                                val hint = applyScheduleReviewOptimization(context, block)
+                                exportHint = hint
+                                todoTasks.clear()
+                                todoTasks.addAll(loadTodoTasks(todoPrefs))
+                            }
                         },
                         onAddEvent = { event ->
                             extraEvents.add(0, event)
@@ -282,15 +318,37 @@ internal fun ScheduleScreen(
                     ScheduleMode.Month -> MonthScheduleCard(
                         month = month,
                         selectedDate = uiState.selectedDate,
-                        activeDates = (uiState.weekSchedule.days.map { it.fullDate } + extraEvents.map { it.date }).distinct(),
+                        activeDates = (
+                            uiState.weekSchedule.days.map { it.fullDate } + 
+                            extraEvents.map { it.date } +
+                            reviewBlocks.map { 
+                                java.time.LocalDate.now().plusDays(
+                                    (it.dayOfWeek - java.time.LocalDate.now().dayOfWeek.value).toLong()
+                                ).toString()
+                            }
+                        ).distinct(),
                         selectedCourses = uiState.selectedDateCourses,
                         selectedEvents = selectedDateEvents,
+                        selectedReviewBlocks = reviewBlocks.filter {
+                            val iso = java.time.LocalDate.now().plusDays(
+                                (it.dayOfWeek - java.time.LocalDate.now().dayOfWeek.value).toLong()
+                            ).toString()
+                            iso == uiState.selectedDate
+                        },
                         selectedCourse = selectedCourse,
                         onSelectDate = {
                             selectedCourse = null
                             scope.launch { repository.selectDate(it) }
                         },
                         onSelectCourse = { selectedCourse = it },
+                        onSelectReview = { block ->
+                            if (block.suggestedMajorIndex != null) {
+                                val hint = applyScheduleReviewOptimization(context, block)
+                                exportHint = hint
+                                todoTasks.clear()
+                                todoTasks.addAll(loadTodoTasks(todoPrefs))
+                            }
+                        }
                     )
                 }
                 ScheduleWorkbench.Grades -> GradeTrendCard(
@@ -431,8 +489,10 @@ private fun WeekScheduleCard(
     slots: List<HitaTimeSlot>,
     days: List<HitaWeekDay>,
     courses: List<HitaCourseBlock>,
+    reviewBlocks: List<ScheduleReviewBlock> = emptyList(),
     selectedCourse: HitaCourseBlock?,
     onSelectCourse: (HitaCourseBlock) -> Unit,
+    onSelectReview: (ScheduleReviewBlock) -> Unit = {},
 ) {
     val headerHeight = 60.dp
     val rowHeight = 108.dp
@@ -478,10 +538,13 @@ private fun WeekScheduleCard(
                     }
                     slots.forEach { slot ->
                         val matches = courses.filter { it.dayOfWeek == day.weekDay && it.majorIndex == slot.majorIndex }
+                        val reviews = reviewBlocks.filter { it.dayOfWeek == day.weekDay && it.majorIndex == slot.majorIndex }
                         CourseCell(
                             courses = matches,
+                            reviewBlocks = reviews,
                             selectedCourse = selectedCourse,
                             onClick = { course -> onSelectCourse(course) },
+                            onReviewClick = onSelectReview
                         )
                     }
                 }
@@ -547,6 +610,7 @@ private fun DayScheduleCard(
     selectedDate: String,
     courses: List<HitaCourseBlock>,
     events: List<ScheduleExtraEvent>,
+    reviewBlocks: List<ScheduleReviewBlock> = emptyList(),
     selectedCourse: HitaCourseBlock?,
     selectedEventId: String?,
     onSelectDate: (String) -> Unit,
@@ -555,6 +619,7 @@ private fun DayScheduleCard(
     onAddEvent: (ScheduleExtraEvent) -> Unit,
     onUpdateEvent: (ScheduleExtraEvent) -> Unit,
     onDeleteEvent: (String) -> Unit,
+    onSelectReview: (ScheduleReviewBlock) -> Unit = {},
 ) {
     val context = LocalContext.current
     val draftPrefs = remember { context.getSharedPreferences("schedule_event_draft", Context.MODE_PRIVATE) }
@@ -566,6 +631,12 @@ private fun DayScheduleCard(
     var draftReady by remember(selectedDate) { mutableStateOf(false) }
     val timelineEntries = buildDayTimelineEntries(courses, events)
     val editingEvent = events.firstOrNull { it.id == selectedEventId }
+    val selectedDayReviews = reviewBlocks.filter {
+        val iso = java.time.LocalDate.now().plusDays(
+            (it.dayOfWeek - java.time.LocalDate.now().dayOfWeek.value).toLong()
+        ).toString()
+        iso == selectedDate
+    }
 
     DayScheduleDraftRestoreEffect(
         selectedDate = selectedDate,
@@ -594,6 +665,22 @@ private fun DayScheduleCard(
         Spacer(modifier = Modifier.height(10.dp))
         SelectionRow(options = dates, selected = selectedDate, label = { it.substringAfterLast("-") }, onSelect = onSelectDate)
         Spacer(modifier = Modifier.height(12.dp))
+        
+        if (selectedDayReviews.isNotEmpty()) {
+            Text("智能复习建议", style = MaterialTheme.typography.titleSmall, color = PineInk)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                selectedDayReviews.forEach { block ->
+                    DaySummaryCard(
+                        title = block.title,
+                        body = "建议时段：第 ${block.majorIndex} 大节",
+                        onClick = { onSelectReview(block) }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         if (timelineEntries.isEmpty()) {
             Text("当天暂时没有课程。", style = MaterialTheme.typography.bodyLarge, color = ForestDeep.copy(alpha = 0.7f))
         } else {
@@ -1058,9 +1145,11 @@ private fun MonthScheduleCard(
     activeDates: List<String>,
     selectedCourses: List<HitaCourseBlock>,
     selectedEvents: List<ScheduleExtraEvent>,
+    selectedReviewBlocks: List<ScheduleReviewBlock> = emptyList(),
     selectedCourse: HitaCourseBlock?,
     onSelectDate: (String) -> Unit,
     onSelectCourse: (HitaCourseBlock) -> Unit,
+    onSelectReview: (ScheduleReviewBlock) -> Unit = {},
 ) {
     val first = month.atDay(1)
     val leading = first.dayOfWeek.value % 7
@@ -1112,7 +1201,7 @@ private fun MonthScheduleCard(
         Text("当日详情", style = MaterialTheme.typography.titleMedium, color = PineInk)
         Spacer(modifier = Modifier.height(10.dp))
         Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (selectedCourses.isEmpty() && selectedEvents.isEmpty()) {
+            if (selectedCourses.isEmpty() && selectedEvents.isEmpty() && selectedReviewBlocks.isEmpty()) {
                 DaySummaryCard(title = "暂无课程", body = "选中的日期当前没有返回课程安排。")
             } else {
                 selectedCourses.forEach { course ->
@@ -1129,6 +1218,13 @@ private fun MonthScheduleCard(
                     DaySummaryCard(
                         title = event.title,
                         body = "${event.time} · ${event.type}${if (event.note.isBlank()) "" else " · ${event.note}"}",
+                    )
+                }
+                selectedReviewBlocks.forEach { block ->
+                    DaySummaryCard(
+                        title = block.title,
+                        body = "智能复习 · 第 ${block.majorIndex} 大节",
+                        onClick = { onSelectReview(block) }
                     )
                 }
             }

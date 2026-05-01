@@ -2,6 +2,7 @@ package com.poxiao.app.ui
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -12,12 +13,23 @@ import androidx.compose.ui.platform.LocalContext
 import com.poxiao.app.todo.TodoTask
 
 @Composable
-internal fun TodoScreen(initialFilter: TodoFilter = TodoFilter.All) {
+internal fun TodoScreen(
+    active: Boolean,
+    initialFilter: TodoFilter = TodoFilter.All,
+) {
     var filter by remember(initialFilter) { mutableStateOf(initialFilter) }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("todo_board", Context.MODE_PRIVATE) }
     val draftPrefs = remember { context.getSharedPreferences("todo_draft", Context.MODE_PRIVATE) }
-    val tasks = remember { mutableStateListOf<TodoTask>().apply { addAll(loadTodoTasks(prefs)) } }
+    val tasks = remember { mutableStateListOf<TodoTask>() }
+
+    LaunchedEffect(active) {
+        if (active) {
+            tasks.clear()
+            tasks.addAll(loadTodoTasks(prefs))
+        }
+    }
+
     val editorState = rememberTodoEditorState()
     var searchQuery by remember { mutableStateOf("") }
     val selectedTags = remember { mutableStateListOf<String>() }
@@ -132,6 +144,7 @@ internal fun TodoScreen(initialFilter: TodoFilter = TodoFilter.All) {
                     onDelete = {
                         if (editingTask != null) {
                             todoHint = deleteTodoTask(
+                                context = context,
                                 tasks = tasks,
                                 prefs = prefs,
                                 draftPrefs = draftPrefs,
@@ -174,7 +187,7 @@ internal fun TodoScreen(initialFilter: TodoFilter = TodoFilter.All) {
                         archiveExpanded = false
                     },
                     onToggleTask = { task ->
-                        toggleTodoTaskAction(tasks, prefs, task)?.let { todoHint = it }
+                        toggleTodoTaskAction(context, tasks, prefs, task)?.let { todoHint = it }
                     },
                     onPostponeTask = { task ->
                         postponeTodoTaskAction(tasks, prefs, task)?.let { todoHint = it }

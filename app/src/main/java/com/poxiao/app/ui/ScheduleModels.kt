@@ -34,3 +34,15 @@ internal data class DayTimelineEntry(
     val selectableCourse: HitaCourseBlock? = null,
     val extraEvent: ScheduleExtraEvent? = null,
 )
+
+internal data class ScheduleReviewBlock(
+    val taskId: String,
+    val title: String,
+    val dayOfWeek: Int,
+    val majorIndex: Int,
+    val focusGoal: Int,
+    val focusCount: Int,
+    val done: Boolean,
+    val conflictCourseName: String? = null,
+    val suggestedMajorIndex: Int? = null,
+)

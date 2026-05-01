@@ -129,7 +129,7 @@ internal fun PomodoroScreen(active: Boolean) {
         if (leftSeconds <= 0) {
             running = false
             if (mode == PomodoroMode.Focus) {
-                recordTodoFocusProgress(todoPrefs, boundTask)
+                recordTodoFocusProgress(context, todoPrefs, boundTask)
                 todoTasks.clear()
                 todoTasks.addAll(loadTodoTasks(todoPrefs))
                 focusRecords.add(

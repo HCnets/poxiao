@@ -4,6 +4,7 @@ import android.content.Context
 import com.poxiao.app.security.SecurePrefs
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,12 +30,72 @@ class AppSummaryProvider(context: Context) {
         return buildList {
             loadScheduleSummary()?.let { add(it) }
             loadTodoSummary()?.let { add(it) }
+            loadConflictSummary()?.let { add(it) }
             loadFocusSummary()?.let { add(it) }
             loadGradeSummary()?.let { add(it) }
             loadBoundTaskSummary()?.let { add(it) }
             loadReviewBridgeSummary()?.let { add(it) }
             loadReviewExamSummary()?.let { add(it) }
         }.sortedByDescending { it.priority }
+    }
+
+    private fun loadConflictSummary(): AssistantContextSummary? {
+        val state = loadScheduleState() ?: return null
+        val todayCourses = resolveTodayCourses(state)
+        val todoRaw = todoPrefs.getString("todo_tasks", "").orEmpty()
+        if (todoRaw.isBlank()) return null
+        val todoArray = runCatching { JSONArray(todoRaw) }.getOrNull() ?: return null
+        
+        val slotsArray = state.optJSONObject("weekSchedule")?.optJSONArray("timeSlots") ?: JSONArray()
+        val slots = mutableListOf<JSONObject>()
+        for (i in 0 until slotsArray.length()) { slots.add(slotsArray.optJSONObject(i)) }
+        
+        val conflicts = mutableListOf<String>()
+        val today = LocalDate.now().toString()
+        
+        for (i in 0 until todoArray.length()) {
+            val task = todoArray.optJSONObject(i) ?: continue
+            if (task.optBoolean("done") || task.optString("listName") != "复习计划") continue
+            
+            val dueText = task.optString("dueText")
+            if (!dueText.contains("今天")) continue
+            
+            val timePart = dueText.substringAfterLast(" ").trim()
+            val time = runCatching { 
+                LocalTime.parse(timePart, DateTimeFormatter.ofPattern("HH:mm")) 
+            }.getOrNull() ?: continue
+            
+            // 查找对应的时段
+            val majorIndex = slots.firstOrNull { slot ->
+                val range = slot.optString("timeRange").split(" - ")
+                if (range.size == 2) {
+                    val start = runCatching { LocalTime.parse(range[0], DateTimeFormatter.ofPattern("HH:mm")) }.getOrNull()
+                    val end = runCatching { LocalTime.parse(range[1], DateTimeFormatter.ofPattern("HH:mm")) }.getOrNull()
+                    if (start != null && end != null) {
+                        !time.isBefore(start) && !time.isAfter(end)
+                    } else false
+                } else false
+            }?.optInt("majorIndex") ?: continue
+            
+            // 检查是否有课
+            for (j in 0 until todayCourses.length()) {
+                val course = todayCourses.optJSONObject(j) ?: continue
+                if (course.optInt("majorIndex") == majorIndex) {
+                    conflicts.add("${task.optString("title").removePrefix("复习：")} 与 ${course.optString("courseName")} 冲突")
+                    break
+                }
+            }
+        }
+        
+        if (conflicts.isEmpty()) return null
+        
+        return AssistantContextSummary(
+            id = "schedule_conflicts",
+            title = "行程冲突提醒",
+            body = "检测到 ${conflicts.size} 项复习任务与今日课程时间重叠：${conflicts.joinToString("；")}。建议进入课表使用“魔法调优”功能一键插空。",
+            source = "智能排程",
+            priority = 9 // 最高优先级
+        )
     }
 
     private fun loadScheduleSummary(): AssistantContextSummary? {

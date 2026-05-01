@@ -1,4 +1,4 @@
-﻿package com.poxiao.app.review
+package com.poxiao.app.review
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
@@ -2939,6 +2939,8 @@ private fun saveReviewAssistantBridge(
                             put("sourceTitle", item.sourceTitle)
                             put("recommendedMinutes", item.recommendedMinutes)
                             put("nextReviewAt", item.nextReviewAt)
+                            put("mastery", item.mastery.toDouble())
+                            put("importanceScore", item.importance.score)
                             put("importance", item.importance.label)
                             put("errorProne", item.errorProne)
                         },

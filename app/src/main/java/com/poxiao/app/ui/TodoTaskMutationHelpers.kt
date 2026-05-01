@@ -142,11 +142,26 @@ internal fun applyTodoFocusProgress(
 }
 
 internal fun recordTodoFocusProgress(
+    context: android.content.Context,
     prefs: SharedPreferences,
     boundTaskTitle: String,
 ) {
     if (boundTaskTitle.isBlank()) return
     val tasks = loadTodoTasks(prefs).toMutableList()
+    val taskIndex = tasks.indexOfFirst { it.title == boundTaskTitle }
+    if (taskIndex < 0) return
+    val task = tasks[taskIndex]
+    val oldDone = task.done
+
     if (!applyTodoFocusProgress(tasks, boundTaskTitle)) return
+
+    val newDone = tasks[taskIndex].done
+    if (!oldDone && newDone) {
+        val linkageHint = handleReviewTaskCompletion(context, task.id)
+        if (linkageHint != null) {
+            sendAppNotification(context, "复习进度同步", "《${task.title.removePrefix("复习：")}》已完成，$linkageHint")
+        }
+    }
+
     saveTodoTasks(prefs, tasks)
 }

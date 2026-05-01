@@ -55,6 +55,18 @@ internal fun clearReviewExecutionLinks(
     store.saveItems(updated)
 }
 
+internal fun clearReviewExecutionLink(
+    context: Context,
+    reviewItemId: String,
+) {
+    if (reviewItemId.isBlank()) return
+    val store = ReviewPlannerStore(context)
+    val updated = store.loadItems().map { item ->
+        if (item.id == reviewItemId) item.copy(assistantExecutionAt = 0L) else item
+    }
+    store.saveItems(updated)
+}
+
 internal fun resolveReviewExecutionItemIds(
     context: Context,
     execution: ReviewBridgeExecutionSummary,

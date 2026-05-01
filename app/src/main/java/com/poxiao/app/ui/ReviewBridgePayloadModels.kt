@@ -7,6 +7,8 @@ internal data class PendingReviewBridgeItem(
     val sourceTitle: String,
     val recommendedMinutes: Int,
     val nextReviewAt: Long,
+    val mastery: Float = 0f,
+    val importanceScore: Int = 0,
 )
 
 internal data class PendingReviewBridgePayload(

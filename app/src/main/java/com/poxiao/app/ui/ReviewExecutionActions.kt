@@ -2,13 +2,8 @@ package com.poxiao.app.ui
 
 import android.content.Context
 import com.poxiao.app.security.SecurePrefs
-import com.poxiao.app.todo.TodoPriority
-import com.poxiao.app.todo.TodoQuadrant
-import com.poxiao.app.todo.TodoSubtask
-import com.poxiao.app.todo.TodoTask
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -24,31 +19,7 @@ internal fun applyReviewBridgeExecution(
     val createdTaskTitles = mutableListOf<String>()
     val executedAt = System.currentTimeMillis()
     payload.items.take(3).forEach { item ->
-        val dueDate = runCatching {
-            Instant.ofEpochMilli(item.nextReviewAt).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
-        }.getOrNull()
-        val dueText = dueDate?.format(DateTimeFormatter.ofPattern("MM-dd HH:mm")) ?: "今天 20:00"
-        val task = TodoTask(
-            id = "assistant-review-${item.id}",
-            title = "复习：${item.noteTitle}",
-            note = "${item.courseName} · 来源《${item.sourceTitle}》\n由智能体接管复习计划生成。",
-            quadrant = TodoQuadrant.ImportantNotUrgent,
-            priority = TodoPriority.High,
-            dueText = dueText,
-            tags = listOf("复习", "智能排程", item.courseName),
-            listName = "复习计划",
-            reminderText = "提前 30 分钟",
-            repeatText = "不重复",
-            subtasks = listOf(
-                TodoSubtask("回看知识点"),
-                TodoSubtask("完成一轮口述或默写"),
-            ),
-            focusGoal = when {
-                item.recommendedMinutes >= 50 -> 3
-                item.recommendedMinutes >= 30 -> 2
-                else -> 1
-            },
-        )
+        val task = buildReviewBridgeTodoTask(item)
         if (tasks.none { it.id == task.id }) {
             tasks.add(0, task)
             createdTaskIds += task.id
@@ -61,7 +32,7 @@ internal fun applyReviewBridgeExecution(
         SecurePrefs.putString(focusPrefs, "bound_task_title_secure", "复习：${first.noteTitle}")
         SecurePrefs.putString(focusPrefs, "bound_task_list_secure", "复习计划")
     }
-    val summaryText = "已生成 ${payload.items.take(3).size} 条复习待办，并把首项绑定到番茄钟。"
+    val summaryText = "已生成 ${payload.items.take(3).size} 条复习待办，并按复习时间自动匹配提醒，首项已绑定到番茄钟。"
     updateReviewExecutionLinks(
         context = context,
         reviewItemIds = payload.items.take(3).map { it.id },
@@ -107,29 +78,10 @@ internal fun replayReviewBridgeExecution(
     execution.createdTaskTitles.forEachIndexed { index, title ->
         val replayId = "assistant-review-replay-${execution.executedAt}-$index"
         if (tasks.none { it.id == replayId }) {
-            val task = TodoTask(
-                id = replayId,
+            val task = buildReviewReplayTodoTask(
+                replayId = replayId,
                 title = title,
-                note = "根据历史接管记录回放生成。\n来源执行时间：${
-                    formatSyncTime(
-                        LocalDateTime.ofInstant(
-                            Instant.ofEpochMilli(execution.executedAt),
-                            java.time.ZoneId.systemDefault(),
-                        ),
-                    )
-                }",
-                quadrant = TodoQuadrant.ImportantNotUrgent,
-                priority = TodoPriority.High,
-                dueText = "今天 20:00",
-                tags = listOf("复习", "历史回放"),
-                listName = "复习计划",
-                reminderText = "提前 30 分钟",
-                repeatText = "不重复",
-                subtasks = listOf(
-                    TodoSubtask("回看知识点"),
-                    TodoSubtask("完成一轮口述或默写"),
-                ),
-                focusGoal = 1,
+                sourceExecutedAt = execution.executedAt,
             )
             tasks.add(0, task)
             replayTaskIds += task.id
@@ -141,7 +93,7 @@ internal fun replayReviewBridgeExecution(
         SecurePrefs.putString(focusPrefs, "bound_task_title_secure", execution.boundTaskTitle)
         SecurePrefs.putString(focusPrefs, "bound_task_list_secure", "复习计划")
     }
-    val replaySummaryText = "已从历史回放 ${replayTaskTitles.size} 条复习待办，并恢复番茄绑定。"
+    val replaySummaryText = "已从历史回放 ${replayTaskTitles.size} 条复习待办，并重新匹配提醒，恢复番茄绑定。"
     updateReviewExecutionLinks(
         context = context,
         reviewItemIds = replayReviewItemIds,

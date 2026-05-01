@@ -10,7 +10,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -109,23 +111,28 @@ internal fun TrendInsightCard(
 @Composable
 internal fun CourseCell(
     courses: List<HitaCourseBlock>,
+    reviewBlocks: List<ScheduleReviewBlock> = emptyList(),
     selectedCourse: HitaCourseBlock?,
     onClick: (HitaCourseBlock) -> Unit,
+    onReviewClick: (ScheduleReviewBlock) -> Unit = {},
 ) {
     val primaryCourse = courses.firstOrNull()
-    val hasConflict = courses.size > 1
+    val primaryReview = reviewBlocks.firstOrNull()
+    val hasConflict = courses.size > 1 || (courses.isNotEmpty() && reviewBlocks.isNotEmpty())
     val isSelected = primaryCourse != null && selectedCourse?.let {
         courses.any { course ->
             it.courseName == course.courseName && it.dayOfWeek == course.dayOfWeek && it.majorIndex == course.majorIndex
         }
     } == true
     val isRelated = primaryCourse != null && selectedCourse != null && courses.any { selectedCourse.courseName == it.courseName }
+    
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = when {
             hasConflict -> Color(0xFFF6E0D2)
             isSelected -> Color.White.copy(alpha = 0.34f)
             isRelated -> Color.White.copy(alpha = 0.28f)
+            primaryReview != null -> Ginkgo.copy(alpha = 0.24f)
             else -> Color.White.copy(alpha = 0.22f)
         },
         border = BorderStroke(
@@ -134,18 +141,22 @@ internal fun CourseCell(
                 hasConflict -> Color(0xFFD39B74)
                 isSelected -> Color.White.copy(alpha = 0.28f)
                 isRelated -> BambooStroke.copy(alpha = 0.2f)
+                primaryReview != null -> Ginkgo.copy(alpha = 0.4f)
                 else -> BambooStroke.copy(alpha = 0.14f)
             },
         ),
         modifier = Modifier
             .requiredHeight(108.dp)
-            .clickable(enabled = primaryCourse != null) { primaryCourse?.let(onClick) },
+            .clickable(enabled = primaryCourse != null || primaryReview != null) {
+                if (primaryCourse != null) primaryCourse.let(onClick)
+                else primaryReview?.let(onReviewClick)
+            },
     ) {
-        if (primaryCourse == null) {
+        if (primaryCourse == null && primaryReview == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("留白", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.35f))
             }
-        } else {
+        } else if (primaryCourse != null) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(
                     modifier = Modifier
@@ -158,18 +169,56 @@ internal fun CourseCell(
                     if (hasConflict) "发生冲突" else primaryCourse.courseName,
                     style = MaterialTheme.typography.titleMedium,
                     color = PineInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (hasConflict) {
-                    Text("${courses.size} 门课程落在同一大节", style = MaterialTheme.typography.bodySmall, color = Color(0xFF9A5B34))
-                    Text(
-                        courses.joinToString(" / ") { it.courseName },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ForestDeep.copy(alpha = 0.74f),
-                        maxLines = 2,
-                    )
+                    val conflictText = if (reviewBlocks.isNotEmpty()) "课程与复习冲突" else "${courses.size} 门课程冲突"
+                    Text(conflictText, style = MaterialTheme.typography.bodySmall, color = Color(0xFF9A5B34))
                 } else {
                     Text(primaryCourse.classroom, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
                     Text(primaryCourse.teacher.ifBlank { "教师待补充" }, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
+                }
+            }
+        } else if (primaryReview != null) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SelectionChip(text = "智能复习", chosen = true, onClick = {})
+                    if (primaryReview.suggestedMajorIndex != null) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Ginkgo.copy(alpha = 0.2f),
+                            modifier = Modifier.size(24.dp).clickable { onReviewClick(primaryReview) }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("🪄", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+                Text(
+                    primaryReview.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = PineInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (primaryReview.conflictCourseName != null) {
+                    Text(
+                        "与 ${primaryReview.conflictCourseName} 冲突",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF9A5B34)
+                    )
+                } else if (primaryReview.focusGoal > 0) {
+                    Text(
+                        "专注 ${primaryReview.focusCount}/${primaryReview.focusGoal}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ForestDeep.copy(alpha = 0.7f)
+                    )
                 }
             }
         }

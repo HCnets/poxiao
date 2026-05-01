@@ -25,6 +25,8 @@ internal fun loadPendingReviewBridge(
                         sourceTitle = item.optString("sourceTitle"),
                         recommendedMinutes = item.optInt("recommendedMinutes", 25),
                         nextReviewAt = item.optLong("nextReviewAt"),
+                        mastery = item.optDouble("mastery", 0.0).toFloat(),
+                        importanceScore = item.optInt("importanceScore", 0),
                     ),
                 )
             }

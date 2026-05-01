@@ -189,12 +189,16 @@ internal fun PoxiaoSectionHost(
                             )
                             PrimarySection.Schedule -> ScheduleScreen(
                                 repository,
+                                active = isCurrentSection,
                                 initialMode = scheduleEntryMode,
                                 initialWorkbench = scheduleEntryWorkbench,
                                 onOpenAcademicAccount = scaffoldState::openMoreSection,
                                 onOpenCourseNotes = scaffoldState::openCourseNotes,
                             )
-                            PrimarySection.Todo -> TodoScreen(initialFilter = todoEntryFilter)
+                            PrimarySection.Todo -> TodoScreen(
+                                active = isCurrentSection,
+                                initialFilter = todoEntryFilter
+                            )
                             PrimarySection.Pomodoro -> PomodoroScreen(active = isCurrentSection)
                             PrimarySection.More -> MoreScreen(
                                 repository = repository,
