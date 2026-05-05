@@ -197,6 +197,8 @@ import com.poxiao.app.ui.theme.PoxiaoThemePreset
 import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
+import com.poxiao.app.ui.EditionCapabilities
+import com.poxiao.app.ui.LocalEditionCapabilities
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime

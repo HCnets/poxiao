@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.todo.TodoPriority
 import com.poxiao.app.todo.TodoTask
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.BambooGlass
 import com.poxiao.app.ui.theme.CloudWhite
 import com.poxiao.app.ui.theme.ForestDeep
@@ -32,6 +34,7 @@ import com.poxiao.app.ui.theme.WarmMist
 @Composable
 internal fun TodoTaskCard(
     task: TodoTask,
+    modifier: Modifier = Modifier,
     onToggle: () -> Unit,
     onPostpone: () -> Unit,
     onEdit: () -> Unit,
@@ -46,14 +49,23 @@ internal fun TodoTaskCard(
     val dueStatus = remember(task.dueText, task.done) { todoDueStatus(task) }
     val focusProgressLabel = if (task.focusGoal > 0) "专注 ${task.focusCount}/${task.focusGoal} 轮" else "专注 ${task.focusCount} 轮"
     val focusGoalReached = task.focusGoal > 0 && task.focusCount >= task.focusGoal
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.56f)) {
+    val hapticManager = rememberHapticManager()
+
+    GlassCard(modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onEdit)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.fillMaxWidth(0.78f)) {
                     Text(task.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
                     Text(task.note.ifBlank { "无补充说明" }, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
                 }
-                ActionPill(if (task.done) "已完成" else "完成", if (task.done) MossGreen else ForestGreen, onClick = onToggle)
+                ActionPill(
+                    text = if (task.done) "已完成" else "完成",
+                    background = if (task.done) MossGreen else ForestGreen,
+                    onClick = {
+                        if (!task.done) hapticManager.playSuccess() else hapticManager.playLightClick()
+                        onToggle()
+                    }
+                )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${task.listName} · ${task.dueText}", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))

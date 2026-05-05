@@ -2,6 +2,7 @@ package com.poxiao.app.ui
 
 import androidx.compose.runtime.Composable
 import com.poxiao.app.ui.theme.PoxiaoThemePreset
+import com.poxiao.app.ui.rememberPoxiaoAppScaffoldState
 
 @Composable
 internal fun PoxiaoAppScaffold(
@@ -13,6 +14,8 @@ internal fun PoxiaoAppScaffold(
     customBlur: Float,
     customGlow: Float,
     customAlpha: Float,
+    customHueOffset: Float,
+    customSaturation: Float,
     onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     onDensityPresetChange: (UiDensityPreset) -> Unit,
     onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
@@ -20,6 +23,8 @@ internal fun PoxiaoAppScaffold(
     onCustomBlurChange: (Float) -> Unit,
     onCustomGlowChange: (Float) -> Unit,
     onCustomAlphaChange: (Float) -> Unit,
+    onCustomHueOffsetChange: (Float) -> Unit,
+    onCustomSaturationChange: (Float) -> Unit,
 ) {
     val scaffoldState = rememberPoxiaoAppScaffoldState(editionCapabilities)
     PoxiaoAppScaffoldEffects(scaffoldState)
@@ -32,6 +37,8 @@ internal fun PoxiaoAppScaffold(
         customBlur = customBlur,
         customGlow = customGlow,
         customAlpha = customAlpha,
+        customHueOffset = customHueOffset,
+        customSaturation = customSaturation,
         onThemePresetChange = onThemePresetChange,
         onDensityPresetChange = onDensityPresetChange,
         onGlassStrengthChange = onGlassStrengthChange,
@@ -39,5 +46,7 @@ internal fun PoxiaoAppScaffold(
         onCustomBlurChange = onCustomBlurChange,
         onCustomGlowChange = onCustomGlowChange,
         onCustomAlphaChange = onCustomAlphaChange,
+        onCustomHueOffsetChange = onCustomHueOffsetChange,
+        onCustomSaturationChange = onCustomSaturationChange,
     )
 }

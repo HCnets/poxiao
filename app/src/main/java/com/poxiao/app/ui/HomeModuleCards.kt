@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import com.poxiao.app.review.ReviewItem
 import com.poxiao.app.todo.TodoTask
 import com.poxiao.app.ui.theme.BambooStroke
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
@@ -53,11 +55,12 @@ internal fun HomeMetricsModuleCard(
             HomeLine("考试周", "待处理 $pendingExamCount", "点此查看当前冲刺项", sizePreset = HomeModuleSize.Compact)
         }
     } else {
+        val hapticManager = rememberHapticManager()
         Row(horizontalArrangement = Arrangement.spacedBy(homeMetricSpacing(moduleSize)), modifier = modifier.horizontalScroll(rememberScrollState())) {
-            MetricCard("今日课次", todayClassCount.toString(), ForestGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenScheduleDay))
-            MetricCard("考试周", pendingExamCount.toString(), TeaGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenScheduleExamWeek))
-            MetricCard("待完成", pendingTodoCount.toString(), Ginkgo, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = { onOpenTodoPending(TodoFilter.All) }))
-            MetricCard("专注时长", "$focusedMinutes 分钟", MossGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenPomodoro))
+            MetricCard("今日课次", todayClassCount.toString(), ForestGreen, sizePreset = moduleSize, modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onOpenScheduleDay))
+            MetricCard("考试周", pendingExamCount.toString(), TeaGreen, sizePreset = moduleSize, modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onOpenScheduleExamWeek))
+            MetricCard("待完成", pendingTodoCount.toString(), Ginkgo, sizePreset = moduleSize, modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = { onOpenTodoPending(TodoFilter.All) }))
+            MetricCard("专注时长", "$focusedMinutes 分钟", MossGreen, sizePreset = moduleSize, modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onOpenPomodoro))
         }
     }
 }
@@ -90,6 +93,7 @@ internal fun HomeRhythmModuleCard(
         } else if (todayTimeline.isEmpty()) {
             Text("课表、待办和专注记录会在这里自动汇总。", style = homeSectionBodyStyle(moduleSize), color = ForestDeep.copy(alpha = 0.72f))
         } else {
+            val hapticManager = rememberHapticManager()
             val visibleTimeline = if (paired) todayTimeline.take(2) else todayTimeline
             visibleTimeline.forEachIndexed { index, item ->
                 HomeLine(
@@ -97,7 +101,7 @@ internal fun HomeRhythmModuleCard(
                     title = item.title,
                     body = item.subtitle,
                     sizePreset = if (paired) HomeModuleSize.Compact else moduleSize,
-                    modifier = Modifier.clickable {
+                    modifier = Modifier.bouncyClick(hapticManager = hapticManager) {
                         when (item.timeLabel) {
                             "今日课程" -> onOpenScheduleDay()
                             "考试周" -> onOpenScheduleExamWeek()

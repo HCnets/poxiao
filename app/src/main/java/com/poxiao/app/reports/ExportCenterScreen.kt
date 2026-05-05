@@ -1260,5 +1260,6 @@ private fun loadThemeSpec(context: Context): ExportThemeSpec {
         PoxiaoThemePreset.Ink -> ExportThemeSpec("墨白书卷", Color(0xFFF7F2E8).toArgb(), Color(0xFFF0E8D8).toArgb(), Color(0xFFE4DAC7).toArgb(), Color(0xE6FFFDF8).toArgb(), Color(0x99D5CCBE).toArgb(), Color(0xFF1F2925).toArgb(), Color(0xCC49554F).toArgb(), Color(0xA66A756F).toArgb())
         PoxiaoThemePreset.Sunset -> ExportThemeSpec("落日果汽", Color(0xFFFFF4EC).toArgb(), Color(0xFFFFE6D9).toArgb(), Color(0xFFFFD0BF).toArgb(), Color(0xEFFFF7F3).toArgb(), Color(0x88FFE2D1).toArgb(), Color(0xFF572E24).toArgb(), Color(0xCC7A4A3A).toArgb(), Color(0xA68F614E).toArgb())
         PoxiaoThemePreset.Night -> ExportThemeSpec("夜航雾岛", Color(0xFF0D1524).toArgb(), Color(0xFF13263A).toArgb(), Color(0xFF1D3957).toArgb(), Color(0xCC16243A).toArgb(), Color(0x668ADFFF).toArgb(), Color(0xFFF2FBFF).toArgb(), Color(0xD1CAE9F2).toArgb(), Color(0x99B8D9E6).toArgb())
+        PoxiaoThemePreset.Dynamic -> ExportThemeSpec("时光流转", Color(0xFFF7F3EA).toArgb(), Color(0xFFE6F3E6).toArgb(), Color(0xFFD5E9DA).toArgb(), Color.White.copy(alpha = 0.70f).toArgb(), Color.White.copy(alpha = 0.55f).toArgb(), Color(0xFF12352A).toArgb(), Color(0xCC1F4837).toArgb(), Color(0xA63B5F4E).toArgb())
     }
 }

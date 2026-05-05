@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.poxiao.app.pomodoro.NoisePlayer
 import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.settings.loadNotificationPreferenceState
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
@@ -123,6 +124,8 @@ internal fun PomodoroScreen(active: Boolean) {
         remainingFocusRounds == 1 -> 25 * 60
         else -> 0
     }
+    
+    val hapticManager = rememberHapticManager()
 
     LaunchedEffect(running, leftSeconds, preset.seconds) {
         if (!running) return@LaunchedEffect
@@ -142,6 +145,7 @@ internal fun PomodoroScreen(active: Boolean) {
                     ),
                 )
                 saveFocusRecords(focusRecordPrefs, focusRecords)
+                hapticManager.playSuccess() // 加入专注结束强震动反馈
                 if (loadNotificationPreferenceState(context).pomodoroEnabled) {
                     sendAppNotification(context, "专注已完成", if (boundTask.isBlank()) "本轮专注已结束" else "已完成：$boundTask")
                 }
@@ -288,8 +292,12 @@ internal fun PomodoroScreen(active: Boolean) {
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionPill(if (running) "暂停" else "开始", ForestGreen) { running = !running }
+                    ActionPill(if (running) "暂停" else "开始", ForestGreen) { 
+                        hapticManager.playHeavyClick()
+                        running = !running 
+                    }
                     ActionPill("重置", Ginkgo) {
+                        hapticManager.playLightClick()
                         running = false
                         leftSeconds = preset.seconds
                     }

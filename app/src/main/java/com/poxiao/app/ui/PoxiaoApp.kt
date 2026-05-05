@@ -6,6 +6,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.poxiao.app.ui.theme.PoxiaoTheme
+import com.poxiao.app.ui.interactions.GyroScopeProvider
+import com.poxiao.app.ui.interactions.rememberHapticManager
+import com.poxiao.app.ui.EditionCapabilities
+import com.poxiao.app.ui.editionCapabilitiesFromBuildConfig
 
 @Composable
 fun PoxiaoApp() {
@@ -17,7 +21,11 @@ fun PoxiaoApp() {
         refreshLocalReminderSchedule(context)
     }
 
-    PoxiaoTheme(preset = uiState.themePreset) {
+    PoxiaoTheme(
+        preset = uiState.themePreset,
+        customHueOffset = uiState.customHueOffset,
+        customSaturation = uiState.customSaturation,
+    ) {
         GyroScopeProvider {
             CompositionLocalProvider(
                 LocalUiDensityPreset provides uiState.densityPreset,
@@ -36,6 +44,8 @@ fun PoxiaoApp() {
                     customBlur = uiState.customBlur,
                     customGlow = uiState.customGlow,
                     customAlpha = uiState.customAlpha,
+                    customHueOffset = uiState.customHueOffset,
+                    customSaturation = uiState.customSaturation,
                     onThemePresetChange = uiState.onThemePresetChange,
                     onDensityPresetChange = uiState.onDensityPresetChange,
                     onGlassStrengthChange = uiState.onGlassStrengthChange,
@@ -43,6 +53,8 @@ fun PoxiaoApp() {
                     onCustomBlurChange = uiState.onCustomBlurChange,
                     onCustomGlowChange = uiState.onCustomGlowChange,
                     onCustomAlphaChange = uiState.onCustomAlphaChange,
+                    onCustomHueOffsetChange = uiState.onCustomHueOffsetChange,
+                    onCustomSaturationChange = uiState.onCustomSaturationChange,
                 )
             }
         }

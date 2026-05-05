@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.PoxiaoThemeState
 import kotlin.math.PI
 import kotlin.math.abs
@@ -278,6 +279,7 @@ internal fun DockNavItem(
     val latestPreviewSelect = rememberUpdatedState(onPreviewSelect)
     val latestCancelPreview = rememberUpdatedState(onCancelPreview)
     val latestSelect = rememberUpdatedState(onSelect)
+    val hapticManager = rememberHapticManager()
 
     Box(
         modifier = modifier
@@ -287,6 +289,7 @@ internal fun DockNavItem(
                 detectTapGestures(
                     onPress = {
                         latestPreviewSelect.value(item)
+                        hapticManager.playLightClick() // 加入底部导航轻震动
                         val released = tryAwaitRelease()
                         if (released) {
                             latestSelect.value(item)

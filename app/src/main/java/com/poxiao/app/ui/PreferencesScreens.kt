@@ -42,6 +42,8 @@ internal fun PreferencesScreen(
     customBlur: Float,
     customGlow: Float,
     customAlpha: Float,
+    customHueOffset: Float,
+    customSaturation: Float,
     onSelectPreset: (PoxiaoThemePreset) -> Unit,
     onSelectDensity: (UiDensityPreset) -> Unit,
     onSelectGlassStrength: (GlassStrengthPreset) -> Unit,
@@ -49,6 +51,8 @@ internal fun PreferencesScreen(
     onCustomBlurChange: (Float) -> Unit,
     onCustomGlowChange: (Float) -> Unit,
     onCustomAlphaChange: (Float) -> Unit,
+    onCustomHueOffsetChange: (Float) -> Unit,
+    onCustomSaturationChange: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
     val palette = PoxiaoThemeState.palette
@@ -190,6 +194,38 @@ internal fun PreferencesScreen(
                     Slider(
                         value = customAlpha,
                         onValueChange = onCustomAlphaChange,
+                        valueRange = 0.0f..2.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = palette.primary,
+                            activeTrackColor = palette.primary,
+                            inactiveTrackColor = palette.secondary.copy(alpha = 0.2f)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "色相偏移 (Hue Shift) - 魔法变色",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.ink,
+                    )
+                    Slider(
+                        value = customHueOffset,
+                        onValueChange = onCustomHueOffsetChange,
+                        valueRange = 0.0f..360.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = palette.primary,
+                            activeTrackColor = palette.primary,
+                            inactiveTrackColor = palette.secondary.copy(alpha = 0.2f)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "色彩饱和度 (Saturation)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.ink,
+                    )
+                    Slider(
+                        value = customSaturation,
+                        onValueChange = onCustomSaturationChange,
                         valueRange = 0.0f..2.0f,
                         colors = SliderDefaults.colors(
                             thumbColor = palette.primary,

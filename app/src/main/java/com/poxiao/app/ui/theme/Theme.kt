@@ -10,6 +10,39 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
+import android.graphics.Color as AndroidColor
+
+fun Color.shiftHSV(hueOffset: Float, saturationMult: Float): Color {
+    if (hueOffset == 0f && saturationMult == 1f) return this
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(this.toArgb(), hsv)
+    hsv[0] = (hsv[0] + hueOffset) % 360f
+    if (hsv[0] < 0) hsv[0] += 360f
+    hsv[1] = (hsv[1] * saturationMult).coerceIn(0f, 1f)
+    return Color(AndroidColor.HSVToColor(this.alpha.times(255).toInt(), hsv))
+}
+
+fun PoxiaoPalette.shifted(hueOffset: Float, saturationMult: Float): PoxiaoPalette {
+    if (hueOffset == 0f && saturationMult == 1f) return this
+    return PoxiaoPalette(
+        backgroundTop = backgroundTop.shiftHSV(hueOffset, saturationMult),
+        backgroundBottom = backgroundBottom.shiftHSV(hueOffset, saturationMult),
+        ambientGlow = ambientGlow.shiftHSV(hueOffset, saturationMult),
+        card = card.shiftHSV(hueOffset, saturationMult),
+        cardBorder = cardBorder.shiftHSV(hueOffset, saturationMult),
+        cardGlow = cardGlow.shiftHSV(hueOffset, saturationMult),
+        dock = dock.shiftHSV(hueOffset, saturationMult),
+        dockBorder = dockBorder.shiftHSV(hueOffset, saturationMult),
+        primary = primary.shiftHSV(hueOffset, saturationMult),
+        secondary = secondary.shiftHSV(hueOffset, saturationMult),
+        ink = ink, 
+        softText = softText,
+        pillOn = pillOn,
+        islandStart = islandStart.shiftHSV(hueOffset, saturationMult),
+        islandEnd = islandEnd.shiftHSV(hueOffset, saturationMult),
+    )
+}
+
 enum class PoxiaoThemePreset(
     val title: String,
     val subtitle: String,
@@ -19,6 +52,7 @@ enum class PoxiaoThemePreset(
     Ink("\u58a8\u767d\u4e66\u5377", "\u5ba3\u7eb8\u7559\u767d\u3001\u58a8\u9752\u5c42\u6b21\u4e0e\u5b89\u9759\u9605\u8bfb\u611f"),
     Sunset("\u843d\u65e5\u679c\u6c7d", "\u6696\u6a59\u73ca\u745a\u4e0e\u8f7b\u751c\u6d41\u4f53\u5149\u6cfd"),
     Night("\u591c\u822a\u96fe\u5c9b", "\u6df1\u6d77\u58a8\u8272\u4e0e\u51b7\u611f\u9713\u8679\u8fb9\u5149"),
+    Dynamic("时光流转", "跟随现实时间，从晨曦到夜航自动变换氛围色调"),
 }
 
 @Immutable
@@ -130,6 +164,8 @@ private val NightPalette = PoxiaoPalette(
     islandEnd = Color(0xCC1D355A),
 )
 
+import java.time.LocalTime
+
 private fun paletteFor(preset: PoxiaoThemePreset): PoxiaoPalette {
     return when (preset) {
         PoxiaoThemePreset.Forest -> ForestPalette
@@ -137,6 +173,15 @@ private fun paletteFor(preset: PoxiaoThemePreset): PoxiaoPalette {
         PoxiaoThemePreset.Ink -> InkPalette
         PoxiaoThemePreset.Sunset -> SunsetPalette
         PoxiaoThemePreset.Night -> NightPalette
+        PoxiaoThemePreset.Dynamic -> {
+            val hour = LocalTime.now().hour
+            when {
+                hour in 6..11 -> ForestPalette // 晨间：森林
+                hour in 12..16 -> AeroPalette // 午间：水润
+                hour in 17..19 -> SunsetPalette // 傍晚：落日
+                else -> NightPalette // 夜间：夜航
+            }
+        }
     }
 }
 
@@ -150,10 +195,13 @@ object PoxiaoThemeState {
 @Composable
 fun PoxiaoTheme(
     preset: PoxiaoThemePreset = PoxiaoThemePreset.Forest,
+    customHueOffset: Float = 0f,
+    customSaturation: Float = 1f,
     darkTheme: Boolean = isSystemInDarkTheme() && preset == PoxiaoThemePreset.Night,
     content: @Composable () -> Unit,
 ) {
-    val palette = paletteFor(preset)
+    val basePalette = paletteFor(preset)
+    val palette = basePalette.shifted(customHueOffset, customSaturation)
     val colors = if (darkTheme) {
         darkColorScheme(
             primary = palette.primary,

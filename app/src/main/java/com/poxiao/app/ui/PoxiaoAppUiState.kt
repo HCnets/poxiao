@@ -47,6 +47,8 @@ internal fun rememberPoxiaoAppUiState(
     var customBlur by remember { mutableStateOf(uiPrefs.getFloat("custom_blur", 1f)) }
     var customGlow by remember { mutableStateOf(uiPrefs.getFloat("custom_glow", 1f)) }
     var customAlpha by remember { mutableStateOf(uiPrefs.getFloat("custom_alpha", 1f)) }
+    var customHueOffset by remember { mutableStateOf(uiPrefs.getFloat("custom_hue_offset", 0f)) }
+    var customSaturation by remember { mutableStateOf(uiPrefs.getFloat("custom_saturation", 1f)) }
 
     return PoxiaoAppUiState(
         themePreset = themePreset,
@@ -56,6 +58,8 @@ internal fun rememberPoxiaoAppUiState(
         customBlur = customBlur,
         customGlow = customGlow,
         customAlpha = customAlpha,
+        customHueOffset = customHueOffset,
+        customSaturation = customSaturation,
         onThemePresetChange = {
             themePreset = it
             uiPrefs.edit().putString("theme_preset", it.name).apply()
@@ -83,6 +87,14 @@ internal fun rememberPoxiaoAppUiState(
         onCustomAlphaChange = {
             customAlpha = it
             uiPrefs.edit().putFloat("custom_alpha", it).apply()
+        },
+        onCustomHueOffsetChange = {
+            customHueOffset = it
+            uiPrefs.edit().putFloat("custom_hue_offset", it).apply()
+        },
+        onCustomSaturationChange = {
+            customSaturation = it
+            uiPrefs.edit().putFloat("custom_saturation", it).apply()
         },
     )
 }

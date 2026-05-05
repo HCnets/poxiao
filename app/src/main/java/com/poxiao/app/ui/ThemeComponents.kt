@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.PoxiaoThemePreset
 import com.poxiao.app.ui.theme.PoxiaoThemeState
 
@@ -35,12 +37,14 @@ internal fun ThemePresetCard(
     onClick: () -> Unit,
 ) {
     val palette = PoxiaoThemeState.palette
+    val hapticManager = rememberHapticManager()
     val previewColors = when (preset) {
         PoxiaoThemePreset.Forest -> listOf(Color(0xFF2F7553), Color(0xFF8FBA75), Color(0xFFC8A95D))
         PoxiaoThemePreset.Aero -> listOf(Color(0xFF38A9D9), Color(0xFF7FD77E), Color(0xFFB8EEFF))
         PoxiaoThemePreset.Ink -> listOf(Color(0xFF3F6A60), Color(0xFF9F7A4C), Color(0xFFF7F3EB))
         PoxiaoThemePreset.Sunset -> listOf(Color(0xFFDD6B4D), Color(0xFFF0B257), Color(0xFFFFD8C2))
         PoxiaoThemePreset.Night -> listOf(Color(0xFF57D6E8), Color(0xFF9D85FF), Color(0xFF182B46))
+        PoxiaoThemePreset.Dynamic -> listOf(Color(0xFF8FBA75), Color(0xFF38A9D9), Color(0xFF57D6E8))
     }
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -51,7 +55,7 @@ internal fun ThemePresetCard(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .bouncyClick(hapticManager = hapticManager, onClick = onClick),
     ) {
         Row(
             modifier = Modifier

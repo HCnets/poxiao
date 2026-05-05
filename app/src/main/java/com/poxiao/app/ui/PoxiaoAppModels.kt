@@ -10,6 +10,8 @@ internal data class PoxiaoAppUiState(
     val customBlur: Float,
     val customGlow: Float,
     val customAlpha: Float,
+    val customHueOffset: Float,
+    val customSaturation: Float,
     val onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     val onDensityPresetChange: (UiDensityPreset) -> Unit,
     val onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
@@ -17,4 +19,6 @@ internal data class PoxiaoAppUiState(
     val onCustomBlurChange: (Float) -> Unit,
     val onCustomGlowChange: (Float) -> Unit,
     val onCustomAlphaChange: (Float) -> Unit,
+    val onCustomHueOffsetChange: (Float) -> Unit,
+    val onCustomSaturationChange: (Float) -> Unit,
 )

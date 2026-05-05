@@ -12,15 +12,17 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.poxiao.app.calculator.ScientificCalculatorScreen
 import com.poxiao.app.campus.CampusMapScreen
 import com.poxiao.app.campus.CampusServicesScreen
-import com.poxiao.app.calculator.ScientificCalculatorScreen
 import com.poxiao.app.insights.LearningDashboardScreen
 import com.poxiao.app.notes.CourseNotesScreen
 import com.poxiao.app.reports.ExportCenterScreen
 import com.poxiao.app.review.ReviewPlannerScreen
 import com.poxiao.app.settings.NotificationPreferencesScreen
 import com.poxiao.app.ui.theme.PoxiaoThemePreset
+import com.poxiao.app.ui.EditionCapabilities
+import com.poxiao.app.ui.LocalEditionCapabilities
 
 @Composable
 internal fun PoxiaoAppScaffoldScene(
@@ -32,6 +34,8 @@ internal fun PoxiaoAppScaffoldScene(
     customBlur: Float,
     customGlow: Float,
     customAlpha: Float,
+    customHueOffset: Float,
+    customSaturation: Float,
     onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     onDensityPresetChange: (UiDensityPreset) -> Unit,
     onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
@@ -39,6 +43,8 @@ internal fun PoxiaoAppScaffoldScene(
     onCustomBlurChange: (Float) -> Unit,
     onCustomGlowChange: (Float) -> Unit,
     onCustomAlphaChange: (Float) -> Unit,
+    onCustomHueOffsetChange: (Float) -> Unit,
+    onCustomSaturationChange: (Float) -> Unit,
     capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     with(scaffoldState) {
@@ -53,6 +59,8 @@ internal fun PoxiaoAppScaffoldScene(
                     customBlur = customBlur,
                     customGlow = customGlow,
                     customAlpha = customAlpha,
+                    customHueOffset = customHueOffset,
+                    customSaturation = customSaturation,
                     onThemePresetChange = onThemePresetChange,
                     onDensityPresetChange = onDensityPresetChange,
                     onGlassStrengthChange = onGlassStrengthChange,
@@ -60,6 +68,8 @@ internal fun PoxiaoAppScaffoldScene(
                     onCustomBlurChange = onCustomBlurChange,
                     onCustomGlowChange = onCustomGlowChange,
                     onCustomAlphaChange = onCustomAlphaChange,
+                    onCustomHueOffsetChange = onCustomHueOffsetChange,
+                    onCustomSaturationChange = onCustomSaturationChange,
                     capabilities = capabilities,
                 )
             } else {
@@ -101,6 +111,8 @@ internal fun PoxiaoOverlayHost(
     customBlur: Float,
     customGlow: Float,
     customAlpha: Float,
+    customHueOffset: Float,
+    customSaturation: Float,
     onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     onDensityPresetChange: (UiDensityPreset) -> Unit,
     onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
@@ -108,6 +120,8 @@ internal fun PoxiaoOverlayHost(
     onCustomBlurChange: (Float) -> Unit,
     onCustomGlowChange: (Float) -> Unit,
     onCustomAlphaChange: (Float) -> Unit,
+    onCustomHueOffsetChange: (Float) -> Unit,
+    onCustomSaturationChange: (Float) -> Unit,
     capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     with(scaffoldState) {
@@ -174,6 +188,8 @@ internal fun PoxiaoOverlayHost(
                 customBlur = customBlur,
                 customGlow = customGlow,
                 customAlpha = customAlpha,
+                customHueOffset = customHueOffset,
+                customSaturation = customSaturation,
                 onSelectPreset = onThemePresetChange,
                 onSelectDensity = onDensityPresetChange,
                 onSelectGlassStrength = onGlassStrengthChange,
@@ -181,6 +197,8 @@ internal fun PoxiaoOverlayHost(
                 onCustomBlurChange = onCustomBlurChange,
                 onCustomGlowChange = onCustomGlowChange,
                 onCustomAlphaChange = onCustomAlphaChange,
+                onCustomHueOffsetChange = onCustomHueOffsetChange,
+                onCustomSaturationChange = onCustomSaturationChange,
                 onBack = scaffoldState::closeOverlay,
             )
             OverlayPage.AssistantPermissions -> AssistantPermissionScreen(

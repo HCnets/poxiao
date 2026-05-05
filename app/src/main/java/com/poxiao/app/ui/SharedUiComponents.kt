@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.PineInk
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.PoxiaoThemeState
 
 @Composable
@@ -186,6 +188,7 @@ internal fun ActionPill(
 ) {
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
+    val hapticManager = rememberHapticManager()
     val staticGlass = LocalStaticGlassMode.current
     val textColor = if (background.red * 0.299f + background.green * 0.587f + background.blue * 0.114f > 0.62f) {
         palette.ink
@@ -197,7 +200,7 @@ internal fun ActionPill(
             shape = RoundedCornerShape(22.dp * densityPreset.scale),
             color = background.copy(alpha = 0.22f),
             border = androidx.compose.foundation.BorderStroke(1.dp, background.copy(alpha = 0.28f)),
-            modifier = modifier.clickable(onClick = onClick),
+            modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
         ) {
             Box(
                 modifier = Modifier.padding(
@@ -216,7 +219,7 @@ internal fun ActionPill(
         }
     } else {
         LiquidGlassSurface(
-            modifier = modifier.clickable(onClick = onClick),
+            modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
             cornerRadius = 22.dp * densityPreset.scale,
             contentPadding = PaddingValues(
                 horizontal = 14.dp * densityPreset.scale,
@@ -274,6 +277,7 @@ internal fun WheelPicker(
             ) {
                 items(values) { value ->
                     val active = value == selected
+                    val hapticManager = rememberHapticManager()
                     Surface(
                         shape = RoundedCornerShape(18.dp * densityPreset.scale),
                         color = if (active) palette.primary else palette.card.copy(alpha = 0.72f),
@@ -283,7 +287,7 @@ internal fun WheelPicker(
                         ),
                         modifier = Modifier
                             .padding(horizontal = 12.dp * densityPreset.scale)
-                            .clickable { onSelect(value) },
+                            .bouncyClick(hapticManager = hapticManager) { onSelect(value) },
                     ) {
                         Box(
                             modifier = Modifier
@@ -332,6 +336,7 @@ internal fun SelectionChip(
 ) {
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
+    val hapticManager = rememberHapticManager()
     Surface(
         shape = RoundedCornerShape(16.dp * densityPreset.scale),
         color = if (chosen) palette.primary else palette.card.copy(alpha = 0.6f),
@@ -339,7 +344,7 @@ internal fun SelectionChip(
             1.dp,
             if (chosen) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.54f),
         ),
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
     ) {
         Box(
             modifier = Modifier.padding(horizontal = 10.dp * densityPreset.scale, vertical = 6.dp * densityPreset.scale),
