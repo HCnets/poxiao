@@ -6,7 +6,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.poxiao.app.ui.theme.PoxiaoTheme
-import com.poxiao.app.ui.interactions.GyroScopeProvider
 import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.EditionCapabilities
 import com.poxiao.app.ui.editionCapabilitiesFromBuildConfig

@@ -9,6 +9,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import java.time.LocalTime
 
 import android.graphics.Color as AndroidColor
 
@@ -163,8 +165,6 @@ private val NightPalette = PoxiaoPalette(
     islandStart = Color(0xCC112038),
     islandEnd = Color(0xCC1D355A),
 )
-
-import java.time.LocalTime
 
 private fun paletteFor(preset: PoxiaoThemePreset): PoxiaoPalette {
     return when (preset) {
