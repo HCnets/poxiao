@@ -1,6 +1,6 @@
 package com.poxiao.app.ui
 
-internal enum class HomeModule(
+public enum class HomeModule(
     val title: String,
 ) {
     Metrics("核心指标"),
@@ -11,7 +11,7 @@ internal enum class HomeModule(
     Assistant("智能体"),
 }
 
-internal enum class HomeModuleSize(
+public enum class HomeModuleSize(
     val title: String,
 ) {
     Compact("紧凑"),

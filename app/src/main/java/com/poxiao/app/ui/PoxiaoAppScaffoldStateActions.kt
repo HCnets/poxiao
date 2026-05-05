@@ -106,8 +106,8 @@ internal fun PoxiaoAppScaffoldState.openScheduleExamWeek() {
     section = PrimarySection.Schedule
 }
 
-internal fun PoxiaoAppScaffoldState.openTodoPending() {
-    todoEntryFilter = TodoFilter.All
+internal fun PoxiaoAppScaffoldState.openTodoPending(filter: TodoFilter = TodoFilter.All) {
+    todoEntryFilter = filter
     section = PrimarySection.Todo
 }
 

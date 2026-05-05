@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -79,7 +81,13 @@ internal fun ScheduleScreen(
     initialWorkbench: ScheduleWorkbench = ScheduleWorkbench.Timetable,
     onOpenAcademicAccount: () -> Unit = {},
     onOpenCourseNotes: (CourseNoteSeed) -> Unit = {},
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
+    if (!capabilities.canShowSchedule) {
+        ScheduleDisabledPlaceholder(onBack = onOpenAcademicAccount)
+        return
+    }
+
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("schedule_auth", 0) }
     val todoPrefs = remember { context.getSharedPreferences("todo_board", Context.MODE_PRIVATE) }
@@ -484,6 +492,48 @@ internal fun ScheduleScreen(
 }
 
 @Composable
+private fun ScheduleDisabledPlaceholder(
+    onBack: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WarmMist),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text(
+                text = "📅",
+                style = MaterialTheme.typography.displayLarge
+            )
+            Text(
+                text = "当前版本未启用教务功能",
+                style = MaterialTheme.typography.titleLarge,
+                color = PineInk
+            )
+            Text(
+                text = "您可以切换到 Academic 或 HITSZ 版本以体验完整的课表与教务联动功能。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = PineInk.copy(alpha = 0.6f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onBack,
+                colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("返回主页", color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
 private fun WeekScheduleCard(
     title: String,
     slots: List<HitaTimeSlot>,
@@ -555,7 +605,7 @@ private fun WeekScheduleCard(
             Text("本周课表分析", style = MaterialTheme.typography.titleMedium, color = PineInk)
             Spacer(modifier = Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                weeklyAnalysis.forEach { item ->
+                for (item in weeklyAnalysis) {
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = Color.White.copy(alpha = 0.2f),
@@ -564,7 +614,7 @@ private fun WeekScheduleCard(
                         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(item.dayLabel, style = MaterialTheme.typography.titleSmall, color = PineInk)
                             Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                item.highlights.forEach { label ->
+                                for (label in item.highlights) {
                                     SelectionChip(text = label, chosen = false, onClick = {})
                                 }
                             }
@@ -577,7 +627,7 @@ private fun WeekScheduleCard(
         Text("本周空闲时段", style = MaterialTheme.typography.titleMedium, color = PineInk)
         Spacer(modifier = Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            freeTimeSummary.forEach { item ->
+            for (item in freeTimeSummary) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = Color.White.copy(alpha = 0.2f),
@@ -593,7 +643,7 @@ private fun WeekScheduleCard(
                             Text("${item.freeCount} 个空闲大节", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.7f))
                         }
                         Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            item.labels.forEach { label ->
+                            for (label in item.labels) {
                                 SelectionChip(text = label, chosen = false, onClick = {})
                             }
                         }

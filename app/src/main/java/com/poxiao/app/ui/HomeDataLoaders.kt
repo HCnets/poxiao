@@ -3,9 +3,7 @@ package com.poxiao.app.ui
 import android.content.SharedPreferences
 import com.poxiao.app.data.AssistantContextSummary
 import com.poxiao.app.data.FeedCard
-import com.poxiao.app.schedule.AcademicRepository
-import com.poxiao.app.schedule.AcademicUiState
-import com.poxiao.app.schedule.HitaScheduleRepository
+import com.poxiao.app.schedule.*
 import com.poxiao.app.todo.TodoTask
 import org.json.JSONArray
 
@@ -14,7 +12,7 @@ private const val GradeCacheKey = "grade_cache_v1"
 internal fun loadPrimaryScheduleState(
     primaryPrefs: SharedPreferences,
     fallbackPrefs: SharedPreferences,
-): HitaScheduleUiState? {
+): AcademicUiState? {
     return loadCachedScheduleUiState(primaryPrefs) ?: loadCachedScheduleUiState(fallbackPrefs)
 }
 
@@ -58,6 +56,7 @@ internal fun loadHomeInitialAcademicState(
         if (repository is HitaScheduleRepository) {
             repository.restoreCachedState(cached)
         }
+        // 对于 DisabledAcademicRepository 或其他实现，如果不具备 restoreCachedState 能力，则仅返回缓存值供 UI 展示
         return cached
     }
     return AcademicUiState()

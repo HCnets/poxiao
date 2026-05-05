@@ -5,8 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.poxiao.app.campus.HitaAcademicGateway
-import com.poxiao.app.schedule.AcademicRepository
-import com.poxiao.app.schedule.AcademicUiState
+import com.poxiao.app.schedule.*
 import com.poxiao.app.security.SecurePrefs
 import java.time.LocalDateTime
 

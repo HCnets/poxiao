@@ -1,8 +1,7 @@
 package com.poxiao.app.ui
 
 import com.poxiao.app.review.ReviewItem
-import com.poxiao.app.schedule.AcademicUiState
-import com.poxiao.app.schedule.HitaCourseBlock
+import com.poxiao.app.schedule.*
 import com.poxiao.app.todo.TodoPriority
 import com.poxiao.app.todo.TodoTask
 

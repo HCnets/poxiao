@@ -44,11 +44,18 @@ internal fun rememberPoxiaoAppUiState(
         )
     }
 
+    var customBlur by remember { mutableStateOf(uiPrefs.getFloat("custom_blur", 1f)) }
+    var customGlow by remember { mutableStateOf(uiPrefs.getFloat("custom_glow", 1f)) }
+    var customAlpha by remember { mutableStateOf(uiPrefs.getFloat("custom_alpha", 1f)) }
+
     return PoxiaoAppUiState(
         themePreset = themePreset,
         densityPreset = densityPreset,
         glassStrengthPreset = glassStrengthPreset,
         liquidGlassStylePreset = liquidGlassStylePreset,
+        customBlur = customBlur,
+        customGlow = customGlow,
+        customAlpha = customAlpha,
         onThemePresetChange = {
             themePreset = it
             uiPrefs.edit().putString("theme_preset", it.name).apply()
@@ -64,6 +71,18 @@ internal fun rememberPoxiaoAppUiState(
         onLiquidGlassStyleChange = {
             liquidGlassStylePreset = it
             uiPrefs.edit().putString("liquid_glass_style", it.name).apply()
+        },
+        onCustomBlurChange = {
+            customBlur = it
+            uiPrefs.edit().putFloat("custom_blur", it).apply()
+        },
+        onCustomGlowChange = {
+            customGlow = it
+            uiPrefs.edit().putFloat("custom_glow", it).apply()
+        },
+        onCustomAlphaChange = {
+            customAlpha = it
+            uiPrefs.edit().putFloat("custom_alpha", it).apply()
         },
     )
 }

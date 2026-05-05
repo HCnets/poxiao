@@ -49,7 +49,13 @@ internal fun AcademicAccountScreen(
     repository: AcademicRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
+    if (!capabilities.canShowAcademic) {
+        onBack()
+        return
+    }
+
     val context = LocalContext.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val palette = PoxiaoThemeState.palette

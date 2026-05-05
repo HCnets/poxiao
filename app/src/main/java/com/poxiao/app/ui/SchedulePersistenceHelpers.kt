@@ -1,13 +1,7 @@
 package com.poxiao.app.ui
 
 import android.content.SharedPreferences
-import com.poxiao.app.schedule.AcademicUiState
-import com.poxiao.app.schedule.HitaCourseBlock
-import com.poxiao.app.schedule.HitaTerm
-import com.poxiao.app.schedule.HitaTimeSlot
-import com.poxiao.app.schedule.HitaWeek
-import com.poxiao.app.schedule.HitaWeekDay
-import com.poxiao.app.schedule.HitaWeekSchedule
+import com.poxiao.app.schedule.*
 import org.json.JSONArray
 import org.json.JSONObject
 

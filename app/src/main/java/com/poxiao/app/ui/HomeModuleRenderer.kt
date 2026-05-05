@@ -40,7 +40,7 @@ internal fun HomeModuleRenderer(
     onOpenMap: () -> Unit,
     onOpenScheduleDay: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
     onOpenReviewPlannerSeeded: (ReviewBridgeExecutionSummary) -> Unit,

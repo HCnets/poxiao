@@ -48,9 +48,10 @@ internal fun HomeWelcomeCard(
     pomodoroSubtitle: String,
     onToggleEditMode: () -> Unit,
     onOpenScheduleDay: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenReviewPlanner: () -> Unit,
     onOpenPomodoro: () -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     GlassCard {
         Row(
@@ -90,19 +91,21 @@ internal fun HomeWelcomeCard(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            HomeQuickEntry(
-                title = "今日课表",
-                subtitle = nextCourseSubtitle,
-                accent = ForestGreen,
-                icon = PrimarySection.Schedule.icon,
-                onClick = onOpenScheduleDay,
-            )
+            if (capabilities.canShowSchedule) {
+                HomeQuickEntry(
+                    title = "今日课表",
+                    subtitle = nextCourseSubtitle,
+                    accent = ForestGreen,
+                    icon = PrimarySection.Schedule.icon,
+                    onClick = onOpenScheduleDay,
+                )
+            }
             HomeQuickEntry(
                 title = "待办清单",
                 subtitle = priorityTodoTitle,
                 accent = Ginkgo,
                 icon = PrimarySection.Todo.icon,
-                onClick = onOpenTodoPending,
+                onClick = { onOpenTodoPending(TodoFilter.All) },
             )
             HomeQuickEntry(
                 title = "复习计划",
@@ -133,7 +136,7 @@ internal fun HomeHeroOverviewCard(
     todayTimeline: List<HomeLineData>,
     onOpenScheduleDay: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
 ) {
@@ -170,7 +173,7 @@ internal fun HomeHeroOverviewCard(
                         onClick = {
                             when (heroState.badge) {
                                 "今日复习" -> onOpenReviewPlanner()
-                                "高优先待办" -> onOpenTodoPending()
+                                "高优先待办" -> onOpenTodoPending(TodoFilter.Focus)
                                 "下一门课" -> onOpenScheduleDay()
                                 "专注目标" -> onOpenPomodoro()
                             }
@@ -246,8 +249,8 @@ internal fun HomeHeroOverviewCard(
                                             "今日课程" -> onOpenScheduleDay()
                                             "考试周" -> onOpenScheduleExamWeek()
                                             "今日复习" -> onOpenReviewPlanner()
-                                            "待办优先" -> onOpenTodoPending()
-                                            "专注目标" -> onOpenTodoPending()
+                                            "待办优先" -> onOpenTodoPending(TodoFilter.Focus)
+                                            "专注目标" -> onOpenTodoPending(TodoFilter.Focus)
                                             "专注绑定" -> onOpenPomodoro()
                                             "专注趋势" -> onOpenPomodoro()
                                         }
@@ -280,6 +283,7 @@ internal fun HomeSearchPanel(
     onClearHistory: () -> Unit,
     onSelectKeyword: (String) -> Unit,
     onResultClick: (HomeSearchResult) -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     GlassCard {
         Row(
@@ -293,7 +297,7 @@ internal fun HomeSearchPanel(
             ) {
                 Text("快速检索", style = MaterialTheme.typography.titleLarge, color = PineInk)
                 Text(
-                    "课程、待办、成绩和教学楼统一搜索，不用再来回翻页面。",
+                    if (capabilities.canShowAcademic) "课程、待办、成绩和教学楼统一搜索，不用再来回翻页面。" else "待办、笔记和楼栋统一搜索，高效定位任务。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = ForestDeep.copy(alpha = 0.68f),
                 )
@@ -304,7 +308,7 @@ internal fun HomeSearchPanel(
                 border = BorderStroke(1.dp, heroAccent.copy(alpha = 0.24f)),
             ) {
                 Text(
-                    text = if (searchQuery.isBlank()) "就绪" else "${(localSearchResults.size + gradeSearchResults.size).coerceAtMost(8)} 条",
+                    text = if (searchQuery.isBlank()) "就绪" else "${(localSearchResults.size + (if (capabilities.canShowAcademic) gradeSearchResults.size else 0)).coerceAtMost(8)} 条",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelLarge,
                     color = heroAccent,
@@ -315,7 +319,7 @@ internal fun HomeSearchPanel(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
-            label = { Text("搜索课程、待办、成绩、教学楼") },
+            label = { Text(if (capabilities.canShowAcademic) "搜索课程、待办、成绩、教学楼" else "搜索待办、笔记、教学楼") },
             shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -348,10 +352,10 @@ internal fun HomeSearchPanel(
         }
         if (searchQuery.isNotBlank()) {
             Spacer(modifier = Modifier.height(12.dp))
-            val mergedResults = localSearchResults + gradeSearchResults
+            val mergedResults = if (capabilities.canShowAcademic) localSearchResults + gradeSearchResults else localSearchResults
             if (mergedResults.isEmpty()) {
                 Text(
-                    text = if (gradeSearchLoading) "正在整理搜索结果..." else gradeSearchStatus.ifBlank { "当前没有匹配结果。" },
+                    text = if (capabilities.canShowAcademic && gradeSearchLoading) "正在整理搜索结果..." else gradeSearchStatus.ifBlank { "当前没有匹配结果。" },
                     style = MaterialTheme.typography.bodyMedium,
                     color = ForestDeep.copy(alpha = 0.72f),
                 )
@@ -365,7 +369,7 @@ internal fun HomeSearchPanel(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-                if (gradeSearchStatus.isNotBlank() && gradeSearchResults.isEmpty()) {
+                if (capabilities.canShowAcademic && gradeSearchStatus.isNotBlank() && gradeSearchResults.isEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(gradeSearchStatus, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.68f))
                 }

@@ -29,10 +29,17 @@ internal fun PoxiaoAppScaffoldScene(
     densityPreset: UiDensityPreset,
     glassStrengthPreset: GlassStrengthPreset,
     liquidGlassStylePreset: LiquidGlassStylePreset,
+    customBlur: Float,
+    customGlow: Float,
+    customAlpha: Float,
     onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     onDensityPresetChange: (UiDensityPreset) -> Unit,
     onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
     onLiquidGlassStyleChange: (LiquidGlassStylePreset) -> Unit,
+    onCustomBlurChange: (Float) -> Unit,
+    onCustomGlowChange: (Float) -> Unit,
+    onCustomAlphaChange: (Float) -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     with(scaffoldState) {
         LiquidGlassScene(modifier = Modifier.fillMaxSize()) {
@@ -43,10 +50,17 @@ internal fun PoxiaoAppScaffoldScene(
                     densityPreset = densityPreset,
                     glassStrengthPreset = glassStrengthPreset,
                     liquidGlassStylePreset = liquidGlassStylePreset,
+                    customBlur = customBlur,
+                    customGlow = customGlow,
+                    customAlpha = customAlpha,
                     onThemePresetChange = onThemePresetChange,
                     onDensityPresetChange = onDensityPresetChange,
                     onGlassStrengthChange = onGlassStrengthChange,
                     onLiquidGlassStyleChange = onLiquidGlassStyleChange,
+                    onCustomBlurChange = onCustomBlurChange,
+                    onCustomGlowChange = onCustomGlowChange,
+                    onCustomAlphaChange = onCustomAlphaChange,
+                    capabilities = capabilities,
                 )
             } else {
                 PoxiaoSectionHost(scaffoldState)
@@ -84,27 +98,40 @@ internal fun PoxiaoOverlayHost(
     densityPreset: UiDensityPreset,
     glassStrengthPreset: GlassStrengthPreset,
     liquidGlassStylePreset: LiquidGlassStylePreset,
+    customBlur: Float,
+    customGlow: Float,
+    customAlpha: Float,
     onThemePresetChange: (PoxiaoThemePreset) -> Unit,
     onDensityPresetChange: (UiDensityPreset) -> Unit,
     onGlassStrengthChange: (GlassStrengthPreset) -> Unit,
     onLiquidGlassStyleChange: (LiquidGlassStylePreset) -> Unit,
+    onCustomBlurChange: (Float) -> Unit,
+    onCustomGlowChange: (Float) -> Unit,
+    onCustomAlphaChange: (Float) -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     with(scaffoldState) {
         when (overlayPage) {
-            OverlayPage.CampusServices -> CampusServicesScreen(
-                modifier = Modifier.fillMaxSize(),
-                onBack = scaffoldState::closeOverlay,
-                onOpenMap = scaffoldState::openCampusMap,
-            )
-            OverlayPage.CampusMap -> CampusMapScreen(
-                modifier = Modifier.fillMaxSize(),
-                onBack = scaffoldState::closeOverlay,
-            )
-            OverlayPage.AcademicAccount -> AcademicAccountScreen(
-                repository = repository,
-                modifier = Modifier.fillMaxSize(),
-                onBack = scaffoldState::closeOverlay,
-            )
+            OverlayPage.CampusServices -> if (capabilities.canShowCampus) {
+                CampusServicesScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onBack = scaffoldState::closeOverlay,
+                    onOpenMap = scaffoldState::openCampusMap,
+                )
+            }
+            OverlayPage.CampusMap -> if (capabilities.canShowCampus) {
+                CampusMapScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onBack = scaffoldState::closeOverlay,
+                )
+            }
+            OverlayPage.AcademicAccount -> if (capabilities.canShowAcademic) {
+                AcademicAccountScreen(
+                    repository = repository,
+                    modifier = Modifier.fillMaxSize(),
+                    onBack = scaffoldState::closeOverlay,
+                )
+            }
             OverlayPage.Calculator -> ScientificCalculatorScreen(
                 modifier = Modifier.fillMaxSize(),
                 onBack = scaffoldState::closeOverlay,
@@ -126,14 +153,17 @@ internal fun PoxiaoOverlayHost(
                 modifier = Modifier.fillMaxSize(),
                 onBack = scaffoldState::closeOverlay,
             )
-            OverlayPage.LearningDashboard -> LearningDashboardScreen(
-                modifier = Modifier.fillMaxSize(),
-                onOpenExportCenter = scaffoldState::openExportCenter,
-                onBack = scaffoldState::closeOverlay,
-            )
+            OverlayPage.LearningDashboard -> if (capabilities.canShowInsights) {
+                LearningDashboardScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onOpenExportCenter = scaffoldState::openExportCenter,
+                    onBack = scaffoldState::closeOverlay,
+                )
+            }
             OverlayPage.ExportCenter -> ExportCenterScreen(
                 modifier = Modifier.fillMaxSize(),
                 onBack = scaffoldState::closeOverlay,
+                capabilities = capabilities,
             )
             OverlayPage.Preferences -> PreferencesScreen(
                 modifier = Modifier.fillMaxSize(),
@@ -141,13 +171,20 @@ internal fun PoxiaoOverlayHost(
                 currentDensity = densityPreset,
                 currentGlassStrength = glassStrengthPreset,
                 currentGlassStyle = liquidGlassStylePreset,
+                customBlur = customBlur,
+                customGlow = customGlow,
+                customAlpha = customAlpha,
                 onSelectPreset = onThemePresetChange,
                 onSelectDensity = onDensityPresetChange,
                 onSelectGlassStrength = onGlassStrengthChange,
                 onSelectGlassStyle = onLiquidGlassStyleChange,
+                onCustomBlurChange = onCustomBlurChange,
+                onCustomGlowChange = onCustomGlowChange,
+                onCustomAlphaChange = onCustomAlphaChange,
                 onBack = scaffoldState::closeOverlay,
             )
             OverlayPage.AssistantPermissions -> AssistantPermissionScreen(
+                repository = repository,
                 modifier = Modifier.fillMaxSize(),
                 onBack = scaffoldState::closeOverlay,
             )
@@ -174,13 +211,15 @@ internal fun PoxiaoSectionHost(
                     Box(modifier = sectionModifier) {
                         when (residentSection) {
                             PrimarySection.Home -> HomeScreen(
+                                active = isCurrentSection,
+                                repository = repository,
                                 initialAssistantHistoryFocusAt = assistantHistoryFocusAt,
                                 onAssistantHistoryFocusConsumed = scaffoldState::consumeAssistantHistoryFocus,
                                 onOpenMap = scaffoldState::openCampusMap,
                                 onOpenScheduleDay = scaffoldState::openScheduleDay,
                                 onOpenScheduleExamWeek = scaffoldState::openScheduleExamWeek,
                                 onOpenCampusServices = scaffoldState::openCampusServices,
-                                onOpenTodoPending = scaffoldState::openTodoPending,
+                                onOpenTodoPending = { scaffoldState.openTodoPending(it) },
                                 onOpenPomodoro = scaffoldState::openPomodoro,
                                 onOpenReviewPlanner = scaffoldState::openReviewPlanner,
                                 onOpenReviewPlannerSeeded = scaffoldState::openReviewPlanner,

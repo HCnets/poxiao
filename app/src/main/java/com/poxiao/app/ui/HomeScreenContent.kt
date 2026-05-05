@@ -31,7 +31,7 @@ internal fun HomeScreenContent(
     renderHomeModule: @Composable (HomeModule, androidx.compose.ui.Modifier, Boolean) -> Unit,
     onToggleEditMode: () -> Unit,
     onOpenScheduleDay: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenReviewPlanner: () -> Unit,
     onOpenPomodoro: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
@@ -46,6 +46,7 @@ internal fun HomeScreenContent(
     onDragEnd: () -> Unit,
     onDragMove: (HomeModule, Float) -> Unit,
     onSelectModuleSize: (HomeModule, HomeModuleSize) -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     ScreenColumn {
         item {
@@ -61,6 +62,7 @@ internal fun HomeScreenContent(
                 onOpenTodoPending = onOpenTodoPending,
                 onOpenReviewPlanner = onOpenReviewPlanner,
                 onOpenPomodoro = onOpenPomodoro,
+                capabilities = capabilities,
             )
         }
         item {
@@ -94,6 +96,7 @@ internal fun HomeScreenContent(
                 onClearHistory = onClearHistory,
                 onSelectKeyword = onSelectKeyword,
                 onResultClick = onSearchResultClick,
+                capabilities = capabilities,
             )
         }
         item {

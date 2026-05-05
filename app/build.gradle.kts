@@ -78,16 +78,38 @@ android {
         )
     }
 
-    flavorDimensions += "school"
+    flavorDimensions += "edition"
     productFlavors {
         create("hitsz") {
-            dimension = "school"
-            // 默认渠道，保持原包名
+            dimension = "edition"
+            buildConfigField("String", "APP_EDITION", "\"hitsz\"")
+            buildConfigField("boolean", "ENABLE_ACADEMIC", "true")
+            buildConfigField("boolean", "ENABLE_CAMPUS_SERVICES", "true")
+            buildConfigField("boolean", "ENABLE_CAMPUS_MAP", "true")
+            buildConfigField("boolean", "ENABLE_GRADE_SEARCH", "true")
+            resValue("string", "app_name", "南工破晓 (HITSZ)")
         }
-        create("generic") {
-            dimension = "school"
-            applicationIdSuffix = ".generic"
-            versionNameSuffix = "-generic"
+        create("academic") {
+            dimension = "edition"
+            applicationIdSuffix = ".academic"
+            versionNameSuffix = "-academic"
+            buildConfigField("String", "APP_EDITION", "\"academic\"")
+            buildConfigField("boolean", "ENABLE_ACADEMIC", "true")
+            buildConfigField("boolean", "ENABLE_CAMPUS_SERVICES", "false")
+            buildConfigField("boolean", "ENABLE_CAMPUS_MAP", "false")
+            buildConfigField("boolean", "ENABLE_GRADE_SEARCH", "true")
+            resValue("string", "app_name", "南工破晓 (Academic)")
+        }
+        create("lite") {
+            dimension = "edition"
+            applicationIdSuffix = ".lite"
+            versionNameSuffix = "-lite"
+            buildConfigField("String", "APP_EDITION", "\"lite\"")
+            buildConfigField("boolean", "ENABLE_ACADEMIC", "false")
+            buildConfigField("boolean", "ENABLE_CAMPUS_SERVICES", "false")
+            buildConfigField("boolean", "ENABLE_CAMPUS_MAP", "false")
+            buildConfigField("boolean", "ENABLE_GRADE_SEARCH", "false")
+            resValue("string", "app_name", "南工破晓 (Lite)")
         }
     }
 

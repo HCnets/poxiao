@@ -67,6 +67,7 @@ internal fun BottomDock(
     current: PrimarySection,
     onSelect: (PrimarySection) -> Unit,
     modifier: Modifier = Modifier,
+    items: List<PrimarySection> = emptyList(),
 ) {
     val densityPreset = LocalUiDensityPreset.current
     val palette = PoxiaoThemeState.palette
@@ -89,18 +90,14 @@ internal fun BottomDock(
         LiquidGlassStylePreset.IOS -> Color.White.copy(alpha = 0.025f)
         LiquidGlassStylePreset.Hyper -> palette.secondary.copy(alpha = 0.1f)
     }
-    val items = remember {
-        listOf(
-            PrimarySection.Schedule,
-            PrimarySection.Todo,
-            PrimarySection.Home,
-            PrimarySection.Pomodoro,
-            PrimarySection.More,
-        )
-    }
+    
     var visualCurrent by remember { mutableStateOf(current) }
     var transitionFrom by remember { mutableStateOf(current) }
-    val itemWeights = remember { listOf(1f, 1f, 1.42f, 1f, 1f) }
+    
+    val itemWeights = remember(items) {
+        items.map { if (it == PrimarySection.Home) 1.42f else 1f }
+    }
+
     LaunchedEffect(current) {
         if (visualCurrent != current) {
             visualCurrent = current

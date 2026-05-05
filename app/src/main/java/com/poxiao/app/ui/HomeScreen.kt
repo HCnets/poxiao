@@ -168,10 +168,7 @@ import com.poxiao.app.notes.CourseNotesScreen
 import com.poxiao.app.pomodoro.NoisePlayer
 import com.poxiao.app.notifications.LocalReminderReceiver
 import com.poxiao.app.reports.ExportCenterScreen
-import com.poxiao.app.review.ReviewPlannerScreen
-import com.poxiao.app.review.ReviewPlannerSeed
-import com.poxiao.app.review.ReviewPlannerSeed
-import com.poxiao.app.review.ReviewPlannerStore
+import com.poxiao.app.review.*
 import com.poxiao.app.settings.NotificationPreferencesScreen
 import com.poxiao.app.schedule.AcademicRepository
 import com.poxiao.app.schedule.AcademicUiState
@@ -220,13 +217,15 @@ import kotlinx.coroutines.withContext
 import java.io.File
 @Composable
 internal fun HomeScreen(
+    active: Boolean,
+    repository: AcademicRepository,
     initialAssistantHistoryFocusAt: Long?,
     onAssistantHistoryFocusConsumed: () -> Unit,
     onOpenMap: () -> Unit,
     onOpenScheduleDay: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
     onOpenCampusServices: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
     onOpenReviewPlannerSeeded: (ReviewPlannerSeed) -> Unit,
@@ -235,7 +234,8 @@ internal fun HomeScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val homeDependencies = rememberHomeDependencies(context)
+    val capabilities = LocalEditionCapabilities.current
+    val homeDependencies = rememberHomeDependencies(context, repository)
     val gateway = homeDependencies.gateway
     val mapPrefs = homeDependencies.prefs.mapPrefs
     val homePrefs = homeDependencies.prefs.homePrefs
@@ -288,8 +288,20 @@ internal fun HomeScreen(
     val moduleSizes = workbenchUiState.moduleSizes
     val favoritePoints = remember(mapPrefs) { loadHomeFavoritePoints(mapPrefs) }
     val recentPoints = remember(mapPrefs) { loadHomeRecentPoints(mapPrefs) }
-    val cachedSchedule = remember { loadPrimaryScheduleState(authPrefs, schedulePrefs) }
-    val scheduleEvents = remember { loadPrimaryScheduleEvents(authPrefs, schedulePrefs) }
+    val cachedSchedule = remember(authPrefs, schedulePrefs, capabilities.canShowSchedule) {
+        if (capabilities.canShowSchedule) {
+            loadPrimaryScheduleState(authPrefs, schedulePrefs)
+        } else {
+            null
+        }
+    }
+    val scheduleEvents = remember(capabilities.canShowSchedule) {
+        if (capabilities.canShowSchedule) {
+            loadPrimaryScheduleEvents(authPrefs, schedulePrefs)
+        } else {
+            emptyList()
+        }
+    }
     val todoTasks = remember { loadTodoTasks(todoPrefs) }
     val courseNotes = remember { noteStore.loadNotes() }
     val reviewItems = remember { reviewStore.loadItems() }
@@ -335,7 +347,8 @@ internal fun HomeScreen(
         focusedMinutes,
         boundTask,
         gradeSearchCards.size,
-    ) { summaryProvider.loadSummaries() }
+        capabilities,
+    ) { summaryProvider.loadSummaries(capabilities) }
     var reviewExecutionSummary by assistantUiState.reviewExecutionSummary
     var reviewExecutionHistory by assistantUiState.reviewExecutionHistory
     var expandedReviewExecutionAt by assistantUiState.expandedReviewExecutionAt
@@ -344,7 +357,9 @@ internal fun HomeScreen(
         onExpandedReviewExecutionAtChange = { expandedReviewExecutionAt = it },
         onAssistantHistoryFocusConsumed = onAssistantHistoryFocusConsumed,
     )
-    val assistantTools = remember(assistantPermissionState) { toolKit.availableTools(assistantPermissionState) }
+    val assistantTools = remember(assistantPermissionState, capabilities) {
+        toolKit.availableTools(assistantPermissionState, capabilities)
+    }
     val todayLabel = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日")) }
     val buildingCandidates = remember(mapPrefs) { loadHomeBuildingCandidates(mapPrefs) }
     val todayTimeline = remember(nextCourse, priorityTodo, pendingGoalTodo, boundTask, urgentExamItem, urgentReviewItem, topFocusTask) {
@@ -393,14 +408,16 @@ internal fun HomeScreen(
             cachedCards = cachedGradeCards,
         )
     }
-    HomeGradeSearchEffect(
-        searchQuery = searchQuery,
-        authPrefs = authPrefs,
-        campusPrefs = campusPrefs,
-        onLoadingChange = { gradeSearchLoading = it },
-        onStatusChange = { gradeSearchStatus = it },
-        onCardsChange = { gradeSearchCards = it },
-    )
+    if (capabilities.canShowAcademic) {
+        HomeGradeSearchEffect(
+            searchQuery = searchQuery,
+            authPrefs = authPrefs,
+            campusPrefs = campusPrefs,
+            onLoadingChange = { gradeSearchLoading = it },
+            onStatusChange = { gradeSearchStatus = it },
+            onCardsChange = { gradeSearchCards = it },
+        )
+    }
     val activeConversation = conversations.firstOrNull { it.id == activeConversationId } ?: conversations.first()
     HomeAssistantDraftEffect(
         activeConversationId = activeConversationId,
@@ -468,6 +485,7 @@ internal fun HomeScreen(
             assistantUiState = assistantUiState,
             assistantSummaries = assistantSummaries,
             assistantTools = assistantTools,
+            capabilities = capabilities,
         )
     }
     val moduleActions = HomeModuleActionPack(
@@ -506,54 +524,66 @@ internal fun HomeScreen(
     )
     val moduleRows = buildHomeModuleRows(visibleModules, moduleSizes)
     val renderHomeModule: @Composable (HomeModule, Modifier, Boolean) -> Unit = { module, modifier, paired ->
-        HomeModuleRenderer(
-            module = module,
-            modifier = modifier,
-            paired = paired,
-            moduleSizes = moduleSizes,
-            collapsedModules = collapsedModules,
-            todayClassCount = todayClassCount,
-            pendingExamItems = pendingExamItems,
-            pendingTodoCount = pendingTodoCount,
-            focusedMinutes = focusedMinutes,
-            todayTimeline = todayTimeline,
-            topFocusTask = topFocusTask,
-            pendingReviewItems = pendingReviewItems,
-            urgentReviewItem = urgentReviewItem,
-            pendingGoalTodo = pendingGoalTodo,
-            favoritePoints = favoritePoints,
-            recentPoints = recentPoints,
-            conversations = conversations,
-            activeConversationId = activeConversationId,
-            activeConversation = activeConversation,
-            assistantTools = assistantTools,
-            assistantSummaries = assistantSummaries,
-            reviewExecutionSummary = reviewExecutionSummary,
-            reviewExecutionHistory = reviewExecutionHistory,
-            expandedReviewExecutionAt = expandedReviewExecutionAt,
-            prompt = prompt,
-            assistantBusy = assistantBusy,
-            onToggleModuleCollapsed = moduleActions.onToggleModuleCollapsed,
-            onOpenMap = onOpenMap,
-            onOpenScheduleDay = onOpenScheduleDay,
-            onOpenScheduleExamWeek = onOpenScheduleExamWeek,
-            onOpenTodoPending = onOpenTodoPending,
-            onOpenPomodoro = onOpenPomodoro,
-            onOpenReviewPlanner = onOpenReviewPlanner,
-            onOpenReviewPlannerSeeded = moduleActions.onOpenReviewPlannerSeeded,
-            onOpenAssistantPermissions = onOpenAssistantPermissions,
-            onBindReviewFocus = moduleActions.onBindReviewFocus,
-            onBindGoalTodoFocus = moduleActions.onBindGoalTodoFocus,
-            onSelectConversation = moduleActions.onSelectConversation,
-            onCreateConversation = moduleActions.onCreateConversation,
-            onPromptTool = moduleActions.onPromptTool,
-            onInjectSummary = moduleActions.onInjectSummary,
-            onToggleExecutionExpanded = moduleActions.onToggleExecutionExpanded,
-            onUndoExecution = moduleActions.onUndoExecution,
-            onReplayExecution = moduleActions.onReplayExecution,
-            onPromptChange = moduleActions.onPromptChange,
-            onSend = moduleActions.onSend,
-        )
+        // 过滤不支持的模块
+        val isSupported = when (module) {
+            HomeModule.Metrics -> capabilities.canShowSchedule || capabilities.canShowTodo
+            HomeModule.Rhythm -> true
+            HomeModule.Learning -> true
+            HomeModule.QuickPoints -> capabilities.canShowCampus
+            HomeModule.RecentPoints -> capabilities.canShowCampus
+            HomeModule.Assistant -> true
+        }
+        
+        if (isSupported) {
+            HomeModuleRenderer(
+                module = module,
+                modifier = modifier,
+                paired = paired,
+                moduleSizes = moduleSizes,
+                collapsedModules = collapsedModules,
+                todayClassCount = todayClassCount,
+                pendingExamItems = pendingExamItems,
+                pendingTodoCount = pendingTodoCount,
+                focusedMinutes = focusedMinutes,
+                todayTimeline = todayTimeline,
+                topFocusTask = topFocusTask,
+                pendingReviewItems = pendingReviewItems,
+                urgentReviewItem = urgentReviewItem,
+                pendingGoalTodo = pendingGoalTodo,
+                favoritePoints = favoritePoints,
+                recentPoints = recentPoints,
+                conversations = conversations,
+                activeConversationId = activeConversationId,
+                activeConversation = activeConversation,
+                assistantTools = assistantTools,
+                assistantSummaries = assistantSummaries,
+                reviewExecutionSummary = reviewExecutionSummary,
+                reviewExecutionHistory = reviewExecutionHistory,
+                expandedReviewExecutionAt = expandedReviewExecutionAt,
+                prompt = prompt,
+                assistantBusy = assistantBusy,
+                onToggleModuleCollapsed = moduleActions.onToggleModuleCollapsed,
+                onOpenMap = onOpenMap,
+                onOpenScheduleDay = onOpenScheduleDay,
+                onOpenScheduleExamWeek = onOpenScheduleExamWeek,
+                onOpenTodoPending = onOpenTodoPending,
+                onOpenPomodoro = onOpenPomodoro,
+                onOpenReviewPlanner = onOpenReviewPlanner,
+                onOpenReviewPlannerSeeded = moduleActions.onOpenReviewPlannerSeeded,
+                onOpenAssistantPermissions = onOpenAssistantPermissions,
+                onBindReviewFocus = moduleActions.onBindReviewFocus,
+                onBindGoalTodoFocus = moduleActions.onBindGoalTodoFocus,
+                onSelectConversation = moduleActions.onSelectConversation,
+                onCreateConversation = moduleActions.onCreateConversation,
+                onPromptTool = moduleActions.onPromptTool,
+                onInjectSummary = moduleActions.onInjectSummary,
+                onToggleExecutionExpanded = moduleActions.onToggleExecutionExpanded,
+                onUndoExecution = moduleActions.onUndoExecution,
+                onReplayExecution = moduleActions.onReplayExecution,
+                onPromptChange = moduleActions.onPromptChange,
+                onSend = moduleActions.onSend,
+            )
+        }
     }
 
     HomeScreenContent(
@@ -597,6 +627,7 @@ internal fun HomeScreen(
         onDragEnd = homeContentActions.onDragEnd,
         onDragMove = homeContentActions.onDragMove,
         onSelectModuleSize = homeContentActions.onSelectModuleSize,
+        capabilities = capabilities,
     )
 }
 

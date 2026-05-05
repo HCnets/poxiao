@@ -2,6 +2,7 @@ package com.poxiao.app.ui
 
 import android.content.SharedPreferences
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Apartment
 import androidx.compose.material.icons.rounded.AssignmentTurnedIn
 import androidx.compose.material.icons.rounded.Calculate
@@ -93,38 +94,51 @@ internal fun buildMoreNavigationContent(
     onOpenLearningDashboard: () -> Unit,
     onOpenExportCenter: () -> Unit,
     onOpenPreferences: () -> Unit,
+    capabilities: EditionCapabilities,
 ): MoreNavigationContent {
     return MoreNavigationContent(
-        learningEntries = listOf(
-            MoreNavigationItem(
-                title = "校园服务",
-                icon = Icons.Rounded.Apartment,
-                accent = palette.primary,
-                actionLabel = "进入",
-                onClick = onOpenCampusServices,
-            ),
-            MoreNavigationItem(
-                title = "课程笔记",
-                icon = Icons.Rounded.MenuBook,
-                accent = lerpColor(palette.primary, palette.secondary, 0.28f),
-                actionLabel = "进入",
-                onClick = onOpenCourseNotes,
-            ),
-            MoreNavigationItem(
-                title = "复习计划",
-                icon = Icons.Rounded.AssignmentTurnedIn,
-                accent = lerpColor(palette.primary, palette.secondary, 0.52f),
-                actionLabel = "进入",
-                onClick = onOpenReviewPlanner,
-            ),
-            MoreNavigationItem(
-                title = "学习数据",
-                icon = Icons.Rounded.Insights,
-                accent = palette.secondary,
-                actionLabel = "进入",
-                onClick = onOpenLearningDashboard,
-            ),
-        ),
+        learningEntries = buildList {
+            if (capabilities.canShowCampus) {
+                add(
+                    MoreNavigationItem(
+                        title = "校园服务",
+                        icon = Icons.Rounded.Apartment,
+                        accent = palette.primary,
+                        actionLabel = "进入",
+                        onClick = onOpenCampusServices,
+                    )
+                )
+            }
+            add(
+                MoreNavigationItem(
+                    title = "课程笔记",
+                    icon = Icons.AutoMirrored.Rounded.MenuBook,
+                    accent = lerpColor(palette.primary, palette.secondary, 0.28f),
+                    actionLabel = "进入",
+                    onClick = onOpenCourseNotes,
+                )
+            )
+            add(
+                MoreNavigationItem(
+                    title = "复习计划",
+                    icon = Icons.Rounded.AssignmentTurnedIn,
+                    accent = lerpColor(palette.primary, palette.secondary, 0.52f),
+                    actionLabel = "进入",
+                    onClick = onOpenReviewPlanner,
+                )
+            )
+            if (capabilities.canShowInsights) {
+                add(
+                    MoreNavigationItem(
+                        title = "学习数据",
+                        icon = Icons.Rounded.Insights,
+                        accent = palette.secondary,
+                        actionLabel = "进入",
+                        onClick = onOpenLearningDashboard,
+                    )
+                )
+            }
+        },
         toolEntries = listOf(
             MoreNavigationItem(
                 title = "科学计算器",

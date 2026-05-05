@@ -13,6 +13,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.poxiao.app.notes.CourseNoteSeed
 import com.poxiao.app.review.ReviewPlannerSeed
 import com.poxiao.app.schedule.AcademicRepository
+import com.poxiao.app.schedule.DisabledAcademicRepository
 import com.poxiao.app.schedule.HitaScheduleRepository
 
 internal class PoxiaoAppScaffoldState(
@@ -33,6 +34,7 @@ internal class PoxiaoAppScaffoldState(
     val sectionOrder: List<PrimarySection>,
     val residentSections: SnapshotStateList<PrimarySection>,
     val repository: AcademicRepository,
+    val capabilities: EditionCapabilities,
 ) {
     var pendingDrawerAction by pendingDrawerActionState
     var section by sectionState
@@ -50,17 +52,26 @@ internal class PoxiaoAppScaffoldState(
 }
 
 @Composable
-internal fun rememberPoxiaoAppScaffoldState(): PoxiaoAppScaffoldState {
-    val sectionOrder = remember {
-        listOf(
-            PrimarySection.Home,
-            PrimarySection.Schedule,
-            PrimarySection.Todo,
-            PrimarySection.Pomodoro,
-            PrimarySection.More,
-        )
+internal fun rememberPoxiaoAppScaffoldState(
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
+): PoxiaoAppScaffoldState {
+    val sectionOrder = remember(capabilities) {
+        buildList {
+            add(PrimarySection.Home)
+            if (capabilities.canShowSchedule) {
+                add(PrimarySection.Schedule)
+            }
+            add(PrimarySection.Todo)
+            add(PrimarySection.Pomodoro)
+            add(PrimarySection.More)
+        }
     }
-    return remember {
+    return remember(capabilities) {
+        val initialRepository = if (capabilities.canShowSchedule) {
+            HitaScheduleRepository() // 未来这里可以根据 flavor 注入不同的实现
+        } else {
+            DisabledAcademicRepository()
+        }
         PoxiaoAppScaffoldState(
             pendingDrawerActionState = mutableStateOf(null),
             sectionState = mutableStateOf(PrimarySection.Home),
@@ -78,7 +89,8 @@ internal fun rememberPoxiaoAppScaffoldState(): PoxiaoAppScaffoldState {
             sectionSweepProgress = Animatable(1f),
             sectionOrder = sectionOrder,
             residentSections = mutableStateListOf(PrimarySection.Home),
-            repository = HitaScheduleRepository(),
+            repository = initialRepository,
+            capabilities = capabilities,
         )
     }
 }

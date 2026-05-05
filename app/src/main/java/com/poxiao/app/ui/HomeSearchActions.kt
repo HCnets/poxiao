@@ -10,16 +10,17 @@ internal fun handleHomeSearchResult(
     searchQuery: String,
     onOpenScheduleDay: () -> Unit,
     onOpenCourseNotes: (CourseNoteSeed?) -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenCampusServices: () -> Unit,
     onOpenMap: () -> Unit,
+    capabilities: EditionCapabilities = editionCapabilitiesFromBuildConfig(),
 ) {
     rememberSearchTerm(homePrefs, searchHistory, searchQuery)
     when (result.category) {
-        HomeSearchCategory.Course -> onOpenScheduleDay()
+        HomeSearchCategory.Course -> if (capabilities.canShowSchedule) onOpenScheduleDay()
         HomeSearchCategory.Note -> onOpenCourseNotes(CourseNoteSeed(courseName = result.title))
-        HomeSearchCategory.Todo -> onOpenTodoPending()
-        HomeSearchCategory.Grade -> onOpenCampusServices()
-        HomeSearchCategory.Building -> onOpenMap()
+        HomeSearchCategory.Todo -> onOpenTodoPending(TodoFilter.All)
+        HomeSearchCategory.Grade -> if (capabilities.canShowAcademic) onOpenCampusServices()
+        HomeSearchCategory.Building -> if (capabilities.canShowCampus) onOpenMap()
     }
 }

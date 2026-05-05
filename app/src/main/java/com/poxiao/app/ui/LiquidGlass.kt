@@ -1,5 +1,11 @@
 package com.poxiao.app.ui
 
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -20,7 +26,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,11 +45,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -57,6 +74,93 @@ import kotlin.math.pow
 import kotlin.math.sign
 import kotlin.math.sin
 
+/**
+ * 陀螺仪偏移量数据类
+ */
+data class GyroOffset(
+    val x: Float = 0f,
+    val y: Float = 0f
+)
+
+/**
+ * 全局陀螺仪 CompositionLocal
+ */
+val LocalGyroOffset = staticCompositionLocalOf { GyroOffset() }
+
+@Composable
+fun GyroScopeProvider(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+    val gyroOffset = remember { Animatable(0f) } // 用于平滑处理
+    val xOffset = remember { Animatable(0f) }
+    val yOffset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    
+    // 用于低通滤波的平滑状态
+    var smoothedRoll by remember { mutableStateOf(0f) }
+    var smoothedPitch by remember { mutableStateOf(0f) }
+    
+    // 初始校准参考值
+    var baseRoll by remember { mutableStateOf<Float?>(null) }
+    var basePitch by remember { mutableStateOf<Float?>(null) }
+
+    DisposableEffect(Unit) {
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event == null) return
+                
+                // GRAVITY 传感器返回的是各轴的重力加速度 (m/s^2)
+                val pitch = event.values[1] // Y轴，上下倾斜
+                val roll = event.values[0]  // X轴，左右倾斜 (纠正: 之前误用 values[2] 且未考虑设备平放姿态)
+
+                // 1. 初始化基准面 (首次拿到数据时设定)
+                if (baseRoll == null || basePitch == null) {
+                    baseRoll = roll
+                    basePitch = pitch
+                }
+
+                // 2. 计算相对偏移量
+                val relativeRoll = roll - (baseRoll ?: 0f)
+                val relativePitch = pitch - (basePitch ?: 0f)
+
+                // 3. 低通滤波平滑处理 (去除微小抖动)
+                val alpha = 0.15f // 滤波系数，越小越平滑但延迟越大
+                smoothedRoll = smoothedRoll + alpha * (relativeRoll - smoothedRoll)
+                smoothedPitch = smoothedPitch + alpha * (relativePitch - smoothedPitch)
+                
+                scope.launch {
+                    // 4. 将加速度转换为合理的范围映射 (-1 到 1)，增加阻尼感
+                    val targetX = (smoothedRoll / 6f).coerceIn(-1f, 1f)
+                    val targetY = (smoothedPitch / 6f).coerceIn(-1f, 1f)
+                    
+                    xOffset.animateTo(
+                        targetValue = targetX,
+                        animationSpec = tween(durationMillis = 60, easing = LinearEasing)
+                    )
+                    yOffset.animateTo(
+                        targetValue = targetY,
+                        animationSpec = tween(durationMillis = 60, easing = LinearEasing)
+                    )
+                }
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        
+        val gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
+        sensorManager.registerListener(listener, gravitySensor, SensorManager.SENSOR_DELAY_UI)
+        
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalGyroOffset provides GyroOffset(xOffset.value, yOffset.value)
+    ) {
+        content()
+    }
+}
+
 enum class LiquidGlassStylePreset(
     val title: String,
     val subtitle: String,
@@ -69,8 +173,8 @@ enum class LiquidGlassStylePreset(
     val chromaticAberration: Boolean,
 ) {
     Harmony(
-        title = "HarmonyOS 6",
-        subtitle = "\u67d4\u96fe\u3001\u6e29\u6da6\u3001\u6563\u5c04\u5bbd\uff0c\u66f4\u50cf\u88ab\u5149\u5e73\u94fa\u7684\u6676\u900f\u96fe\u9762\u3002",
+        title = "星辉雾晶 (Aura)",
+        subtitle = "柔雾、温润、散射宽，如星光平铺的通透柔雾面。",
         blurScale = 1.56f,
         refractionScale = 0.54f,
         tintScale = 1.34f,
@@ -80,8 +184,8 @@ enum class LiquidGlassStylePreset(
         chromaticAberration = false,
     ),
     IOS(
-        title = "iOS 26",
-        subtitle = "\u51b7\u767d\u955c\u9762\uff0c\u9876\u90e8\u955c\u9762\u9ad8\u5149\u548c\u8fb9\u7f18\u5207\u5149\u6700\u5f3a\uff0c\u8d28\u611f\u6700\u786c\u6717\u3002",
+        title = "冰川透镜 (Glacier)",
+        subtitle = "冷白纯净，顶部高光和边缘切光最强，质感如冰晶般硬朗。",
         blurScale = 0.82f,
         refractionScale = 2.36f,
         tintScale = 0f,
@@ -91,8 +195,8 @@ enum class LiquidGlassStylePreset(
         chromaticAberration = true,
     ),
     Hyper(
-        title = "HyperOS",
-        subtitle = "\u5f69\u8272\u8fb9\u5149\u3001\u659c\u5411\u6d41\u4f53\u5149\u5e26\u548c\u66f4\u8df3\u7684\u9713\u8679\u62d8\u5149\uff0c\u79d1\u6280\u611f\u6700\u5f3a\u3002",
+        title = "流光霓虹 (Prism)",
+        subtitle = "彩色边光、斜向流体光带，折射出深邃的霓虹光效，科技感最强。",
         blurScale = 0.72f,
         refractionScale = 2.12f,
         tintScale = 1.16f,
@@ -105,6 +209,9 @@ enum class LiquidGlassStylePreset(
 
 val LocalLiquidGlassBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 val LocalLiquidGlassStylePreset = staticCompositionLocalOf { LiquidGlassStylePreset.IOS }
+val LocalCustomBlur = staticCompositionLocalOf { 1f }
+val LocalCustomGlow = staticCompositionLocalOf { 1f }
+val LocalCustomAlpha = staticCompositionLocalOf { 1f }
 
 class SmoothSuperellipseShape(
     private val exponent: Float = 4.6f,
@@ -207,17 +314,32 @@ fun LiquidGlassSurface(
     val shape = shapeOverride ?: defaultShape
     val backdrop = LocalLiquidGlassBackdrop.current
     val stylePreset = LocalLiquidGlassStylePreset.current
-    val styledTint = tint.copy(alpha = (tint.alpha * stylePreset.tintScale).coerceIn(0f, 1f))
-    val styledGlow = glowColor.copy(alpha = (glowColor.alpha * stylePreset.glowScale).coerceIn(0f, 1f))
-    val styledBorder = borderColor.copy(alpha = (borderColor.alpha * stylePreset.edgeScale).coerceIn(0f, 1f))
+    val glassStrength = LocalGlassStrengthPreset.current
+    val customBlurVal = LocalCustomBlur.current
+    val customGlowVal = LocalCustomGlow.current
+    val customAlphaVal = LocalCustomAlpha.current
+    
+    val styledTint = tint.copy(alpha = (tint.alpha * stylePreset.tintScale * glassStrength.cardAlpha * customAlphaVal * 1.15f).coerceIn(0f, 1f)) // 提升基础色浓度
+    val styledGlow = glowColor.copy(alpha = (glowColor.alpha * stylePreset.glowScale * glassStrength.glowScale * customGlowVal).coerceIn(0f, 1f))
+    val styledBorder = borderColor.copy(alpha = (borderColor.alpha * stylePreset.edgeScale * 1.4f).coerceIn(0f, 1f)) // 大幅增强边缘对比度
+
+    val gyroOffset = LocalGyroOffset.current
+    val parallaxModifier = modifier.graphicsLayer {
+        translationX = gyroOffset.x * 12.dp.toPx() // 卡片位移
+        translationY = gyroOffset.y * 12.dp.toPx()
+    }
 
     val modifierWithEffect = if (backdrop != null) {
-        modifier.drawBackdrop(
+        parallaxModifier.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
             effects = {
                 vibrancy()
-                blur(blurRadius.toPx() * stylePreset.blurScale)
+                // 动态雾度：透明度越低，雾度越高以维持文字可视度
+                val baseBlur = blurRadius.toPx() * stylePreset.blurScale * customBlurVal
+                val strengthFactor = (1.2f - glassStrength.cardAlpha * customAlphaVal).coerceIn(0.5f, 2.0f)
+                blur(baseBlur * strengthFactor) 
+                
                 lens(
                     refractionHeight = refractionHeight.toPx(),
                     refractionAmount = refractionAmount.toPx() * stylePreset.refractionScale,
@@ -227,59 +349,15 @@ fun LiquidGlassSurface(
             },
             highlight = {
                 Highlight.Ambient.copy(
-                    width = (1.4f * stylePreset.edgeScale).dp,
-                    blurRadius = (18f * stylePreset.edgeScale).dp,
-                    alpha = highlightAlpha,
-                )
-            },
-            shadow = {
-                Shadow(
-                    radius = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> 28.dp
-                        LiquidGlassStylePreset.IOS -> 26.dp
-                        LiquidGlassStylePreset.Hyper -> 30.dp
-                    },
-                    offset = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> DpOffset(0.dp, 10.dp)
-                        LiquidGlassStylePreset.IOS -> DpOffset(0.dp, 10.dp)
-                        LiquidGlassStylePreset.Hyper -> DpOffset(0.dp, 12.dp)
-                    },
-                    color = shadowColor,
-                    alpha = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> 0.72f
-                        LiquidGlassStylePreset.IOS -> 0.42f
-                        LiquidGlassStylePreset.Hyper -> 0.82f
-                    },
-                )
-            },
-            innerShadow = {
-                InnerShadow(
-                    radius = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> 24.dp
-                        LiquidGlassStylePreset.IOS -> 22.dp
-                        LiquidGlassStylePreset.Hyper -> 26.dp
-                    },
-                    offset = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> DpOffset(0.dp, 14.dp)
-                        LiquidGlassStylePreset.IOS -> DpOffset(0.dp, 12.dp)
-                        LiquidGlassStylePreset.Hyper -> DpOffset(0.dp, 16.dp)
-                    },
-                    color = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> Color.White.copy(alpha = 0.22f)
-                        LiquidGlassStylePreset.IOS -> Color.White.copy(alpha = 0.11f)
-                        LiquidGlassStylePreset.Hyper -> styledGlow.copy(alpha = 0.22f)
-                    },
-                    alpha = when (stylePreset) {
-                        LiquidGlassStylePreset.Harmony -> 0.76f
-                        LiquidGlassStylePreset.IOS -> 0.44f
-                        LiquidGlassStylePreset.Hyper -> 0.82f
-                    },
+                    width = (2.2f * stylePreset.edgeScale).dp,
+                    blurRadius = (26f * stylePreset.edgeScale).dp,
+                    alpha = (highlightAlpha * 1.35f).coerceAtMost(1f),
                 )
             },
             onDrawSurface = {
                 when (stylePreset) {
                     LiquidGlassStylePreset.Harmony -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.3f),
@@ -290,7 +368,7 @@ fun LiquidGlassSurface(
                                 ),
                             ),
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.18f),
@@ -305,7 +383,7 @@ fun LiquidGlassSurface(
                     }
 
                     LiquidGlassStylePreset.IOS -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.012f),
@@ -316,18 +394,18 @@ fun LiquidGlassSurface(
                             blendMode = BlendMode.Screen,
                         )
                         if (styledTint.alpha > 0f) {
-                            drawRect(
+                            this.drawRect(
                                 styledTint.copy(alpha = (styledTint.alpha * 0.12f).coerceAtMost(0.008f)),
                                 blendMode = BlendMode.Hue,
                             )
-                            drawRect(
+                            this.drawRect(
                                 styledTint.copy(alpha = (styledTint.alpha * 0.18f).coerceAtMost(0.005f)),
                             )
                         }
                     }
 
                     LiquidGlassStylePreset.Hyper -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     styledTint.copy(alpha = (styledTint.alpha * 0.88f).coerceAtMost(1f)),
@@ -339,7 +417,7 @@ fun LiquidGlassSurface(
                                 end = Offset(size.width * 0.92f, size.height),
                             ),
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.Transparent,
@@ -356,7 +434,7 @@ fun LiquidGlassSurface(
                 }
             },
             onDrawFront = {
-                drawRect(
+                this.drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.White.copy(
@@ -382,7 +460,7 @@ fun LiquidGlassSurface(
                     ),
                     blendMode = BlendMode.Screen,
                 )
-                drawRect(
+                this.drawRect(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             Color.White.copy(
@@ -406,7 +484,7 @@ fun LiquidGlassSurface(
                 )
                 when (stylePreset) {
                     LiquidGlassStylePreset.Harmony -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.28f),
@@ -418,7 +496,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.14f),
@@ -428,7 +506,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
@@ -445,7 +523,7 @@ fun LiquidGlassSurface(
                     }
 
                     LiquidGlassStylePreset.IOS -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.92f),
@@ -459,7 +537,7 @@ fun LiquidGlassSurface(
                             size = Size(size.width * 0.48f, size.height * 0.012f),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.radialGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.15f),
@@ -470,7 +548,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.12f),
@@ -481,7 +559,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.White.copy(alpha = 0.2f),
@@ -492,7 +570,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
@@ -506,7 +584,7 @@ fun LiquidGlassSurface(
                             size = Size(size.width * 0.02f, size.height * 0.54f),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
@@ -523,7 +601,7 @@ fun LiquidGlassSurface(
                     }
 
                     LiquidGlassStylePreset.Hyper -> {
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     palette.primary.copy(alpha = 0.24f),
@@ -536,7 +614,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.Transparent,
@@ -550,7 +628,7 @@ fun LiquidGlassSurface(
                             ),
                             blendMode = BlendMode.Screen,
                         )
-                        drawRect(
+                        this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     palette.primary.copy(alpha = 0.2f),

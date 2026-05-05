@@ -153,6 +153,8 @@ internal fun SideNavigationDrawer(
     onSelectSection: (PrimarySection) -> Unit,
     onOpenOverlay: (OverlayPage) -> Unit,
     modifier: Modifier = Modifier,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
+    sectionOrder: List<PrimarySection> = emptyList(),
 ) {
     val palette = PoxiaoThemeState.palette
     val stylePreset = LocalLiquidGlassStylePreset.current
@@ -249,17 +251,9 @@ internal fun SideNavigationDrawer(
                     )
                 }
                 item {
-                    SideNavGroupTitle(title = "主分区", detail = "5 项")
+                    SideNavGroupTitle(title = "主分区", detail = "${sectionOrder.size} 项")
                 }
-                items(
-                    listOf(
-                        PrimarySection.Home,
-                        PrimarySection.Schedule,
-                        PrimarySection.Todo,
-                        PrimarySection.Pomodoro,
-                        PrimarySection.More,
-                    ),
-                ) { item ->
+                items(sectionOrder) { item ->
                     SideNavEntry(
                         title = sectionDisplayTitle(item),
                         icon = item.icon,
@@ -270,7 +264,7 @@ internal fun SideNavigationDrawer(
                 }
                 item {
                     Spacer(modifier = Modifier.height(2.dp))
-                    SideNavGroupTitle(title = "快捷入口", detail = "8 项")
+                    SideNavGroupTitle(title = "快捷入口", detail = "常用功能")
                 }
                 item {
                     SideNavEntry(
@@ -288,13 +282,15 @@ internal fun SideNavigationDrawer(
                         onClick = { onOpenOverlay(OverlayPage.ReviewPlanner) },
                     )
                 }
-                item {
-                    SideNavEntry(
-                        title = "学习数据",
-                        accent = Ginkgo,
-                        active = currentOverlay == OverlayPage.LearningDashboard,
-                        onClick = { onOpenOverlay(OverlayPage.LearningDashboard) },
-                    )
+                if (capabilities.canShowInsights) {
+                    item {
+                        SideNavEntry(
+                            title = "学习数据",
+                            accent = Ginkgo,
+                            active = currentOverlay == OverlayPage.LearningDashboard,
+                            onClick = { onOpenOverlay(OverlayPage.LearningDashboard) },
+                        )
+                    }
                 }
                 item {
                     SideNavEntry(
@@ -304,13 +300,15 @@ internal fun SideNavigationDrawer(
                         onClick = { onOpenOverlay(OverlayPage.ExportCenter) },
                     )
                 }
-                item {
-                    SideNavEntry(
-                        title = "校园服务",
-                        accent = BambooGlass,
-                        active = currentOverlay == OverlayPage.CampusServices || currentOverlay == OverlayPage.CampusMap,
-                        onClick = { onOpenOverlay(OverlayPage.CampusServices) },
-                    )
+                if (capabilities.canShowCampus) {
+                    item {
+                        SideNavEntry(
+                            title = "校园服务",
+                            accent = BambooGlass,
+                            active = currentOverlay == OverlayPage.CampusServices || currentOverlay == OverlayPage.CampusMap,
+                            onClick = { onOpenOverlay(OverlayPage.CampusServices) },
+                        )
+                    }
                 }
                 item {
                     SideNavEntry(

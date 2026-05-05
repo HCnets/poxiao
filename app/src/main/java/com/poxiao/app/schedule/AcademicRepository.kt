@@ -40,7 +40,7 @@ interface AcademicRepository {
     /**
      * 退出登录并清除缓存
      */
-    suspend fun logout()
+    fun logout()
 
     /**
      * 同步数据至云端（如果支持）

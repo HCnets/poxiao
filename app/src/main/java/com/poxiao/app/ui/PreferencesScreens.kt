@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,10 +39,16 @@ internal fun PreferencesScreen(
     currentDensity: UiDensityPreset,
     currentGlassStrength: GlassStrengthPreset,
     currentGlassStyle: LiquidGlassStylePreset,
+    customBlur: Float,
+    customGlow: Float,
+    customAlpha: Float,
     onSelectPreset: (PoxiaoThemePreset) -> Unit,
     onSelectDensity: (UiDensityPreset) -> Unit,
     onSelectGlassStrength: (GlassStrengthPreset) -> Unit,
     onSelectGlassStyle: (LiquidGlassStylePreset) -> Unit,
+    onCustomBlurChange: (Float) -> Unit,
+    onCustomGlowChange: (Float) -> Unit,
+    onCustomAlphaChange: (Float) -> Unit,
     onBack: () -> Unit,
 ) {
     val palette = PoxiaoThemeState.palette
@@ -100,10 +108,10 @@ internal fun PreferencesScreen(
             }
             item {
                 GlassCard {
-                    Text("液态玻璃版本", style = MaterialTheme.typography.titleLarge, color = palette.ink)
+                    Text("液态玻璃风格", style = MaterialTheme.typography.titleLarge, color = palette.ink)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "可分别切换为 HarmonyOS 6、iOS 26、HyperOS 风格，主要影响折射、高光和边缘质感。",
+                        "选择你喜欢的玻璃质感，主要影响折射、高光、阴影和边缘光效。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = palette.softText,
                     )
@@ -122,10 +130,10 @@ internal fun PreferencesScreen(
             }
             item {
                 GlassCard {
-                    Text("玻璃强度", style = MaterialTheme.typography.titleLarge, color = palette.ink)
+                    Text("玻璃强度预设", style = MaterialTheme.typography.titleLarge, color = palette.ink)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "从清透到晶润，控制卡片雾度、边缘发光和液态玻璃存在感。",
+                        "快速切换玻璃的存在感，影响基础透明度与发光范围。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = palette.softText,
                     )
@@ -138,20 +146,75 @@ internal fun PreferencesScreen(
                     )
                 }
             }
+            item {
+                GlassCard {
+                    Text("微调选项", style = MaterialTheme.typography.titleLarge, color = palette.ink)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "雾度调节 (Blur)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.ink,
+                    )
+                    Slider(
+                        value = customBlur,
+                        onValueChange = onCustomBlurChange,
+                        valueRange = 0.2f..3.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = palette.primary,
+                            activeTrackColor = palette.primary,
+                            inactiveTrackColor = palette.secondary.copy(alpha = 0.2f)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "发光强度 (Glow)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.ink,
+                    )
+                    Slider(
+                        value = customGlow,
+                        onValueChange = onCustomGlowChange,
+                        valueRange = 0.0f..3.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = palette.primary,
+                            activeTrackColor = palette.primary,
+                            inactiveTrackColor = palette.secondary.copy(alpha = 0.2f)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "背景透明度 (Alpha)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.ink,
+                    )
+                    Slider(
+                        value = customAlpha,
+                        onValueChange = onCustomAlphaChange,
+                        valueRange = 0.0f..2.0f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = palette.primary,
+                            activeTrackColor = palette.primary,
+                            inactiveTrackColor = palette.secondary.copy(alpha = 0.2f)
+                        )
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 internal fun AssistantPermissionScreen(
+    repository: com.poxiao.app.schedule.AcademicRepository,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     val context = LocalContext.current
     val store = remember { AssistantPermissionStore(context) }
-    val toolkit = remember { AssistantToolKit() }
+    val toolkit = remember { AssistantToolKit(context, repository) }
     var permissionState by remember { mutableStateOf(store.load()) }
-    val tools = remember(permissionState) { toolkit.availableTools(permissionState) }
+    val tools = remember(permissionState, capabilities) { toolkit.availableTools(permissionState, capabilities) }
     val palette = PoxiaoThemeState.palette
     Box(modifier = modifier) {
         ScreenColumn {

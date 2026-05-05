@@ -12,9 +12,12 @@ import com.poxiao.app.data.AssistantToolKit
 import com.poxiao.app.notes.CourseNoteStore
 import com.poxiao.app.review.ReviewPlannerStore
 
+import com.poxiao.app.schedule.AcademicRepository
+
 @Composable
 internal fun rememberHomeDependencies(
     context: Context,
+    repository: AcademicRepository,
 ): HomeDependencies {
     val gateway = remember { AssistantGatewayFactory.create() }
     val prefs = remember(context) {
@@ -31,11 +34,11 @@ internal fun rememberHomeDependencies(
             assistantBridgePrefs = context.getSharedPreferences("assistant_bridge", Context.MODE_PRIVATE),
         )
     }
-    val stores = remember(context) {
+    val stores = remember(context, repository) {
         HomeStoresBundle(
             assistantStore = AssistantSessionStore(context),
             permissionStore = AssistantPermissionStore(context),
-            toolKit = AssistantToolKit(),
+            toolKit = AssistantToolKit(context, repository),
             summaryProvider = AppSummaryProvider(context),
             noteStore = CourseNoteStore(context),
             reviewStore = ReviewPlannerStore(context),

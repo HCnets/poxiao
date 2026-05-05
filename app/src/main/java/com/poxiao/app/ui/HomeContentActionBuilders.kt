@@ -18,7 +18,7 @@ internal fun buildHomeContentActionPack(
     onHomeEditModeToggle: () -> Unit,
     onOpenScheduleDay: () -> Unit,
     onOpenCourseNotes: (CourseNoteSeed?) -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenCampusServices: () -> Unit,
     onOpenMap: () -> Unit,
 ): HomeContentActionPack {

@@ -1,4 +1,4 @@
-﻿package com.poxiao.app.reports
+package com.poxiao.app.reports
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -55,7 +55,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.poxiao.app.notes.CourseNoteStore
+import com.poxiao.app.ui.EditionCapabilities
 import com.poxiao.app.ui.LiquidGlassCard
+import com.poxiao.app.ui.LocalEditionCapabilities
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.MossGreen
@@ -137,6 +139,7 @@ private data class ExportSaveRequest(
 fun ExportCenterScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
+    capabilities: EditionCapabilities = LocalEditionCapabilities.current,
 ) {
     val context = LocalContext.current
     val palette = PoxiaoThemeState.palette
@@ -176,7 +179,7 @@ fun ExportCenterScreen(
         }
     }
     val history = remember { mutableStateOf(loadExportHistory(exportPrefs)) }
-    val items = buildItems(context, noteStore, selectedRange, targetSelections)
+    val items = buildItems(context, noteStore, selectedRange, targetSelections, capabilities)
     var statusText by remember { mutableStateOf("可复制文本、系统分享，或生成图片卡。") }
 
     fun recordHistory(bundle: ExportBundle, action: String) {
@@ -482,15 +485,18 @@ private fun buildItems(
     noteStore: CourseNoteStore,
     range: ExportRange,
     targets: Map<String, String>,
+    capabilities: com.poxiao.app.ui.EditionCapabilities,
 ): List<ExportItem> {
-    return listOf(
-        buildScheduleItem(context, range, targets[ExportBundle.Schedule.name] ?: "全部"),
-        buildGradeItem(context, range, targets[ExportBundle.Grade.name] ?: "全部"),
-        buildLearningItem(context, noteStore, range, targets[ExportBundle.Learning.name] ?: "总览"),
-        buildReviewItem(context, range, targets[ExportBundle.Review.name] ?: "全部"),
-        buildTodoItem(context, noteStore, range, targets[ExportBundle.Todo.name] ?: "全部"),
-        buildFocusItem(context, range, targets[ExportBundle.Focus.name] ?: "全部"),
-    )
+    return buildList {
+        if (capabilities.supportsAcademic) {
+            add(buildScheduleItem(context, range, targets[ExportBundle.Schedule.name] ?: "全部"))
+            add(buildGradeItem(context, range, targets[ExportBundle.Grade.name] ?: "全部"))
+            add(buildLearningItem(context, noteStore, range, targets[ExportBundle.Learning.name] ?: "总览"))
+        }
+        add(buildReviewItem(context, range, targets[ExportBundle.Review.name] ?: "全部"))
+        add(buildTodoItem(context, noteStore, range, targets[ExportBundle.Todo.name] ?: "全部"))
+        add(buildFocusItem(context, range, targets[ExportBundle.Focus.name] ?: "全部"))
+    }
 }
 
 private fun buildScheduleItem(

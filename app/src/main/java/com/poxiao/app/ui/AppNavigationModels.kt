@@ -8,7 +8,7 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.ViewKanban
 import androidx.compose.ui.graphics.vector.ImageVector
 
-internal enum class PrimarySection(val label: String, val navLabel: String, val icon: ImageVector) {
+public enum class PrimarySection(val label: String, val navLabel: String, val icon: ImageVector) {
     Home("首页", "智能体", Icons.Rounded.AutoAwesome),
     Schedule("课表", "课表", Icons.Rounded.CalendarMonth),
     Todo("待办", "待办", Icons.Rounded.ViewKanban),
@@ -16,7 +16,7 @@ internal enum class PrimarySection(val label: String, val navLabel: String, val 
     More("更多", "更多", Icons.Rounded.GridView),
 }
 
-internal enum class OverlayPage(val label: String) {
+public enum class OverlayPage(val label: String) {
     CampusServices("校园服务"),
     CampusMap("校园地图"),
     AcademicAccount("教务账号"),

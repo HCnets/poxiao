@@ -60,7 +60,7 @@ internal fun HomeAssistantModuleCard(
     onInjectSummary: (AssistantContextSummary) -> Unit,
     onToggleExecutionExpanded: (Long) -> Unit,
     onOpenReviewPlannerSeeded: (ReviewBridgeExecutionSummary) -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
     onUndoExecution: (ReviewBridgeExecutionSummary) -> Unit,
     onReplayExecution: (ReviewBridgeExecutionSummary) -> Unit,
@@ -193,7 +193,7 @@ internal fun HomeAssistantModuleCard(
                             ActionPill("回到复习页", Ginkgo.copy(alpha = 0.82f)) {
                                 onOpenReviewPlannerSeeded(execution)
                             }
-                            ActionPill("查看待办", Ginkgo, onClick = onOpenTodoPending)
+                            ActionPill("查看待办", Ginkgo) { onOpenTodoPending(TodoFilter.All) }
                             ActionPill("查看番茄钟", WarmMist, onClick = onOpenPomodoro)
                             ActionPill("撤销执行", CloudWhite) {
                                 onUndoExecution(execution)

@@ -2,16 +2,20 @@ package com.poxiao.app.ui
 
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,9 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.poxiao.app.schedule.HitaScheduleRepository
+import com.poxiao.app.schedule.AcademicRepository
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.PoxiaoThemeState
@@ -29,7 +34,7 @@ import com.poxiao.app.ui.theme.WarmMist
 
 @Composable
 internal fun MoreScreen(
-    repository: HitaScheduleRepository,
+    repository: AcademicRepository,
     onOpenAcademicAccount: () -> Unit,
     onOpenCampusServices: () -> Unit,
     onOpenCalculator: () -> Unit,
@@ -42,6 +47,7 @@ internal fun MoreScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val palette = PoxiaoThemeState.palette
+    val capabilities = LocalEditionCapabilities.current
     val schedulePrefs = remember { context.getSharedPreferences("schedule_auth", Context.MODE_PRIVATE) }
     val clipboard = remember { context.getSystemService(ClipboardManager::class.java) }
     val uiState by repository.observeUiState().collectAsState()
@@ -64,6 +70,7 @@ internal fun MoreScreen(
         onOpenLearningDashboard,
         onOpenExportCenter,
         onOpenPreferences,
+        capabilities,
     ) {
         buildMoreNavigationContent(
             palette = palette,
@@ -75,6 +82,7 @@ internal fun MoreScreen(
             onOpenLearningDashboard = onOpenLearningDashboard,
             onOpenExportCenter = onOpenExportCenter,
             onOpenPreferences = onOpenPreferences,
+            capabilities = capabilities,
         )
     }
     ScreenColumn {
@@ -83,8 +91,10 @@ internal fun MoreScreen(
                 Text("更多", style = MaterialTheme.typography.headlineMedium, color = palette.ink)
             }
         }
-        item {
-            MoreAccountCard(summary = accountSummary, onClick = onOpenAcademicAccount)
+        if (capabilities.canShowAcademic) {
+            item {
+                MoreAccountCard(summary = accountSummary, onClick = onOpenAcademicAccount)
+            }
         }
         item {
             MoreNavigationSections(
@@ -130,6 +140,49 @@ internal fun MoreScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(backupStatus, style = MaterialTheme.typography.bodyMedium, color = palette.softText)
                 }
+            }
+        }
+        item {
+            VersionFooter(capabilities = capabilities)
+        }
+    }
+}
+
+@Composable
+private fun VersionFooter(
+    capabilities: EditionCapabilities
+) {
+    val palette = PoxiaoThemeState.palette
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = "南工破晓 · ${capabilities.editionLabel}",
+            style = MaterialTheme.typography.titleMedium,
+            color = palette.ink.copy(alpha = 0.7f)
+        )
+        Text(
+            text = "Version 1.1.0 (Linkage Stable)",
+            style = MaterialTheme.typography.labelMedium,
+            color = palette.softText.copy(alpha = 0.6f)
+        )
+        if (capabilities.edition == AppEdition.Hitsz) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = ForestGreen.copy(alpha = 0.1f),
+                border = BorderStroke(1.dp, ForestGreen.copy(alpha = 0.2f))
+            ) {
+                Text(
+                    text = "参赛主版本",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = ForestGreen
+                )
             }
         }
     }

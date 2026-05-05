@@ -41,7 +41,7 @@ internal fun HomeMetricsModuleCard(
     focusedMinutes: Int,
     onOpenScheduleDay: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
 ) {
     if (paired) {
@@ -56,7 +56,7 @@ internal fun HomeMetricsModuleCard(
         Row(horizontalArrangement = Arrangement.spacedBy(homeMetricSpacing(moduleSize)), modifier = modifier.horizontalScroll(rememberScrollState())) {
             MetricCard("今日课次", todayClassCount.toString(), ForestGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenScheduleDay))
             MetricCard("考试周", pendingExamCount.toString(), TeaGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenScheduleExamWeek))
-            MetricCard("待完成", pendingTodoCount.toString(), Ginkgo, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenTodoPending))
+            MetricCard("待完成", pendingTodoCount.toString(), Ginkgo, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = { onOpenTodoPending(TodoFilter.All) }))
             MetricCard("专注时长", "$focusedMinutes 分钟", MossGreen, sizePreset = moduleSize, modifier = Modifier.clickable(onClick = onOpenPomodoro))
         }
     }
@@ -72,7 +72,7 @@ internal fun HomeRhythmModuleCard(
     onToggleCollapsed: () -> Unit,
     onOpenScheduleDay: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
 ) {
@@ -102,8 +102,8 @@ internal fun HomeRhythmModuleCard(
                             "今日课程" -> onOpenScheduleDay()
                             "考试周" -> onOpenScheduleExamWeek()
                             "今日复习" -> onOpenReviewPlanner()
-                            "待办优先" -> onOpenTodoPending()
-                            "专注目标" -> onOpenTodoPending()
+                            "待办优先" -> onOpenTodoPending(TodoFilter.Focus)
+                            "专注目标" -> onOpenTodoPending(TodoFilter.Focus)
                             "专注绑定" -> onOpenPomodoro()
                             "专注趋势" -> onOpenPomodoro()
                         }
@@ -132,7 +132,7 @@ internal fun HomeLearningModuleCard(
     onOpenReviewPlanner: () -> Unit,
     onOpenScheduleExamWeek: () -> Unit,
     onOpenPomodoro: () -> Unit,
-    onOpenTodoPending: () -> Unit,
+    onOpenTodoPending: (TodoFilter) -> Unit,
     onBindReviewFocus: (ReviewItem) -> Unit,
     onBindGoalTodoFocus: (TodoTask) -> Unit,
 ) {
@@ -268,14 +268,14 @@ internal fun HomeLearningModuleCard(
                     title = task.title,
                     body = "还差 ${task.focusGoal - task.focusCount} 轮 · ${task.dueText}",
                     sizePreset = if (paired) HomeModuleSize.Compact else moduleSize,
-                    modifier = Modifier.clickable(onClick = onOpenTodoPending),
+                    modifier = Modifier.clickable { onOpenTodoPending(TodoFilter.Focus) },
                 )
                 Spacer(modifier = Modifier.height(homeSecondarySpacing(if (paired) HomeModuleSize.Compact else moduleSize)))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    ActionPill("查看待办", WarmMist, onClick = onOpenTodoPending)
+                    ActionPill("查看待办", WarmMist) { onOpenTodoPending(TodoFilter.Focus) }
                     ActionPill("绑定专注", ForestGreen) { onBindGoalTodoFocus(task) }
                 }
             }

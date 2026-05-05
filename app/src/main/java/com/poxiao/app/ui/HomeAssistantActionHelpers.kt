@@ -16,7 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-internal fun resolveHomeAssistantLocalExecution(
+internal suspend fun resolveHomeAssistantLocalExecution(
     context: Context,
     input: String,
     assistantSummaries: List<AssistantContextSummary>,
@@ -25,10 +25,11 @@ internal fun resolveHomeAssistantLocalExecution(
     assistantBridgePrefs: SharedPreferences,
     currentReviewExecutionSummary: ReviewBridgeExecutionSummary?,
     currentReviewExecutionHistory: List<ReviewBridgeExecutionSummary>,
+    capabilities: EditionCapabilities,
 ): HomeAssistantLocalExecutionResult {
     if (!shouldExecuteReviewBridge(input, assistantSummaries)) {
         return HomeAssistantLocalExecutionResult(
-            localExecution = toolKit.runMock(input, assistantPermissionState, assistantSummaries),
+            localExecution = toolKit.runMock(input, assistantPermissionState, assistantSummaries, capabilities),
             reviewExecutionSummary = currentReviewExecutionSummary,
             reviewExecutionHistory = currentReviewExecutionHistory,
         )
@@ -306,35 +307,42 @@ internal fun applyHomeAssistantSend(
     assistantUiState: HomeAssistantUiState,
     assistantSummaries: List<AssistantContextSummary>,
     assistantTools: List<AssistantToolDefinition>,
+    capabilities: EditionCapabilities,
 ) {
-    val prompt = assistantUiState.prompt.value
-    if (prompt.isBlank() || assistantUiState.assistantBusy.value) return
-    val input = prompt
-    val localExecutionResult = resolveHomeAssistantLocalExecution(
-        context = context,
-        input = input,
-        assistantSummaries = assistantSummaries,
-        toolKit = toolKit,
-        assistantPermissionState = assistantUiState.assistantPermissionState.value,
-        assistantBridgePrefs = assistantBridgePrefs,
-        currentReviewExecutionSummary = assistantUiState.reviewExecutionSummary.value,
-        currentReviewExecutionHistory = assistantUiState.reviewExecutionHistory.value,
-    )
-    assistantUiState.reviewExecutionSummary.value = localExecutionResult.reviewExecutionSummary
-    assistantUiState.reviewExecutionHistory.value = localExecutionResult.reviewExecutionHistory
-    val preparation = buildAssistantSendPreparation(
-        conversations = assistantUiState.conversations,
-        activeConversationId = assistantUiState.activeConversationId.value,
-        input = input,
-        assistantSummaries = assistantSummaries,
-        assistantTools = assistantTools,
-        localExecution = localExecutionResult.localExecution,
-    ) ?: return
-    assistantUiState.conversations.clear()
-    assistantUiState.conversations.addAll(preparation.seededConversations)
-    assistantUiState.prompt.value = ""
-    assistantUiState.assistantBusy.value = true
+    val input = assistantUiState.prompt.value
+    if (input.isBlank() || assistantUiState.assistantBusy.value) return
+
     scope.launch {
+        assistantUiState.assistantBusy.value = true
+        val localExecutionResult = resolveHomeAssistantLocalExecution(
+            context = context,
+            input = input,
+            assistantSummaries = assistantSummaries,
+            toolKit = toolKit,
+            assistantPermissionState = assistantUiState.assistantPermissionState.value,
+            assistantBridgePrefs = assistantBridgePrefs,
+            currentReviewExecutionSummary = assistantUiState.reviewExecutionSummary.value,
+            currentReviewExecutionHistory = assistantUiState.reviewExecutionHistory.value,
+            capabilities = capabilities,
+        )
+        assistantUiState.reviewExecutionSummary.value = localExecutionResult.reviewExecutionSummary
+        assistantUiState.reviewExecutionHistory.value = localExecutionResult.reviewExecutionHistory
+        val preparation = buildAssistantSendPreparation(
+            conversations = assistantUiState.conversations,
+            activeConversationId = assistantUiState.activeConversationId.value,
+            input = input,
+            assistantSummaries = assistantSummaries,
+            assistantTools = assistantTools,
+            localExecution = localExecutionResult.localExecution,
+        )
+        if (preparation == null) {
+            assistantUiState.assistantBusy.value = false
+            return@launch
+        }
+        assistantUiState.conversations.clear()
+        assistantUiState.conversations.addAll(preparation.seededConversations)
+        assistantUiState.prompt.value = ""
+
         try {
             val remoteReply = requestAssistantReply(
                 gateway = gateway,

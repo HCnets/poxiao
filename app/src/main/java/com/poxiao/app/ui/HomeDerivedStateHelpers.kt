@@ -4,8 +4,7 @@ import com.poxiao.app.data.FeedCard
 import com.poxiao.app.notes.CourseNote
 import com.poxiao.app.review.ReviewItem
 import com.poxiao.app.review.ReviewPlannerStore
-import com.poxiao.app.schedule.AcademicUiState
-import com.poxiao.app.schedule.HitaCourseBlock
+import com.poxiao.app.schedule.*
 import com.poxiao.app.todo.TodoTask
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
@@ -104,7 +103,7 @@ internal fun buildHomeWelcomeSummary(
 
 internal fun buildHomeLocalSearchResults(
     searchQuery: String,
-    cachedSchedule: HitaScheduleUiState?,
+    cachedSchedule: AcademicUiState?,
     todoTasks: List<TodoTask>,
     buildingCandidates: List<String>,
     courseNotes: List<CourseNote>,

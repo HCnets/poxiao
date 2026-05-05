@@ -6,6 +6,9 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import com.poxiao.app.ui.EditionCapabilities
+import com.poxiao.app.ui.canShowAcademic
+import com.poxiao.app.ui.canShowSchedule
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -26,13 +29,17 @@ class AppSummaryProvider(context: Context) {
     private val campusPrefs = context.getSharedPreferences("campus_services_prefs", Context.MODE_PRIVATE)
     private val assistantBridgePrefs = context.getSharedPreferences("assistant_bridge", Context.MODE_PRIVATE)
 
-    fun loadSummaries(): List<AssistantContextSummary> {
+    fun loadSummaries(capabilities: EditionCapabilities): List<AssistantContextSummary> {
         return buildList {
-            loadScheduleSummary()?.let { add(it) }
+            if (capabilities.canShowSchedule) {
+                loadScheduleSummary()?.let { add(it) }
+                loadConflictSummary()?.let { add(it) }
+            }
             loadTodoSummary()?.let { add(it) }
-            loadConflictSummary()?.let { add(it) }
             loadFocusSummary()?.let { add(it) }
-            loadGradeSummary()?.let { add(it) }
+            if (capabilities.canShowAcademic) {
+                loadGradeSummary()?.let { add(it) }
+            }
             loadBoundTaskSummary()?.let { add(it) }
             loadReviewBridgeSummary()?.let { add(it) }
             loadReviewExamSummary()?.let { add(it) }

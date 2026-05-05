@@ -11,27 +11,40 @@ import com.poxiao.app.ui.theme.PoxiaoTheme
 fun PoxiaoApp() {
     val context = LocalContext.current
     val uiState = rememberPoxiaoAppUiState(context)
+    val editionCapabilities = editionCapabilitiesFromBuildConfig()
 
     LaunchedEffect(Unit) {
         refreshLocalReminderSchedule(context)
     }
 
     PoxiaoTheme(preset = uiState.themePreset) {
-        CompositionLocalProvider(
-            LocalUiDensityPreset provides uiState.densityPreset,
-            LocalGlassStrengthPreset provides uiState.glassStrengthPreset,
-            LocalLiquidGlassStylePreset provides uiState.liquidGlassStylePreset,
-        ) {
-            PoxiaoAppScaffold(
-                themePreset = uiState.themePreset,
-                densityPreset = uiState.densityPreset,
-                glassStrengthPreset = uiState.glassStrengthPreset,
-                liquidGlassStylePreset = uiState.liquidGlassStylePreset,
-                onThemePresetChange = uiState.onThemePresetChange,
-                onDensityPresetChange = uiState.onDensityPresetChange,
-                onGlassStrengthChange = uiState.onGlassStrengthChange,
-                onLiquidGlassStyleChange = uiState.onLiquidGlassStyleChange,
-            )
+        GyroScopeProvider {
+            CompositionLocalProvider(
+                LocalUiDensityPreset provides uiState.densityPreset,
+                LocalGlassStrengthPreset provides uiState.glassStrengthPreset,
+                LocalLiquidGlassStylePreset provides uiState.liquidGlassStylePreset,
+                LocalCustomBlur provides uiState.customBlur,
+                LocalCustomGlow provides uiState.customGlow,
+                LocalCustomAlpha provides uiState.customAlpha,
+            ) {
+                PoxiaoAppScaffold(
+                    editionCapabilities = editionCapabilities,
+                    themePreset = uiState.themePreset,
+                    densityPreset = uiState.densityPreset,
+                    glassStrengthPreset = uiState.glassStrengthPreset,
+                    liquidGlassStylePreset = uiState.liquidGlassStylePreset,
+                    customBlur = uiState.customBlur,
+                    customGlow = uiState.customGlow,
+                    customAlpha = uiState.customAlpha,
+                    onThemePresetChange = uiState.onThemePresetChange,
+                    onDensityPresetChange = uiState.onDensityPresetChange,
+                    onGlassStrengthChange = uiState.onGlassStrengthChange,
+                    onLiquidGlassStyleChange = uiState.onLiquidGlassStyleChange,
+                    onCustomBlurChange = uiState.onCustomBlurChange,
+                    onCustomGlowChange = uiState.onCustomGlowChange,
+                    onCustomAlphaChange = uiState.onCustomAlphaChange,
+                )
+            }
         }
     }
 }

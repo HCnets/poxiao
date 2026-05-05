@@ -39,6 +39,8 @@ internal fun BoxScope.PoxiaoAppScaffoldControls(
             onDismiss = controlActions.onDismissDrawer,
             onSelectSection = controlActions.onSelectSection,
             onOpenOverlay = controlActions.onOpenOverlay,
+            sectionOrder = sectionOrder,
+            capabilities = capabilities,
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(4f),
@@ -47,6 +49,7 @@ internal fun BoxScope.PoxiaoAppScaffoldControls(
         BottomDock(
             current = section,
             onSelect = controlActions.onSelectBottomSection,
+            items = sectionOrder,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(
