@@ -8,6 +8,7 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,10 +33,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.BubbleChart
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.KeyboardHide
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.Dataset
 import androidx.compose.material.icons.outlined.Functions
@@ -53,6 +59,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,6 +69,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -72,9 +93,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.LocalDensity
@@ -85,6 +114,8 @@ import androidx.activity.compose.BackHandler
 import kotlin.math.roundToInt
 import com.poxiao.app.ui.LiquidGlassCard
 import com.poxiao.app.ui.LiquidGlassSurface
+import com.poxiao.app.ui.LocalLiquidGlassStylePreset
+import com.poxiao.app.ui.LiquidGlassStylePreset
 import com.poxiao.app.ui.theme.BambooStroke
 import com.poxiao.app.ui.theme.BambooGlass
 import com.poxiao.app.ui.theme.CloudWhite
@@ -114,19 +145,19 @@ import kotlin.math.sqrt
 import kotlin.math.tan
 
 enum class CalculatorApp(val title: String, val subtitle: String) {
-    Compute("计算", "表达式与科学函数"),
-    Statistics("统计", "均值、方差、回归"),
-    Test("检验", "χ² / KS / t 检验"),
-    Distribution("分布", "正态与二项分布"),
-    Spreadsheet("数据表格", "小型表格与汇总"),
-    FunctionTable("函数表格", "按区间生成函数值"),
-    Equation("方程", "一次、二次、线性方程组"),
-    Inequality("不等式", "一元二次不等式"),
-    Complex("复数", "代数与极坐标"),
-    Base("进制", "2/8/10/16 转换"),
-    Matrix("矩阵", "2x2 行列式与逆"),
-    Vector("向量", "点积、叉积、模长"),
-    Ratio("比例", "正反比例与缩放"),
+    Compute("计算", "科学计算"),
+    Statistics("统计", "均值方差"),
+    Test("检验", "t检验等"),
+    Distribution("分布", "正态二项"),
+    Spreadsheet("表格", "表格汇总"),
+    FunctionTable("函数", "生成数值"),
+    Equation("方程", "一二次等"),
+    Inequality("不等式", "一元二次"),
+    Complex("复数", "极坐标等"),
+    Base("进制", "2至16进制"),
+    Matrix("矩阵", "行列式等"),
+    Vector("向量", "点积叉积"),
+    Ratio("比例", "正反比例"),
 }
 
 private enum class AngleMode(val title: String) {
@@ -162,6 +193,7 @@ private data class CalculatorSettings(
 )
 
 private sealed class FocusTarget {
+    object None : FocusTarget()
     object ComputeExpression : FocusTarget()
     data class MatrixCell(val index: Int, val isMatrixB: Boolean = false) : FocusTarget()
     data class StatisticsCell(val index: Int, val isY: Boolean = false) : FocusTarget()
@@ -185,6 +217,7 @@ fun ScientificCalculatorScreen(
     var settings by remember { mutableStateOf(loadCalculatorSettings(prefs)) }
     var currentRoute by remember { mutableStateOf<CalculatorRoute>(CalculatorRoute.App(CalculatorApp.Compute)) }
     var showDirectory by remember { mutableStateOf(false) }
+    var focusTarget by remember { mutableStateOf<FocusTarget>(FocusTarget.ComputeExpression) }
     
     val updateSettings: (CalculatorSettings) -> Unit = { next ->
         settings = next
@@ -234,14 +267,24 @@ fun ScientificCalculatorScreen(
         routeState is CalculatorRoute.App -> routeState.app.subtitle
         else -> (routeState as CalculatorRoute.Utility).page.subtitle
     }
+    // 主题切换状态
+    var isDarkMode by remember { mutableStateOf(false) }
+
+    // 当切换为深色模式时，改变系统状态栏颜色
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as android.app.Activity).window
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDarkMode
+        }
+    }
+
     val routeIcon = when {
         showDirectory -> Icons.Outlined.Widgets
         routeState is CalculatorRoute.App -> tileIcon(routeState.app.title)
         else -> tileIcon((routeState as CalculatorRoute.Utility).page.title)
     }
-
-    // 全局焦点与值管理
-    var focusTarget by remember { mutableStateOf<FocusTarget>(FocusTarget.ComputeExpression) }
     
     // 计算模块状态
     var computeExpression by remember { mutableStateOf("") }
@@ -256,18 +299,29 @@ fun ScientificCalculatorScreen(
     var baseValue by remember { mutableStateOf("255") }
     val genericFields = remember { mutableStateMapOf<String, String>() }
 
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = Color.Transparent,
+    CompositionLocalProvider(
+        LocalLiquidGlassStylePreset provides if (isDarkMode) LiquidGlassStylePreset.Hyper else LiquidGlassStylePreset.IOS
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            modifier = modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        if (currentRoute is CalculatorRoute.App && (currentRoute as CalculatorRoute.App).app != CalculatorApp.Compute) {
+                            focusTarget = FocusTarget.None
+                        }
+                    })
+                },
+            color = Color.Transparent,
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(if (isDarkMode) Color.Black.copy(alpha = 0.5f) else Color.Transparent)) {
             if (showDirectory) {
                 CalculatorDirectoryScreen(
                     currentRoute = currentRoute,
                     onOpenApp = openApp,
                     onOpenUtility = openUtility,
                     maxHeight = (configuration.screenHeightDp * 0.78f).dp.coerceIn(460.dp, 760.dp),
-                    modifier = Modifier.padding(top = 100.dp)
+                    modifier = Modifier.padding(top = 80.dp)
                 )
             } else {
                 // 所有模块统一使用带键盘的布局
@@ -277,7 +331,7 @@ fun ScientificCalculatorScreen(
                             is CalculatorRoute.App -> when (routeState.app) {
                                 CalculatorApp.Compute -> ComputeModulePro(
                                     settings = settings,
-                                    topPadding = 110.dp,
+                                    topPadding = 80.dp,
                                     expression = computeExpression,
                                     onExpressionChange = { computeExpression = it },
                                     result = computeResult,
@@ -290,7 +344,7 @@ fun ScientificCalculatorScreen(
                                     routeState = routeState,
                                     settings = settings,
                                     updateSettings = updateSettings,
-                                    topPadding = 110.dp,
+                                    topPadding = 80.dp,
                                     focusTarget = focusTarget,
                                     onFocusChange = { focusTarget = it },
                                     matrixFields = matrixFields,
@@ -307,7 +361,7 @@ fun ScientificCalculatorScreen(
                                 routeState = routeState,
                                 settings = settings,
                                 updateSettings = updateSettings,
-                                topPadding = 110.dp,
+                                topPadding = 80.dp,
                                 focusTarget = focusTarget,
                                 onFocusChange = { focusTarget = it },
                                 matrixFields = matrixFields,
@@ -354,6 +408,7 @@ fun ScientificCalculatorScreen(
                                             val current = genericFields[target.id] ?: ""
                                             genericFields[target.id] = current + mappedToken
                                         }
+                                        FocusTarget.None -> {}
                                     }
                                 },
                                 onDelete = {
@@ -379,6 +434,7 @@ fun ScientificCalculatorScreen(
                                             val current = genericFields[target.id] ?: ""
                                             if (current.isNotEmpty()) genericFields[target.id] = current.dropLast(1)
                                         }
+                                        FocusTarget.None -> {}
                                     }
                                 },
                                 onClear = {
@@ -401,6 +457,7 @@ fun ScientificCalculatorScreen(
                                         is FocusTarget.GenericInput -> {
                                             genericFields[target.id] = ""
                                         }
+                                        FocusTarget.None -> {}
                                     }
                                 },
                                 onEqual = {
@@ -418,12 +475,16 @@ fun ScientificCalculatorScreen(
                                     if (focusTarget == FocusTarget.ComputeExpression) {
                                         computeCursorIndex = (computeCursorIndex + delta).coerceIn(0, computeExpression.length)
                                     }
+                                },
+                                settings = settings,
+                                onToggleAngleMode = {
+                                    val nextMode = if (settings.angleMode == AngleMode.Deg) AngleMode.Rad else AngleMode.Deg
+                                    updateSettings(settings.copy(angleMode = nextMode))
                                 }
                             )
                         }
                     }
                 }
-            }
             }
 
             // 全局悬浮的 LiquidGlass Header
@@ -448,10 +509,15 @@ fun ScientificCalculatorScreen(
                     },
                     onOpenDirectory = { showDirectory = true },
                     directoryOpen = showDirectory,
+                    isDarkMode = isDarkMode,
+                    onToggleTheme = { isDarkMode = !isDarkMode },
+                    modifier = Modifier.graphicsLayer { shadowElevation = 16.dp.toPx() } // 增加更强的 Z 轴投影，确保在任何滚动下都不混淆
                 )
             }
         }
     }
+}
+}
 }
 
 @Composable
@@ -553,63 +619,77 @@ private fun FixedKeypadModuleContainer(
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(top = topPadding, start = 14.dp, end = 14.dp, bottom = 14.dp)) {
         Box(modifier = Modifier.weight(1f)) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    when (routeState) {
-                        is CalculatorRoute.App -> when (routeState.app) {
-                            CalculatorApp.Matrix -> MatrixModulePro(
-                                settings = settings,
-                                fields = matrixFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Statistics -> StatisticsModulePro(
-                                settings = settings,
-                                rawX = statsRawX,
-                                rawY = statsRawY,
-                                onRawXChange = onRawXChange,
-                                onRawYChange = onRawYChange,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Base -> BaseModulePro(
-                                value = baseValue,
-                                onValueChange = onBaseValueChange,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Equation -> EquationModulePro(
-                                fields = genericFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Vector -> VectorModulePro(
-                                settings = settings,
-                                fields = genericFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Complex -> ComplexModulePro(
-                                fields = genericFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Inequality -> InequalityModulePro(
-                                fields = genericFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
-                            CalculatorApp.Ratio -> RatioModulePro(
-                                fields = genericFields,
-                                focusTarget = focusTarget,
-                                onFocusChange = onFocusChange
-                            )
+            AnimatedContent(
+                targetState = routeState,
+                transitionSpec = {
+                    if (targetState is CalculatorRoute.App && initialState is CalculatorRoute.App) {
+                        (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                            slideOutHorizontally { width -> -width } + fadeOut()
+                        )
+                    } else {
+                        fadeIn().togetherWith(fadeOut())
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "ModuleTransition"
+            ) { targetRoute ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        when (targetRoute) {
+                            is CalculatorRoute.App -> when (targetRoute.app) {
+                                CalculatorApp.Matrix -> MatrixModulePro(
+                                    settings = settings,
+                                    fields = matrixFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Statistics -> StatisticsModulePro(
+                                    settings = settings,
+                                    rawX = statsRawX,
+                                    rawY = statsRawY,
+                                    onRawXChange = onRawXChange,
+                                    onRawYChange = onRawYChange,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Base -> BaseModulePro(
+                                    value = baseValue,
+                                    onValueChange = onBaseValueChange,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Equation -> EquationModulePro(
+                                    fields = genericFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Vector -> VectorModulePro(
+                                    settings = settings,
+                                    fields = genericFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Complex -> ComplexModulePro(
+                                    fields = genericFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Inequality -> InequalityModulePro(
+                                    fields = genericFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                CalculatorApp.Ratio -> RatioModulePro(
+                                    fields = genericFields,
+                                    focusTarget = focusTarget,
+                                    onFocusChange = onFocusChange
+                                )
+                                else -> {}
+                            }
                             else -> {}
                         }
-                        else -> {}
                     }
                 }
             }
@@ -652,17 +732,22 @@ private fun CalculatorWorkspaceHeader(
     onAction: () -> Unit,
     onOpenDirectory: () -> Unit,
     directoryOpen: Boolean,
+    isDarkMode: Boolean,
+    onToggleTheme: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val palette = tilePalette(title)
     LiquidGlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         cornerRadius = 28.dp,
         tint = palette.primary.copy(alpha = 0.22f),
         borderColor = Color.White.copy(alpha = 0.4f),
-        blurRadius = 24.dp
+        blurRadius = 36.dp // 增加模糊半径，确保在滚动时下层文本被强力模糊
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp), // 增加内边距，让卡片看起来不拥挤
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -690,18 +775,38 @@ private fun CalculatorWorkspaceHeader(
                         )
                     }
                 }
-                Column(
+                Row(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    Text(title, style = MaterialTheme.typography.headlineSmall, color = PineInk)
-                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))
+                    Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = if (isDarkMode) CloudWhite else PineInk)
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 2.dp))
                 }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Surface(
+                    modifier = Modifier.clickable(onClick = onToggleTheme),
+                    shape = CalculatorInnerShape,
+                    color = Color.White.copy(alpha = 0.16f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                            contentDescription = "切换主题",
+                            tint = if (isDarkMode) CloudWhite else PineInk,
+                        )
+                    }
+                }
                 Surface(
                     modifier = Modifier.clickable(onClick = onOpenDirectory),
                     shape = CalculatorInnerShape,
@@ -725,8 +830,9 @@ private fun CalculatorWorkspaceHeader(
                     onClick = onAction,
                     shape = CalculatorInnerShape,
                     colors = ButtonDefaults.buttonColors(containerColor = actionColor),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp) // 优化按钮排版
                 ) {
-                    Text(actionText)
+                    Text(actionText, maxLines = 1)
                 }
             }
         }
@@ -784,30 +890,41 @@ private fun CalculatorDirectorySection(
     title: String,
     items: List<CalculatorDirectoryItem>,
 ) {
-    CalculatorGlassPanel {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    LiquidGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 28.dp,
+        tint = if (isDarkMode) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.28f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.4f),
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, style = MaterialTheme.typography.titleLarge, color = PineInk)
-                Surface(shape = CalculatorChipShape, color = Color.White.copy(alpha = 0.18f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = if (isDarkMode) CloudWhite else PineInk)
+                Surface(
+                    shape = CircleShape, 
+                    color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.18f)
+                ) {
                     Text(
                         text = "${items.size} 项",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ForestDeep.copy(alpha = 0.72f),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.72f) else ForestDeep.copy(alpha = 0.72f),
                     )
                 }
             }
             Surface(
-                shape = CalculatorPanelShape,
-                color = Color.White.copy(alpha = 0.2f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                shape = RoundedCornerShape(22.dp),
+                color = if (isDarkMode) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.2f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.18f)),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     items.forEachIndexed { index, item ->
@@ -817,7 +934,7 @@ private fun CalculatorDirectorySection(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(1.dp)
-                                    .background(BambooStroke.copy(alpha = 0.26f)),
+                                    .background(if (isDarkMode) Color.White.copy(alpha = 0.05f) else BambooStroke.copy(alpha = 0.16f)),
                             )
                         }
                     }
@@ -831,12 +948,13 @@ private fun CalculatorDirectorySection(
 private fun CalculatorDirectoryRow(
     item: CalculatorDirectoryItem,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val palette = tilePalette(item.title)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = item.onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -858,10 +976,10 @@ private fun CalculatorDirectoryRow(
         }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(item.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
-            Text(item.subtitle, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.72f))
+            Text(item.title, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+            Text(item.subtitle, style = MaterialTheme.typography.bodySmall, color = if (isDarkMode) CloudWhite.copy(alpha = 0.5f) else ForestDeep.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -880,9 +998,10 @@ private fun CalculatorDirectoryRow(
                         style = MaterialTheme.typography.labelMedium,
                         color = palette.primary,
                     )
+
                 }
             }
-            Text("›", style = MaterialTheme.typography.titleMedium, color = ForestDeep.copy(alpha = 0.54f))
+            Text("›", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.54f) else ForestDeep.copy(alpha = 0.54f))
         }
     }
 }
@@ -895,19 +1014,19 @@ private data class TilePalette(
 
 private fun tilePalette(title: String): TilePalette {
     return when (title) {
-        "计算", "通用计算" -> TilePalette(Color(0xFF1E5C4C), Color(0xFF3A8A71), Color(0xFFBCE6D7))
-        "统计" -> TilePalette(Color(0xFF315E84), Color(0xFF5C8FB8), Color(0xFFC7DCF2))
-        "检验" -> TilePalette(Color(0xFF60527A), Color(0xFF8470A5), Color(0xFFE0D8F1))
-        "分布" -> TilePalette(Color(0xFF7C5A37), Color(0xFFAF8356), Color(0xFFF0DFC3))
+        "常规计算" -> TilePalette(Color(0xFF1E5C4C), Color(0xFF3A8A71), Color(0xFFBCE6D7))
+        "统计推断" -> TilePalette(Color(0xFF315E84), Color(0xFF5C8FB8), Color(0xFFC7DCF2))
+        "假设检验" -> TilePalette(Color(0xFF60527A), Color(0xFF8470A5), Color(0xFFE0D8F1))
+        "概率分布" -> TilePalette(Color(0xFF7C5A37), Color(0xFFAF8356), Color(0xFFF0DFC3))
         "数据表格" -> TilePalette(Color(0xFF2D6B67), Color(0xFF4AA09A), Color(0xFFC5ECE7))
         "函数表格" -> TilePalette(Color(0xFF644D8D), Color(0xFF8A6DC1), Color(0xFFE1D7F7))
-        "方程" -> TilePalette(Color(0xFF8A4E49), Color(0xFFBF746B), Color(0xFFF2D4CF))
-        "不等式" -> TilePalette(Color(0xFF4A5A33), Color(0xFF738950), Color(0xFFDDE9C9))
-        "复数" -> TilePalette(Color(0xFF425D86), Color(0xFF6A8FBE), Color(0xFFD4E1F4))
-        "进制" -> TilePalette(Color(0xFF5C4C46), Color(0xFF8B7268), Color(0xFFEBD7CF))
-        "矩阵" -> TilePalette(Color(0xFF0F4F53), Color(0xFF2D7A80), Color(0xFFB8E4E5))
-        "向量" -> TilePalette(Color(0xFF275A65), Color(0xFF458593), Color(0xFFC7E7ED))
-        "比例" -> TilePalette(Color(0xFF6C5A31), Color(0xFFA38A48), Color(0xFFF0E3BA))
+        "方程求解" -> TilePalette(Color(0xFF8A4E49), Color(0xFFBF746B), Color(0xFFF2D4CF))
+        "不等式求解" -> TilePalette(Color(0xFF4A5A33), Color(0xFF738950), Color(0xFFDDE9C9))
+        "复数域" -> TilePalette(Color(0xFF425D86), Color(0xFF6A8FBE), Color(0xFFD4E1F4))
+        "进制转换" -> TilePalette(Color(0xFF5C4C46), Color(0xFF8B7268), Color(0xFFEBD7CF))
+        "矩阵代数" -> TilePalette(Color(0xFF0F4F53), Color(0xFF2D7A80), Color(0xFFB8E4E5))
+        "空间向量" -> TilePalette(Color(0xFF275A65), Color(0xFF458593), Color(0xFFC7E7ED))
+        "比例缩放" -> TilePalette(Color(0xFF6C5A31), Color(0xFFA38A48), Color(0xFFF0E3BA))
         "全局设置", "设置" -> TilePalette(Color(0xFF47566E), Color(0xFF6B7D9E), Color(0xFFD6E0F0))
         "结果格式" -> TilePalette(Color(0xFF4B5D76), Color(0xFF728FB3), Color(0xFFD8E4F6))
         "单位换算" -> TilePalette(Color(0xFF3F675E), Color(0xFF5C998B), Color(0xFFCCECE4))
@@ -918,23 +1037,23 @@ private fun tilePalette(title: String): TilePalette {
 
 private fun tileSection(title: String): String {
     return when (title) {
-        "统计" -> "分析"
-        "检验" -> "推断"
-        "分布" -> "概率"
+        "统计推断" -> "分析"
+        "假设检验" -> "推断"
+        "概率分布" -> "概率"
         "数据表格" -> "表格"
         "函数表格" -> "函数"
-        "方程" -> "代数"
-        "不等式" -> "求解"
-        "复数" -> "复平面"
-        "进制" -> "编码"
-        "矩阵" -> "线代"
-        "向量" -> "空间"
-        "比例" -> "换算"
+        "方程求解" -> "代数"
+        "不等式求解" -> "求解"
+        "复数域" -> "复平面"
+        "进制转换" -> "编码"
+        "矩阵代数" -> "线代"
+        "空间向量" -> "空间"
+        "比例缩放" -> "换算"
         "全局设置", "设置" -> "设置"
         "结果格式" -> "格式"
         "单位换算" -> "单位"
         "常数表" -> "常数"
-        "计算", "通用计算" -> "表达式"
+        "常规计算" -> "表达式"
         else -> "模块"
     }
 }
@@ -945,19 +1064,19 @@ private val CalculatorChipShape = RoundedCornerShape(18.dp)
 
 private fun tileIcon(title: String): ImageVector {
     return when (title) {
-        "计算", "通用计算" -> Icons.Outlined.Calculate
-        "统计" -> Icons.Outlined.ScatterPlot
-        "检验" -> Icons.Outlined.Hub
-        "分布" -> Icons.Outlined.BubbleChart
+        "常规计算" -> Icons.Outlined.Calculate
+        "统计推断" -> Icons.Outlined.ScatterPlot
+        "假设检验" -> Icons.Outlined.Hub
+        "概率分布" -> Icons.Outlined.BubbleChart
         "数据表格" -> Icons.Outlined.Dataset
         "函数表格" -> Icons.Outlined.Functions
-        "方程" -> Icons.Outlined.Tune
-        "不等式" -> Icons.Outlined.SquareFoot
-        "复数" -> Icons.Outlined.Widgets
-        "进制" -> Icons.Outlined.DataObject
-        "矩阵" -> Icons.Outlined.ViewColumn
-        "向量" -> Icons.Outlined.SwapHoriz
-        "比例" -> Icons.Outlined.AccountTree
+        "方程求解" -> Icons.Outlined.Tune
+        "不等式求解" -> Icons.Outlined.SquareFoot
+        "复数域" -> Icons.Outlined.Widgets
+        "进制转换" -> Icons.Outlined.DataObject
+        "矩阵代数" -> Icons.Outlined.ViewColumn
+        "空间向量" -> Icons.Outlined.SwapHoriz
+        "比例缩放" -> Icons.Outlined.AccountTree
         "全局设置", "设置" -> Icons.Outlined.Settings
         "结果格式" -> Icons.Outlined.Tune
         "单位换算" -> Icons.Outlined.SwapHoriz
@@ -975,6 +1094,7 @@ private fun CalculatorDetailHeader(
     actionColor: Color,
     onAction: () -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val palette = tilePalette(title)
     CalculatorGlassPanel(modifier = Modifier.padding(horizontal = 12.dp)) {
         Row(
@@ -1015,11 +1135,11 @@ private fun CalculatorDetailHeader(
                             text = tileSection(title),
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                             style = MaterialTheme.typography.labelMedium,
-                            color = ForestDeep.copy(alpha = 0.76f),
+                            color = if (isDarkMode) CloudWhite.copy(alpha = 0.76f) else ForestDeep.copy(alpha = 0.76f),
                         )
                     }
-                    Text(title, style = MaterialTheme.typography.headlineSmall, color = PineInk)
-                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
+                    Text(title, style = MaterialTheme.typography.headlineSmall, color = if (isDarkMode) CloudWhite else PineInk)
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.72f) else ForestDeep.copy(alpha = 0.72f))
                 }
             }
             Button(
@@ -1038,6 +1158,7 @@ private fun CalculatorCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val palette = tilePalette(title)
     LiquidGlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1081,10 +1202,10 @@ private fun CalculatorCard(
                         text = tileSection(title),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = ForestDeep.copy(alpha = 0.74f),
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f),
                     )
                 }
-                Text(title, style = MaterialTheme.typography.headlineSmall, color = PineInk)
+                Text(title, style = MaterialTheme.typography.headlineSmall, color = if (isDarkMode) CloudWhite else PineInk)
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -1096,6 +1217,7 @@ private fun CalculatorCard(
 
 @Composable
 private fun ResultBlock(text: String) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val lines = text.lines().filter { it.isNotBlank() }
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
@@ -1111,13 +1233,13 @@ private fun ResultBlock(text: String) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("结果", style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.62f))
+                Text("结果", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.62f) else ForestDeep.copy(alpha = 0.62f))
                 Surface(shape = CalculatorChipShape, color = Color.White.copy(alpha = 0.14f)) {
                     Text(
                         text = if (lines.size > 1) "${lines.size} 行" else "输出",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = ForestDeep.copy(alpha = 0.72f),
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.72f) else ForestDeep.copy(alpha = 0.72f),
                     )
                 }
             }
@@ -1125,7 +1247,7 @@ private fun ResultBlock(text: String) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = PineInk,
+                color = if (isDarkMode) CloudWhite else PineInk,
             )
         }
     }
@@ -1160,6 +1282,7 @@ private fun SectionLead(
     body: String,
     modifier: Modifier = Modifier,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
@@ -1167,11 +1290,11 @@ private fun SectionLead(
         borderColor = Color.White.copy(alpha = 0.32f),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
-            Text("提示", style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.6f))
+            Text("提示", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, color = PineInk)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
             Spacer(modifier = Modifier.height(6.dp))
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f))
         }
     }
 }
@@ -1204,16 +1327,52 @@ private fun ComputeModulePro(
                             cursorIndex = cursorIndex,
                             onCursorMove = onCursorMove,
                             result = result,
-                            modifier = Modifier.fillMaxWidth()
+                            settings = settings,
+                            modifier = Modifier.fillMaxWidth(),
+                            onDelete = {
+                                if (cursorIndex > 0) {
+                                    val nextExpr = expression.removeRange(cursorIndex - 1, cursorIndex)
+                                    onExpressionChange(nextExpr)
+                                    onCursorMove(cursorIndex - 1)
+                                }
+                            }
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                     }
                 }
                 
                 // 历史记录
-                items(history.asReversed()) { record ->
-                    HistoryItem(record.first, record.second)
-                    Spacer(modifier = Modifier.height(12.dp))
+                items(history.asReversed(), key = { it.hashCode() }) { record: Pair<String, String> ->
+                    val expr = record.first
+                    val res = record.second
+                    
+                    // 历史记录进入动画
+                    var isVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { isVisible = true }
+                    
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isVisible,
+                        enter = slideInHorizontally { width -> width / 3 } + fadeIn(),
+                        exit = slideOutHorizontally { width -> -width } + fadeOut()
+                    ) {
+                        Column {
+                            HistoryItem(
+                                expr = expr, 
+                                res = res,
+                                onClick = {
+                                    onExpressionChange(expr)
+                                    onResultChange(res)
+                                    onCursorMove(expr.length)
+                                },
+                                onDelete = {
+                                    isVisible = false
+                                    // 延迟移除以允许退出动画播放
+                                    history.remove(record)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
                 }
             }
         }
@@ -1234,16 +1393,66 @@ private fun ComputeModulePro(
 }
 
 @Composable
-private fun HistoryItem(expr: String, res: String) {
-    LiquidGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 20.dp,
-        tint = Color.White.copy(alpha = 0.15f),
-        borderColor = Color.White.copy(alpha = 0.1f)
+private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete: () -> Unit) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    val haptic = LocalHapticFeedback.current
+    val displayExpr = expr.replace("*", "×").replace("/", "÷")
+    
+    var offsetX by remember { mutableStateOf(0f) }
+    val animatedOffsetX by animateFloatAsState(targetValue = offsetX)
+    val density = LocalDensity.current
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        if (offsetX < -150f) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onDelete()
+                        }
+                        offsetX = 0f
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        offsetX = (offsetX + dragAmount).coerceAtMost(0f)
+                    }
+                )
+            }
     ) {
-        Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.End) {
-            Text(expr, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.6f))
-            Text(res, style = MaterialTheme.typography.titleMedium, color = PineInk)
+        // 背景删除提示
+        if (offsetX < -20f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 12.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    "删除", 
+                    color = Color.Red.copy(alpha = 0.8f), 
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        LiquidGlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                .clickable { 
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onClick() 
+                },
+            cornerRadius = 20.dp,
+            tint = if (isDarkMode) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.46f),
+            borderColor = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.2f),
+        ) {
+            Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.End) {
+                Text(displayExpr, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+                Text(res, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.8f) else PineInk, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1253,6 +1462,7 @@ private fun MatrixSectionHeader(
     section: String,
     body: String,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
@@ -1260,11 +1470,11 @@ private fun MatrixSectionHeader(
         borderColor = Color.White.copy(alpha = 0.32f),
     ) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Text("矩阵结构", style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.6f))
+            Text("矩阵结构", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(4.dp))
-            Text(section, style = MaterialTheme.typography.titleMedium, color = PineInk)
+            Text(section, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f))
         }
     }
 }
@@ -1300,7 +1510,8 @@ private fun CalculatorGlassPanel(
 
 @Composable
 private fun CalculatorSectionTitle(title: String) {
-    Text(title, style = MaterialTheme.typography.headlineSmall, color = PineInk)
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    Text(title, style = MaterialTheme.typography.headlineSmall, color = if (isDarkMode) CloudWhite else PineInk)
 }
 
 @Composable
@@ -1333,6 +1544,7 @@ private fun CalculatorInsetPanel(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 22.dp,
@@ -1346,12 +1558,12 @@ private fun CalculatorInsetPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, color = PineInk)
+                    Text(title, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
                     if (!subtitle.isNullOrBlank()) {
                         Text(
                             subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = ForestDeep.copy(alpha = 0.7f),
+                            color = if (isDarkMode) CloudWhite.copy(alpha = 0.7f) else ForestDeep.copy(alpha = 0.7f),
                         )
                     }
                 }
@@ -1392,6 +1604,7 @@ private fun CalculatorMetricTile(
     value: String,
     modifier: Modifier = Modifier,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = modifier,
         cornerRadius = 18.dp,
@@ -1404,8 +1617,8 @@ private fun CalculatorMetricTile(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.62f))
-            Text(value, style = MaterialTheme.typography.titleMedium, color = PineInk)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.62f) else ForestDeep.copy(alpha = 0.62f))
+            Text(value, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
         }
     }
 }
@@ -1423,6 +1636,7 @@ private fun FormulaEditor(
     onValueChange: (String) -> Unit,
     tokens: List<String>,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var editorValue by remember(value) { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     var builder by remember { mutableStateOf<String?>(null) }
     var editMode by remember { mutableStateOf<String?>(null) }
@@ -1430,12 +1644,12 @@ private fun FormulaEditor(
     var slotA by remember { mutableStateOf("") }
     var slotB by remember { mutableStateOf("") }
     val structures = extractFormulaStructures(editorValue.text)
-    val activeIndex = structures.indexOfFirst { it.key == activeStructure?.key }.let { if (it >= 0) it else -1 }
+    val activeIndex = structures.indexOfFirst { it.key == activeStructure?.key }.let { idx -> if (idx >= 0) idx else -1 }
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 26.dp,
-        tint = Color.White.copy(alpha = 0.44f),
-        borderColor = Color.White.copy(alpha = 0.2f),
+        tint = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.44f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -1443,13 +1657,16 @@ private fun FormulaEditor(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(label, style = MaterialTheme.typography.titleMedium, color = PineInk)
-                Surface(shape = CalculatorChipShape, color = Color.White.copy(alpha = 0.18f)) {
+                Text(label, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                Surface(
+                    shape = CalculatorChipShape, 
+                    color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.18f)
+                ) {
                     Text(
                         text = "公式输入",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = ForestDeep.copy(alpha = 0.74f),
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f),
                     )
                 }
             }
@@ -1463,6 +1680,12 @@ private fun FormulaEditor(
                 label = { Text("输入公式") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = CalculatorInnerShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+                    cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+                )
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1479,14 +1702,14 @@ private fun FormulaEditor(
             LiquidGlassSurface(
                 modifier = Modifier.fillMaxWidth(),
                 cornerRadius = 22.dp,
-                tint = Color(0x162F7553),
-                borderColor = Color.White.copy(alpha = 0.16f),
+                tint = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.05f) else Color(0x162F7553),
+                borderColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.16f),
             ) {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                     Text(
                         text = if (editorValue.text.isBlank()) "原式：等待输入" else "原式：${editorValue.text}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = ForestDeep.copy(alpha = 0.68f),
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.68f) else ForestDeep.copy(alpha = 0.68f),
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     StructuredFormulaPreview(
@@ -1543,9 +1766,9 @@ private fun FormulaEditor(
                         }
                     }
                     Text(
-                        text = "结构 ${activeIndex + 1}/${structures.size}，左右拖动结构块可排序",
+                        text = "结构 ${activeIndex + 1}/${structures.size}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = ForestDeep.copy(alpha = 0.72f),
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.72f) else ForestDeep.copy(alpha = 0.72f),
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1618,7 +1841,7 @@ private fun FormulaEditor(
                 tokens.forEach { token ->
                     Surface(
                         shape = CalculatorChipShape,
-                        color = Color.White.copy(alpha = 0.52f),
+                        color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.52f),
                         modifier = Modifier.clickable {
                             if (token in listOf("a/b", "1/x", "√")) {
                                 builder = token
@@ -1637,7 +1860,7 @@ private fun FormulaEditor(
                             text = token,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                             style = MaterialTheme.typography.labelLarge,
-                            color = PineInk,
+                            color = if (isDarkMode) CloudWhite else PineInk,
                         )
                     }
                 }
@@ -1656,11 +1879,12 @@ private fun InlineStructureEditor(
     onApply: () -> Unit,
     onDone: () -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 20.dp,
-        tint = Color(0x2234976B),
-        borderColor = ForestGreen.copy(alpha = 0.38f),
+        tint = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.08f) else Color(0x2234976B),
+        borderColor = (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.38f),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -1670,7 +1894,7 @@ private fun InlineStructureEditor(
                     else -> "当前结构：根式"
                 },
                 style = MaterialTheme.typography.titleMedium,
-                color = PineInk,
+                color = if (isDarkMode) Color(0xFF66FFB2) else (if (isDarkMode) CloudWhite else PineInk),
             )
             Spacer(modifier = Modifier.height(8.dp))
             when (structure.mode) {
@@ -1690,7 +1914,7 @@ private fun InlineStructureEditor(
             Text(
                 text = "即时预览：${prettyFormatExpression(buildStructuredFormula(structure.mode, slotA, slotB))}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = ForestDeep.copy(alpha = 0.76f),
+                color = if (isDarkMode) CloudWhite.copy(alpha = 0.76f) else ForestDeep.copy(alpha = 0.76f),
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1707,6 +1931,7 @@ private fun SlotFormulaInput(
     value: String,
     onValueChange: (String) -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var editor by remember(value) { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     OutlinedTextField(
         value = editor,
@@ -1717,6 +1942,12 @@ private fun SlotFormulaInput(
         label = { Text(title) },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+            cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+        )
     )
     Spacer(modifier = Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1734,14 +1965,14 @@ private fun SlotFormulaInput(
         Spacer(modifier = Modifier.height(6.dp))
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = Color.White.copy(alpha = 0.34f),
+            color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.34f),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
         ) {
             Text(
                 text = tree,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = ForestDeep.copy(alpha = 0.78f),
+                color = if (isDarkMode) CloudWhite.copy(alpha = 0.78f) else ForestDeep.copy(alpha = 0.78f),
             )
         }
     }
@@ -1770,11 +2001,12 @@ private fun StructuredInsertPanel(
     onCancel: () -> Unit,
     onInsert: () -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 20.dp,
-        tint = Color.White.copy(alpha = 0.5f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        tint = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.5f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.22f),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -1784,7 +2016,7 @@ private fun StructuredInsertPanel(
                     else -> "结构输入：根式"
                 },
                 style = MaterialTheme.typography.titleMedium,
-                color = PineInk,
+                color = if (isDarkMode) Color(0xFF66FFB2) else (if (isDarkMode) CloudWhite else PineInk),
             )
             Spacer(modifier = Modifier.height(8.dp))
             when (mode) {
@@ -1804,7 +2036,7 @@ private fun StructuredInsertPanel(
             Text(
                 text = "预览：${prettyFormatExpression(buildStructuredFormula(mode, slotA, slotB))}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = ForestDeep.copy(alpha = 0.76f),
+                color = if (isDarkMode) CloudWhite.copy(alpha = 0.76f) else ForestDeep.copy(alpha = 0.76f),
             )
             Spacer(modifier = Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1822,11 +2054,12 @@ private fun StructuredFormulaPreview(
     onEditStructure: (FormulaStructure) -> Unit,
     onReorderStructure: (FormulaStructure, Int) -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     if (value.isBlank()) {
         Text(
             text = "排版预览：等待输入",
             style = MaterialTheme.typography.bodyMedium,
-            color = PineInk,
+            color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else PineInk.copy(alpha = 0.6f),
         )
         return
     }
@@ -1835,12 +2068,12 @@ private fun StructuredFormulaPreview(
     Text(
         text = "排版预览",
         style = MaterialTheme.typography.bodyMedium,
-        color = PineInk,
+        color = if (isDarkMode) CloudWhite else PineInk,
     )
     Spacer(modifier = Modifier.height(4.dp))
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White.copy(alpha = 0.28f),
+        color = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.28f),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
@@ -1848,7 +2081,7 @@ private fun StructuredFormulaPreview(
                 Text(
                     text = line,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = PineInk,
+                    color = if (isDarkMode) CloudWhite else PineInk,
                 )
                 if (index != lines.lastIndex) Spacer(modifier = Modifier.height(2.dp))
             }
@@ -1872,7 +2105,7 @@ private fun StructuredFormulaPreview(
                         denominator = structure.slotB.ifBlank { "□" },
                         active = structure.key == activeKey,
                         onClick = { onEditStructure(structure) },
-                        onReorder = { onReorderStructure(structure, it) },
+                        onReorder = { delta -> onReorderStructure(structure, delta) },
                     )
                     "1/x" -> FractionTemplateCard(
                         title = "倒数",
@@ -1880,13 +2113,13 @@ private fun StructuredFormulaPreview(
                         denominator = structure.slotA.ifBlank { "□" },
                         active = structure.key == activeKey,
                         onClick = { onEditStructure(structure) },
-                        onReorder = { onReorderStructure(structure, it) },
+                        onReorder = { delta -> onReorderStructure(structure, delta) },
                     )
                     "√" -> RadicalTemplateCard(
                         content = structure.slotA.ifBlank { "□" },
                         active = structure.key == activeKey,
                         onClick = { onEditStructure(structure) },
-                        onReorder = { onReorderStructure(structure, it) },
+                        onReorder = { delta -> onReorderStructure(structure, delta) },
                     )
                 }
             }
@@ -1905,6 +2138,7 @@ private fun FractionTemplateCard(
     onClick: (() -> Unit)? = null,
     onReorder: ((Int) -> Unit)? = null,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var dragX by remember { mutableStateOf(0f) }
     var numeratorPx by remember { mutableStateOf(0) }
     var denominatorPx by remember { mutableStateOf(0) }
@@ -1942,16 +2176,16 @@ private fun FractionTemplateCard(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(title, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.68f))
+            Text(title, style = MaterialTheme.typography.bodySmall, color = if (isDarkMode) CloudWhite.copy(alpha = 0.68f) else ForestDeep.copy(alpha = 0.68f))
             Spacer(modifier = Modifier.height(6.dp))
-            Text(numerator, style = MaterialTheme.typography.bodyLarge, color = PineInk, onTextLayout = { numeratorPx = it.size.width })
+            Text(numerator, style = MaterialTheme.typography.bodyLarge, color = if (isDarkMode) CloudWhite else PineInk, onTextLayout = { numeratorPx = it.size.width })
             Box(
                 modifier = Modifier
                     .width(adaptiveWidth)
                     .height(1.dp)
                     .background(ForestGreen.copy(alpha = 0.7f)),
             )
-            Text(denominator, style = MaterialTheme.typography.bodyLarge, color = PineInk, onTextLayout = { denominatorPx = it.size.width })
+            Text(denominator, style = MaterialTheme.typography.bodyLarge, color = if (isDarkMode) CloudWhite else PineInk, onTextLayout = { denominatorPx = it.size.width })
         }
     }
 }
@@ -2019,6 +2253,7 @@ private fun PowerTemplateCard(
     text: String,
     power: String,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier,
         cornerRadius = 18.dp,
@@ -2029,8 +2264,8 @@ private fun PowerTemplateCard(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Text(text, style = MaterialTheme.typography.bodyLarge, color = PineInk)
-            Text(power, style = MaterialTheme.typography.bodySmall, color = ForestGreen)
+            Text(text, style = MaterialTheme.typography.bodyLarge, color = if (isDarkMode) CloudWhite else PineInk)
+            Text(power, style = MaterialTheme.typography.bodySmall, color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen)
         }
     }
 }
@@ -2043,24 +2278,25 @@ private fun ProCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = modifier
-            .height(54.dp)
+            .height(58.dp)
             .clickable { onClick() },
         cornerRadius = 16.dp,
-        tint = if (isFocused) ForestGreen.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.28f),
-        borderColor = if (isFocused) ForestGreen.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.2f),
+        tint = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.12f) else ForestGreen.copy(alpha = 0.08f)) else (if (isDarkMode) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.28f)),
+        borderColor = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.4f) else ForestGreen.copy(alpha = 0.4f)) else (if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = ForestDeep.copy(alpha = 0.5f))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = if (isDarkMode) CloudWhite.copy(alpha = 0.5f) else ForestDeep.copy(alpha = 0.5f))
             Text(
                 value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isFocused) ForestGreen else PineInk,
+                color = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen) else (if (isDarkMode) CloudWhite else PineInk),
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -2077,21 +2313,22 @@ private fun ProInputField(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() },
         cornerRadius = 20.dp,
-        tint = if (isFocused) ForestGreen.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.24f),
-        borderColor = if (isFocused) ForestGreen.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.16f),
+        tint = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.12f) else ForestGreen.copy(alpha = 0.08f)) else (if (isDarkMode) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.24f)),
+        borderColor = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.4f) else ForestGreen.copy(alpha = 0.4f)) else (if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.16f)),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.6f))
-            Spacer(modifier = Modifier.height(4.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value.ifEmpty { "点击输入数据..." },
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (value.isEmpty()) PineInk.copy(alpha = 0.3f) else PineInk,
+                color = if (value.isEmpty()) PineInk.copy(alpha = 0.3f) else (if (isDarkMode) CloudWhite else PineInk),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -2158,6 +2395,7 @@ private fun MatrixModulePro(
     focusTarget: FocusTarget,
     onFocusChange: (FocusTarget) -> Unit
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var dimension by remember { mutableStateOf("3x3") }
     var mode by remember { mutableStateOf("行列式") }
     var result by remember { mutableStateOf("支持行列式、逆矩阵等运算") }
@@ -2177,7 +2415,7 @@ private fun MatrixModulePro(
         Spacer(modifier = Modifier.height(16.dp))
         
         // 矩阵 A 编辑区
-        Text("矩阵 A", style = MaterialTheme.typography.titleSmall, color = PineInk)
+        Text("矩阵 A", style = MaterialTheme.typography.titleSmall, color = if (isDarkMode) CloudWhite else PineInk)
         Spacer(modifier = Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             repeat(size) { row ->
@@ -2198,7 +2436,7 @@ private fun MatrixModulePro(
         
         if (mode == "乘法") {
             Spacer(modifier = Modifier.height(20.dp))
-            Text("矩阵 B", style = MaterialTheme.typography.titleSmall, color = PineInk)
+            Text("矩阵 B", style = MaterialTheme.typography.titleSmall, color = if (isDarkMode) CloudWhite else PineInk)
             Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 repeat(size) { row ->
@@ -2266,79 +2504,83 @@ private fun EquationModulePro(
     var mode by remember { mutableStateOf("多项式") }
     var degree by remember { mutableStateOf("2次") }
     var result by remember { mutableStateOf("结果将在这里显示") }
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
 
-    CalculatorCard("方程") {
-        ModuleSelector(listOf("一元一次", "二元一次", "多项式"), mode) { mode = it }
+    CalculatorCard("方程 Pro") {
+        ModuleSelector(listOf("线性方程", "二元一次", "多项式"), mode) { mode = it }
         Spacer(modifier = Modifier.height(16.dp))
 
         when (mode) {
-            "一元一次" -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProCell(
-                        value = fields["eq_a"] ?: "1",
-                        label = "a",
-                        isFocused = focusTarget == FocusTarget.GenericInput("eq_a"),
-                        onClick = { onFocusChange(FocusTarget.GenericInput("eq_a")) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    ProCell(
-                        value = fields["eq_b"] ?: "0",
-                        label = "b",
-                        isFocused = focusTarget == FocusTarget.GenericInput("eq_b"),
-                        onClick = { onFocusChange(FocusTarget.GenericInput("eq_b")) },
-                        modifier = Modifier.weight(1f)
-                    )
+            "线性方程" -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("求解 ax + b = 0", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ProCell(fields.getOrDefault("eq_a", "1"), "a", focusTarget == FocusTarget.GenericInput("eq_a"), { onFocusChange(FocusTarget.GenericInput("eq_a")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_b", "0"), "b", focusTarget == FocusTarget.GenericInput("eq_b"), { onFocusChange(FocusTarget.GenericInput("eq_b")) }, Modifier.weight(1f))
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                CalcButton("求解 ax + b = 0") {
+                CalcButton("执行线性求解") {
                     result = runCatching {
-                        val a = (fields["eq_a"] ?: "1").toDouble()
-                        val b = (fields["eq_b"] ?: "0").toDouble()
-                        "x = ${formatNumber(-b / a)}"
-                    }.getOrElse { "计算错误" }
+                        val a = fields.getOrDefault("eq_a", "1").toDouble()
+                        val b = fields.getOrDefault("eq_b", "0").toDouble()
+                        if (abs(a) < 1e-9) {
+                            if (abs(b) < 1e-9) "无数解" else "无解"
+                        } else {
+                            "x = ${formatNumber(-b / a)}"
+                        }
+                    }.getOrElse { "输入无效" }
                 }
             }
             "二元一次" -> {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("a₁x + b₁y = c₁\na₂x + b₂y = c₂", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProCell(fields["eq_a1"] ?: "1", "a1", focusTarget == FocusTarget.GenericInput("eq_a1"), { onFocusChange(FocusTarget.GenericInput("eq_a1")) }, Modifier.weight(1f))
-                        ProCell(fields["eq_b1"] ?: "1", "b1", focusTarget == FocusTarget.GenericInput("eq_b1"), { onFocusChange(FocusTarget.GenericInput("eq_b1")) }, Modifier.weight(1f))
-                        ProCell(fields["eq_c1"] ?: "0", "c1", focusTarget == FocusTarget.GenericInput("eq_c1"), { onFocusChange(FocusTarget.GenericInput("eq_c1")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_a1", "1"), "a1", focusTarget == FocusTarget.GenericInput("eq_a1"), { onFocusChange(FocusTarget.GenericInput("eq_a1")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_b1", "1"), "b1", focusTarget == FocusTarget.GenericInput("eq_b1"), { onFocusChange(FocusTarget.GenericInput("eq_b1")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_c1", "0"), "c1", focusTarget == FocusTarget.GenericInput("eq_c1"), { onFocusChange(FocusTarget.GenericInput("eq_c1")) }, Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProCell(fields["eq_a2"] ?: "1", "a2", focusTarget == FocusTarget.GenericInput("eq_a2"), { onFocusChange(FocusTarget.GenericInput("eq_a2")) }, Modifier.weight(1f))
-                        ProCell(fields["eq_b2"] ?: "1", "b2", focusTarget == FocusTarget.GenericInput("eq_b2"), { onFocusChange(FocusTarget.GenericInput("eq_b2")) }, Modifier.weight(1f))
-                        ProCell(fields["eq_c2"] ?: "0", "c2", focusTarget == FocusTarget.GenericInput("eq_c2"), { onFocusChange(FocusTarget.GenericInput("eq_c2")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_a2", "1"), "a2", focusTarget == FocusTarget.GenericInput("eq_a2"), { onFocusChange(FocusTarget.GenericInput("eq_a2")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_b2", "1"), "b2", focusTarget == FocusTarget.GenericInput("eq_b2"), { onFocusChange(FocusTarget.GenericInput("eq_b2")) }, Modifier.weight(1f))
+                        ProCell(fields.getOrDefault("eq_c2", "0"), "c2", focusTarget == FocusTarget.GenericInput("eq_c2"), { onFocusChange(FocusTarget.GenericInput("eq_c2")) }, Modifier.weight(1f))
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                CalcButton("求解方程组") {
+                CalcButton("执行克莱姆法则求解") {
                     result = runCatching {
-                        val a1 = (fields["eq_a1"] ?: "1").toDouble(); val b1 = (fields["eq_b1"] ?: "1").toDouble(); val c1 = (fields["eq_c1"] ?: "0").toDouble()
-                        val a2 = (fields["eq_a2"] ?: "1").toDouble(); val b2 = (fields["eq_b2"] ?: "1").toDouble(); val c2 = (fields["eq_c2"] ?: "0").toDouble()
+                        val a1 = fields.getOrDefault("eq_a1", "1").toDouble()
+                        val b1 = fields.getOrDefault("eq_b1", "1").toDouble()
+                        val c1 = fields.getOrDefault("eq_c1", "0").toDouble()
+                        val a2 = fields.getOrDefault("eq_a2", "1").toDouble()
+                        val b2 = fields.getOrDefault("eq_b2", "1").toDouble()
+                        val c2 = fields.getOrDefault("eq_c2", "0").toDouble()
                         val det = a1 * b2 - a2 * b1
-                        require(abs(det) > 1e-9) { "方程组无唯一解" }
-                        "x = ${formatNumber((c1 * b2 - c2 * b1) / det)}\ny = ${formatNumber((a1 * c2 - a2 * c1) / det)}"
-                    }.getOrElse { it.message ?: "计算错误" }
+                        if (abs(det) < 1e-9) "行列式为 0，无唯一解"
+                        else "x = ${formatNumber((c1 * b2 - c2 * b1) / det)}\ny = ${formatNumber((a1 * c2 - a2 * c1) / det)}"
+                    }.getOrElse { "输入无效" }
                 }
             }
             "多项式" -> {
-                ModuleSelector(listOf("2次", "3次", "4次"), degree) { degree = it }
-                Spacer(modifier = Modifier.height(12.dp))
-                val count = when(degree) { "2次" -> 3; "3次" -> 4; else -> 5 }
-                val labels = listOf("a", "b", "c", "d", "e")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(count) { i ->
-                        val id = "poly_${labels[i]}"
-                        ProCell(fields[id] ?: if(i==0) "1" else "0", labels[i], focusTarget == FocusTarget.GenericInput(id), { onFocusChange(FocusTarget.GenericInput(id)) }, Modifier.weight(1f))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ModuleSelector(listOf("2次", "3次", "4次"), degree) { degree = it }
+                    val count = when(degree) { "2次" -> 3; "3次" -> 4; else -> 5 }
+                    val labels = listOf("a", "b", "c", "d", "e")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        repeat(count) { i ->
+                            val id = "poly_${labels[i]}"
+                            ProCell(fields.getOrDefault(id, if(i==0) "1" else "0"), labels[i], focusTarget == FocusTarget.GenericInput(id), { onFocusChange(FocusTarget.GenericInput(id)) }, Modifier.weight(1f))
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                CalcButton("求解多项式") {
+                CalcButton("Durand-Kerner 算法求解") {
                     result = runCatching {
-                        val coeffs = (0 until count).map { i -> (fields["poly_${labels[i]}"] ?: if(i==0) "1" else "0").toDouble() }
+                        val count = when(degree) { "2次" -> 3; "3次" -> 4; else -> 5 }
+                        val labels = listOf("a", "b", "c", "d", "e")
+                        val coeffs = (0 until count).map { i -> fields.getOrDefault("poly_${labels[i]}", if(i==0) "1" else "0").toDouble() }
                         solvePolynomial(coeffs)
-                    }.getOrElse { "计算错误" }
+                    }.getOrElse { it.message ?: "输入无效" }
                 }
             }
         }
@@ -2354,32 +2596,43 @@ private fun VectorModulePro(
     focusTarget: FocusTarget,
     onFocusChange: (FocusTarget) -> Unit
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var mode by remember { mutableStateOf("点积") }
     var result by remember { mutableStateOf("结果将在这里显示") }
 
-    CalculatorCard("向量") {
+    CalculatorCard("向量 Pro") {
         ModuleSelector(listOf("点积", "叉积", "夹角", "模长"), mode) { mode = it }
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text("向量 A", style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.6f))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["v_ax"] ?: "1", "x", focusTarget == FocusTarget.GenericInput("v_ax"), { onFocusChange(FocusTarget.GenericInput("v_ax")) }, Modifier.weight(1f))
-            ProCell(fields["v_ay"] ?: "0", "y", focusTarget == FocusTarget.GenericInput("v_ay"), { onFocusChange(FocusTarget.GenericInput("v_ay")) }, Modifier.weight(1f))
-            ProCell(fields["v_az"] ?: "0", "z", focusTarget == FocusTarget.GenericInput("v_az"), { onFocusChange(FocusTarget.GenericInput("v_az")) }, Modifier.weight(1f))
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text("向量 B", style = MaterialTheme.typography.labelMedium, color = ForestDeep.copy(alpha = 0.6f))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["v_bx"] ?: "0", "x", focusTarget == FocusTarget.GenericInput("v_bx"), { onFocusChange(FocusTarget.GenericInput("v_bx")) }, Modifier.weight(1f))
-            ProCell(fields["v_by"] ?: "1", "y", focusTarget == FocusTarget.GenericInput("v_by"), { onFocusChange(FocusTarget.GenericInput("v_by")) }, Modifier.weight(1f))
-            ProCell(fields["v_bz"] ?: "0", "z", focusTarget == FocusTarget.GenericInput("v_bz"), { onFocusChange(FocusTarget.GenericInput("v_bz")) }, Modifier.weight(1f))
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("向量 A", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProCell(fields.getOrDefault("v_ax", "1"), "x", focusTarget == FocusTarget.GenericInput("v_ax"), { onFocusChange(FocusTarget.GenericInput("v_ax")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("v_ay", "0"), "y", focusTarget == FocusTarget.GenericInput("v_ay"), { onFocusChange(FocusTarget.GenericInput("v_ay")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("v_az", "0"), "z", focusTarget == FocusTarget.GenericInput("v_az"), { onFocusChange(FocusTarget.GenericInput("v_az")) }, Modifier.weight(1f))
+            }
+            
+            Text("向量 B", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProCell(fields.getOrDefault("v_bx", "0"), "x", focusTarget == FocusTarget.GenericInput("v_bx"), { onFocusChange(FocusTarget.GenericInput("v_bx")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("v_by", "1"), "y", focusTarget == FocusTarget.GenericInput("v_by"), { onFocusChange(FocusTarget.GenericInput("v_by")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("v_bz", "0"), "z", focusTarget == FocusTarget.GenericInput("v_bz"), { onFocusChange(FocusTarget.GenericInput("v_bz")) }, Modifier.weight(1f))
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        CalcButton("执行运算") {
+        CalcButton("执行向量运算") {
             result = runCatching {
-                val av = listOf((fields["v_ax"] ?: "1").toDouble(), (fields["v_ay"] ?: "0").toDouble(), (fields["v_az"] ?: "0").toDouble())
-                val bv = listOf((fields["v_bx"] ?: "0").toDouble(), (fields["v_by"] ?: "1").toDouble(), (fields["v_bz"] ?: "0").toDouble())
+                val av = listOf(
+                    fields.getOrDefault("v_ax", "1").toDouble(),
+                    fields.getOrDefault("v_ay", "0").toDouble(),
+                    fields.getOrDefault("v_az", "0").toDouble()
+                )
+                val bv = listOf(
+                    fields.getOrDefault("v_bx", "0").toDouble(),
+                    fields.getOrDefault("v_by", "1").toDouble(),
+                    fields.getOrDefault("v_bz", "0").toDouble()
+                )
                 val dot = av.zip(bv).sumOf { it.first * it.second }
                 val normA = sqrt(av.sumOf { it * it })
                 val normB = sqrt(bv.sumOf { it * it })
@@ -2394,12 +2647,13 @@ private fun VectorModulePro(
                         "A×B = (${formatNumber(cx)}, ${formatNumber(cy)}, ${formatNumber(cz)})"
                     }
                     "夹角" -> {
-                        val angle = acos((dot / (normA * normB)).coerceIn(-1.0, 1.0)) * 180 / PI
-                        if (settings.angleMode == AngleMode.Deg) "${formatNumber(angle)}°" else "${formatNumber(angle * PI / 180)} rad"
+                        val cosTheta = (dot / (normA * normB)).coerceIn(-1.0, 1.0)
+                        val angleRad = acos(cosTheta)
+                        if (settings.angleMode == AngleMode.Deg) "${formatNumber(angleRad * 180 / PI)}°" else "${formatNumber(angleRad)} rad"
                     }
                     else -> ""
                 }
-            }.getOrElse { "计算错误" }
+            }.getOrElse { "输入无效" }
         }
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
@@ -2412,24 +2666,63 @@ private fun ComplexModulePro(
     focusTarget: FocusTarget,
     onFocusChange: (FocusTarget) -> Unit
 ) {
+    var mode by remember { mutableStateOf("代数式") }
     var result by remember { mutableStateOf("结果将在这里显示") }
-    CalculatorCard("复数") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["c_z1re"] ?: "2", "z1 实部", focusTarget == FocusTarget.GenericInput("c_z1re"), { onFocusChange(FocusTarget.GenericInput("c_z1re")) }, Modifier.weight(1f))
-            ProCell(fields["c_z1im"] ?: "3", "z1 虚部", focusTarget == FocusTarget.GenericInput("c_z1im"), { onFocusChange(FocusTarget.GenericInput("c_z1im")) }, Modifier.weight(1f))
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["c_z2re"] ?: "1", "z2 实部", focusTarget == FocusTarget.GenericInput("c_z2re"), { onFocusChange(FocusTarget.GenericInput("c_z2re")) }, Modifier.weight(1f))
-            ProCell(fields["c_z2im"] ?: "-4", "z2 虚部", focusTarget == FocusTarget.GenericInput("c_z2im"), { onFocusChange(FocusTarget.GenericInput("c_z2im")) }, Modifier.weight(1f))
-        }
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+
+    CalculatorCard("复数 Pro") {
+        ModuleSelector(listOf("代数式", "极坐标"), mode) { mode = it }
         Spacer(modifier = Modifier.height(16.dp))
-        CalcButton("四则运算") {
+
+        if (mode == "代数式") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProCell(fields.getOrDefault("c_z1re", "2"), "z1 实部", focusTarget == FocusTarget.GenericInput("c_z1re"), { onFocusChange(FocusTarget.GenericInput("c_z1re")) }, Modifier.weight(1f))
+                    ProCell(fields.getOrDefault("c_z1im", "3"), "z1 虚部", focusTarget == FocusTarget.GenericInput("c_z1im"), { onFocusChange(FocusTarget.GenericInput("c_z1im")) }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProCell(fields.getOrDefault("c_z2re", "1"), "z2 实部", focusTarget == FocusTarget.GenericInput("c_z2re"), { onFocusChange(FocusTarget.GenericInput("c_z2re")) }, Modifier.weight(1f))
+                    ProCell(fields.getOrDefault("c_z2im", "-4"), "z2 虚部", focusTarget == FocusTarget.GenericInput("c_z2im"), { onFocusChange(FocusTarget.GenericInput("c_z2im")) }, Modifier.weight(1f))
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProCell(fields.getOrDefault("c_z1r", "5"), "z1 模长 r", focusTarget == FocusTarget.GenericInput("c_z1r"), { onFocusChange(FocusTarget.GenericInput("c_z1r")) }, Modifier.weight(1f))
+                    ProCell(fields.getOrDefault("c_z1theta", "45"), "z1 辐角 θ", focusTarget == FocusTarget.GenericInput("c_z1theta"), { onFocusChange(FocusTarget.GenericInput("c_z1theta")) }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProCell(fields.getOrDefault("c_z2r", "3"), "z2 模长 r", focusTarget == FocusTarget.GenericInput("c_z2r"), { onFocusChange(FocusTarget.GenericInput("c_z2r")) }, Modifier.weight(1f))
+                    ProCell(fields.getOrDefault("c_z2theta", "30"), "z2 辐角 θ", focusTarget == FocusTarget.GenericInput("c_z2theta"), { onFocusChange(FocusTarget.GenericInput("c_z2theta")) }, Modifier.weight(1f))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        CalcButton(if (mode == "代数式") "执行四则运算" else "转换与运算") {
             result = runCatching {
-                val z1 = ComplexNumber((fields["c_z1re"]?:"2").toDouble(), (fields["c_z1im"]?:"3").toDouble())
-                val z2 = ComplexNumber((fields["c_z2re"]?:"1").toDouble(), (fields["c_z2im"]?:"-4").toDouble())
-                "z1+z2 = ${z1 + z2}\nz1-z2 = ${z1 - z2}\nz1×z2 = ${z1 * z2}\nz1/z2 = ${z1 / z2}"
-            }.getOrElse { "计算错误" }
+                if (mode == "代数式") {
+                    val z1 = ComplexNumber(fields.getOrDefault("c_z1re", "2").toDouble(), fields.getOrDefault("c_z1im", "3").toDouble())
+                    val z2 = ComplexNumber(fields.getOrDefault("c_z2re", "1").toDouble(), fields.getOrDefault("c_z2im", "-4").toDouble())
+                    val sum = z1 + z2
+                    val diff = z1 - z2
+                    val prod = z1 * z2
+                    val quot = z1 / z2
+                    "z1 + z2 = $sum\nz1 - z2 = $diff\nz1 × z2 = $prod\nz1 / z2 = $quot"
+                } else {
+                    val r1 = fields.getOrDefault("c_z1r", "5").toDouble()
+                    val t1 = fields.getOrDefault("c_z1theta", "45").toDouble() * PI / 180
+                    val r2 = fields.getOrDefault("c_z2r", "3").toDouble()
+                    val t2 = fields.getOrDefault("c_z2theta", "30").toDouble() * PI / 180
+                    
+                    val z1 = ComplexNumber(r1 * cos(t1), r1 * sin(t1))
+                    val z2 = ComplexNumber(r2 * cos(t2), r2 * sin(t2))
+                    
+                    val prodR = r1 * r2
+                    val prodT = (t1 + t2) * 180 / PI
+                    "z1 (代数): $z1\nz2 (代数): $z2\nz1×z2 (极): ${formatNumber(prodR)}∠${formatNumber(prodT)}°"
+                }
+            }.getOrElse { "输入无效" }
         }
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
@@ -2444,22 +2737,27 @@ private fun InequalityModulePro(
 ) {
     var sign by remember { mutableStateOf("≥ 0") }
     var result by remember { mutableStateOf("结果将在这里显示") }
-    CalculatorCard("不等式") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["ineq_a"] ?: "1", "a", focusTarget == FocusTarget.GenericInput("ineq_a"), { onFocusChange(FocusTarget.GenericInput("ineq_a")) }, Modifier.weight(1f))
-            ProCell(fields["ineq_b"] ?: "-3", "b", focusTarget == FocusTarget.GenericInput("ineq_b"), { onFocusChange(FocusTarget.GenericInput("ineq_b")) }, Modifier.weight(1f))
-            ProCell(fields["ineq_c"] ?: "2", "c", focusTarget == FocusTarget.GenericInput("ineq_c"), { onFocusChange(FocusTarget.GenericInput("ineq_c")) }, Modifier.weight(1f))
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+
+    CalculatorCard("不等式 Pro") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("求解 ax² + bx + c", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProCell(fields.getOrDefault("ineq_a", "1"), "a", focusTarget == FocusTarget.GenericInput("ineq_a"), { onFocusChange(FocusTarget.GenericInput("ineq_a")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("ineq_b", "-3"), "b", focusTarget == FocusTarget.GenericInput("ineq_b"), { onFocusChange(FocusTarget.GenericInput("ineq_b")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("ineq_c", "2"), "c", focusTarget == FocusTarget.GenericInput("ineq_c"), { onFocusChange(FocusTarget.GenericInput("ineq_c")) }, Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            ModuleSelector(listOf("≥ 0", "> 0", "≤ 0", "< 0"), sign) { sign = it }
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        ModuleSelector(listOf("≥ 0", "> 0", "≤ 0", "< 0"), sign) { sign = it }
         Spacer(modifier = Modifier.height(16.dp))
-        CalcButton("求解 ax²+bx+c $sign") {
+        CalcButton("执行不等式求解") {
             result = runCatching {
-                val a = (fields["ineq_a"] ?: "1").toDouble()
-                val b = (fields["ineq_b"] ?: "-3").toDouble()
-                val c = (fields["ineq_c"] ?: "2").toDouble()
+                val a = fields.getOrDefault("ineq_a", "1").toDouble()
+                val b = fields.getOrDefault("ineq_b", "-3").toDouble()
+                val c = fields.getOrDefault("ineq_c", "2").toDouble()
                 solveQuadraticInequality(a, b, c, sign)
-            }.getOrElse { "计算错误" }
+            }.getOrElse { "输入无效" }
         }
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
@@ -2474,24 +2772,32 @@ private fun RatioModulePro(
 ) {
     var mode by remember { mutableStateOf("正比例") }
     var result by remember { mutableStateOf("结果将在这里显示") }
-    CalculatorCard("比例") {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+
+    CalculatorCard("比例 Pro") {
         ModuleSelector(listOf("正比例", "反比例", "缩放"), mode) { mode = it }
         Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProCell(fields["rat_a"] ?: "3", "a", focusTarget == FocusTarget.GenericInput("rat_a"), { onFocusChange(FocusTarget.GenericInput("rat_a")) }, Modifier.weight(1f))
-            ProCell(fields["rat_b"] ?: "5", "b", focusTarget == FocusTarget.GenericInput("rat_b"), { onFocusChange(FocusTarget.GenericInput("rat_b")) }, Modifier.weight(1f))
-            ProCell(fields["rat_c"] ?: "9", mode.let { if(it=="缩放") "倍率" else "c" }, focusTarget == FocusTarget.GenericInput("rat_c"), { onFocusChange(FocusTarget.GenericInput("rat_c")) }, Modifier.weight(1f))
+        
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(if (mode == "缩放") "a : b × 倍率" else "a / b = c / x", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProCell(fields.getOrDefault("rat_a", "3"), "a", focusTarget == FocusTarget.GenericInput("rat_a"), { onFocusChange(FocusTarget.GenericInput("rat_a")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("rat_b", "5"), "b", focusTarget == FocusTarget.GenericInput("rat_b"), { onFocusChange(FocusTarget.GenericInput("rat_b")) }, Modifier.weight(1f))
+                ProCell(fields.getOrDefault("rat_c", "9"), if(mode=="缩放") "倍率" else "c", focusTarget == FocusTarget.GenericInput("rat_c"), { onFocusChange(FocusTarget.GenericInput("rat_c")) }, Modifier.weight(1f))
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        CalcButton("开始计算") {
+        CalcButton("执行比例运算") {
             result = runCatching {
-                val av = (fields["rat_a"] ?: "3").toDouble(); val bv = (fields["rat_b"] ?: "5").toDouble(); val cv = (fields["rat_c"] ?: "9").toDouble()
+                val av = fields.getOrDefault("rat_a", "3").toDouble()
+                val bv = fields.getOrDefault("rat_b", "5").toDouble()
+                val cv = fields.getOrDefault("rat_c", "9").toDouble()
                 when (mode) {
                     "正比例" -> "x = ${formatNumber(bv * cv / av)}"
                     "反比例" -> "x = ${formatNumber(av * bv / cv)}"
                     else -> "${formatNumber(av * cv)} : ${formatNumber(bv * cv)}"
                 }
-            }.getOrElse { "计算错误" }
+            }.getOrElse { "输入无效" }
         }
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
@@ -2506,14 +2812,16 @@ private fun MatrixGridEditor(
     values: SnapshotStateList<String>,
     offset: Int = 0,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.42f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        contentPadding = PaddingValues(0.dp),
+        tint = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.42f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.22f),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = PineInk)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
             Spacer(modifier = Modifier.height(10.dp))
             repeat(size) { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2521,7 +2829,7 @@ private fun MatrixGridEditor(
                         val index = offset + row * size + col
                         OutlinedTextField(
                             value = values[index],
-                            onValueChange = { values[index] = it },
+                            onValueChange = { newValue -> values[index] = newValue },
                             label = { Text(labels[row * size + col]) },
                             modifier = Modifier.width(if (size == 2) 150.dp else 96.dp),
                             shape = RoundedCornerShape(18.dp),
@@ -2538,13 +2846,15 @@ private fun MatrixGridEditor(
 
 @Composable
 private fun CalcButton(text: String, onClick: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     Button(
-        onClick = onClick,
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
         shape = RoundedCornerShape(22.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
+        colors = ButtonDefaults.buttonColors(containerColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.2f) else ForestGreen),
         modifier = Modifier.fillMaxWidth().height(52.dp),
     ) {
-        Text(text, color = CloudWhite, style = MaterialTheme.typography.titleSmall)
+        Text(text, color = if (isDarkMode) Color(0xFF66FFB2) else CloudWhite, style = MaterialTheme.typography.titleSmall)
     }
 }
 
@@ -2554,22 +2864,79 @@ private fun ProCalculatorDisplay(
     cursorIndex: Int,
     onCursorMove: (Int) -> Unit,
     result: String,
-    modifier: Modifier = Modifier
+    settings: CalculatorSettings,
+    modifier: Modifier = Modifier,
+    onDelete: (() -> Unit)? = null
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    
+    // 格式化表达式用于显示
+    val displayValue = value.replace("*", "×").replace("/", "÷")
+    
     LiquidGlassCard(
         modifier = modifier,
         cornerRadius = 32.dp,
-        tint = Color.White.copy(alpha = 0.28f),
-        borderColor = Color.White.copy(alpha = 0.36f),
+        tint = if (isDarkMode) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.28f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.36f),
         blurRadius = 30.dp
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.End
         ) {
-            // 表达式输入行 (带模拟光标)
-            Box(
+            // 状态指示器 (Deg/Rad)
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = settings.angleMode.title,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                if (value.length > 15) {
+                    Text(
+                        text = "${value.length} 字符",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.4f)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 表达式输入行 (带模拟光标与侧滑删除)
+            var offsetX by remember { mutableStateOf(0f) }
+            val animatedOffsetX by animateFloatAsState(targetValue = offsetX)
+            val haptic = LocalHapticFeedback.current
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                if (offsetX < -50f && value.isNotEmpty()) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onDelete?.invoke()
+                                }
+                                offsetX = 0f
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                offsetX = (offsetX + dragAmount).coerceAtMost(0f).coerceAtLeast(-100f)
+                            }
+                        )
+                    }
+                    .offset { IntOffset(animatedOffsetX.roundToInt(), 0) },
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Row(
@@ -2577,10 +2944,12 @@ private fun ProCalculatorDisplay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val safeCursor = cursorIndex.coerceIn(0, value.length)
-                    val textBefore = value.substring(0, safeCursor)
-                    val textAfter = value.substring(safeCursor)
+                    val textBefore = displayValue.substring(0, safeCursor)
+                    val textAfter = displayValue.substring(safeCursor)
                     
-                    Text(textBefore, style = MaterialTheme.typography.headlineMedium, color = PineInk)
+                    val expressionFontSize = if (displayValue.length > 20) MaterialTheme.typography.titleLarge.fontSize else MaterialTheme.typography.headlineMedium.fontSize
+                    
+                    Text(textBefore, style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize), color = if (isDarkMode) CloudWhite else PineInk)
                     // 模拟闪烁光标
                     val infiniteTransition = rememberInfiniteTransition()
                     val alpha by infiniteTransition.animateFloat(
@@ -2598,19 +2967,31 @@ private fun ProCalculatorDisplay(
                         modifier = Modifier
                             .width(2.5.dp)
                             .height(28.dp)
-                            .background(ForestGreen.copy(alpha = alpha))
+                            .background((if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = alpha))
                     )
-                    Text(textAfter, style = MaterialTheme.typography.headlineMedium, color = PineInk)
+                    Text(textAfter, style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize), color = if (isDarkMode) CloudWhite else PineInk)
                 }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
             
             // 结果展示行
+            val formattedResult = runCatching {
+                val num = result.toDouble()
+                if (num % 1.0 == 0.0 && num < 1e12 && num > -1e12) {
+                    val format = DecimalFormat("#,###")
+                    format.format(num)
+                } else {
+                    result
+                }
+            }.getOrElse { result }
+            
+            val resultFontSize = if (formattedResult.length > 12) MaterialTheme.typography.headlineMedium.fontSize else MaterialTheme.typography.displayMedium.fontSize
+            
             Text(
-                text = result,
-                style = MaterialTheme.typography.displayMedium,
-                color = ForestGreen,
+                text = formattedResult,
+                style = MaterialTheme.typography.displayMedium.copy(fontSize = resultFontSize),
+                color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -2625,8 +3006,13 @@ private fun ProKeypad(
     onDelete: () -> Unit,
     onClear: () -> Unit,
     onEqual: () -> Unit,
-    onMoveCursor: (Int) -> Unit
+    onMoveCursor: (Int) -> Unit,
+    onDismiss: (() -> Unit)? = null,
+    settings: CalculatorSettings? = null,
+    onToggleAngleMode: (() -> Unit)? = null
 ) {
+    val haptic = LocalHapticFeedback.current
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var showAdvanced by remember { mutableStateOf(false) }
     
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2636,31 +3022,72 @@ private fun ProKeypad(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                onClick = { showAdvanced = !showAdvanced },
-                shape = CircleShape,
-                color = if (showAdvanced) ForestGreen.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.2f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, ForestGreen.copy(alpha = 0.2f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); showAdvanced = !showAdvanced },
+                    shape = CircleShape,
+                    color = if (showAdvanced) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.16f) else ForestGreen.copy(alpha = 0.16f)) else if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.2f))
                 ) {
-                    Icon(
-                        imageVector = if (showAdvanced) Icons.Outlined.Functions else Icons.Outlined.Calculate,
-                        contentDescription = null,
-                        tint = ForestGreen,
-                        modifier = Modifier.width(16.dp).height(16.dp)
-                    )
-                    Text(if (showAdvanced) "高级模式" else "基础模式", style = MaterialTheme.typography.labelMedium, color = ForestGreen)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (showAdvanced) Icons.Outlined.Functions else Icons.Outlined.Calculate,
+                            contentDescription = null,
+                            tint = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                            modifier = Modifier.width(16.dp).height(16.dp)
+                        )
+                        Text(if (showAdvanced) "高级" else "基础", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen)
+                    }
+                }
+
+                if (settings != null && onToggleAngleMode != null) {
+                    Surface(
+                        onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleAngleMode() },
+                        shape = CircleShape,
+                        color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Text(
+                            text = settings.angleMode.title,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isDarkMode) CloudWhite else PineInk,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             
-            // 方向键
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KeypadIconButton(Icons.Outlined.SwapHoriz, onClick = { onMoveCursor(-1) })
-                KeypadIconButton(Icons.Outlined.SwapHoriz, onClick = { onMoveCursor(1) })
+            // 方向键与功能
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onDismiss != null) {
+                    KeypadIconButton(Icons.Outlined.KeyboardHide, onClick = onDismiss)
+                }
+                
+                // 模拟更专业的光标控制
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMoveCursor(-1) }.padding(8.dp)
+                        ) {
+                            Icon(Icons.Outlined.SwapHoriz, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
+                        }
+                        Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.1f)))
+                        Box(
+                            modifier = Modifier.clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMoveCursor(1) }.padding(8.dp)
+                        ) {
+                            Icon(Icons.Outlined.SwapHoriz, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
             }
         }
 
@@ -2704,8 +3131,9 @@ private fun ProKeypad(
             
             // 操作符区
             Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                KeypadButton(text = "⌫", onClick = onDelete, accent = false, modifier = Modifier.fillMaxWidth())
-                KeypadButton(text = "C", onClick = onClear, accent = false, modifier = Modifier.fillMaxWidth())
+                val dangerColor = if (isDarkMode) Color(0xFFFF4D4D) else Color(0xFFE57373)
+                KeypadButton(text = "⌫", onClick = onDelete, accent = false, modifier = Modifier.fillMaxWidth(), contentColor = dangerColor)
+                KeypadButton(text = "C", onClick = onClear, accent = false, modifier = Modifier.fillMaxWidth(), contentColor = dangerColor)
                 KeypadButton(text = "÷", onClick = { onToken("÷") }, accent = true, modifier = Modifier.fillMaxWidth())
                 KeypadButton(text = "×", onClick = { onToken("×") }, accent = true, modifier = Modifier.fillMaxWidth())
             }
@@ -2716,12 +3144,12 @@ private fun ProKeypad(
                 KeypadButton(text = "+", onClick = { onToken("+") }, accent = true, modifier = Modifier.fillMaxWidth())
                 KeypadButton(
                     text = "=", 
-                    onClick = onEqual, 
+                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onEqual() }, 
                     accent = true, 
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     fillHeight = true,
-                    containerColor = ForestGreen,
-                    contentColor = CloudWhite
+                    containerColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.2f) else ForestGreen,
+                    contentColor = if (isDarkMode) Color(0xFF66FFB2) else CloudWhite
                 )
             }
         }
@@ -2730,14 +3158,16 @@ private fun ProKeypad(
 
 @Composable
 private fun KeypadIconButton(icon: ImageVector, onClick: () -> Unit) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    val haptic = LocalHapticFeedback.current
     Surface(
-        onClick = onClick,
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() },
         shape = CircleShape,
-        color = Color.White.copy(alpha = 0.2f),
+        color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
     ) {
         Box(modifier = Modifier.padding(10.dp), contentAlignment = Alignment.Center) {
-            Icon(imageVector = icon, contentDescription = null, tint = PineInk, modifier = Modifier.width(22.dp).height(22.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.width(22.dp).height(22.dp))
         }
     }
 }
@@ -2753,30 +3183,60 @@ private fun KeypadButton(
     containerColor: Color? = null,
     contentColor: Color? = null
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    val haptic = LocalHapticFeedback.current
+    
+    // 微缩放动画与物理反馈
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.90f else 1.0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        label = "KeypadScale"
+    )
+
     val baseColor = when {
         containerColor != null -> containerColor
-        accent -> ForestGreen.copy(alpha = 0.12f)
-        else -> Color.White.copy(alpha = 0.24f)
+        accent -> if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.16f) else ForestGreen.copy(alpha = 0.12f)
+        else -> if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.44f)
     }
+    
+    // 按下时的背景色渐变反馈 (世界一流 App 级按压反馈)
+    val animatedBgColor by animateColorAsState(
+        targetValue = if (isPressed) {
+            if (accent || containerColor != null) baseColor.copy(alpha = baseColor.alpha * 1.5f)
+            else if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f)
+        } else baseColor,
+        animationSpec = tween(durationMillis = if (isPressed) 50 else 300),
+        label = "KeypadColor"
+    )
     
     val textColor = when {
         contentColor != null -> contentColor
-        accent -> ForestGreen
-        else -> PineInk
+        accent -> if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+        else -> if (isDarkMode) CloudWhite else PineInk
     }
 
     val finalModifier = if (fillHeight) modifier.fillMaxHeight() else modifier.height(if (isSmall) 42.dp else 62.dp)
-
-    LiquidGlassSurface(
-        modifier = finalModifier.clickable { onClick() },
-        cornerRadius = 22.dp,
-        tint = baseColor,
-        borderColor = Color.White.copy(alpha = 0.18f),
+    
+    Surface(
+        onClick = { 
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick() 
+        },
+        modifier = finalModifier.graphicsLayer { scaleX = scale; scaleY = scale },
+        shape = RoundedCornerShape(if (isSmall) 18.dp else 22.dp),
+        color = animatedBgColor,
+        interactionSource = interactionSource,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f)
+        )
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Text(
                 text = text,
-                style = if (isSmall) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleLarge,
+                style = if (isSmall) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium,
                 color = textColor,
                 fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium
             )
@@ -2789,6 +3249,7 @@ private fun InlineActionChip(
     text: String,
     onClick: () -> Unit,
 ) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     LiquidGlassSurface(
         modifier = Modifier.clickable(onClick = onClick),
         cornerRadius = 18.dp,
@@ -2799,27 +3260,59 @@ private fun InlineActionChip(
             text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = PineInk,
+            color = if (isDarkMode) CloudWhite else PineInk,
         )
     }
 }
 
 @Composable
 private fun ModuleSelector(options: List<String>, selected: String, onSelect: (String) -> Unit) {
-    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { option ->
-            LiquidGlassSurface(
-                modifier = Modifier.clickable { onSelect(option) },
-                cornerRadius = 18.dp,
-                tint = if (option == selected) ForestGreen else Color.White.copy(alpha = 0.52f),
-                borderColor = if (option == selected) ForestGreen.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.18f),
-            ) {
-                Text(
-                    text = option,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (option == selected) CloudWhite else PineInk,
+    val haptic = LocalHapticFeedback.current
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    
+    // 胶囊滑动指示器 (Capsule Segmented Control)
+    LiquidGlassSurface(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        cornerRadius = 24.dp,
+        tint = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.32f),
+        borderColor = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f),
+        contentPadding = PaddingValues(4.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            options.forEach { option ->
+                val isSelected = option == selected
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) (if (isDarkMode) Color(0xFF2E8B57) else ForestGreen) else Color.Transparent,
+                    animationSpec = tween(200),
+                    label = "TabColor"
                 )
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) CloudWhite else (if (isDarkMode) CloudWhite.copy(alpha = 0.7f) else PineInk.copy(alpha = 0.7f)),
+                    animationSpec = tween(200),
+                    label = "TabTextColor"
+                )
+                
+                Surface(
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (!isSelected) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(option)
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    color = bgColor,
+                ) {
+                    Text(
+                        text = option,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = textColor,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
             }
         }
     }
@@ -2912,6 +3405,7 @@ private fun FormatModule(
 
 @Composable
 private fun UnitConversionModule() {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("calculator_prefs", 0) }
     var keyword by remember { mutableStateOf("") }
@@ -2956,7 +3450,7 @@ private fun UnitConversionModule() {
                     tint = Color.White.copy(alpha = 0.46f),
                     borderColor = Color.White.copy(alpha = 0.16f),
                 ) {
-                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = PineInk)
+                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite else PineInk)
                 }
                 if (index != favorites.lastIndex) Spacer(modifier = Modifier.height(6.dp))
             }
@@ -2972,7 +3466,7 @@ private fun UnitConversionModule() {
                     tint = Color.White.copy(alpha = 0.42f),
                     borderColor = Color.White.copy(alpha = 0.16f),
                 ) {
-                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = PineInk)
+                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite else PineInk)
                 }
                 if (index != recent.lastIndex) Spacer(modifier = Modifier.height(6.dp))
             }
@@ -3022,7 +3516,7 @@ private fun UnitConversionModule() {
                     text = if (favorites.contains(unit)) "$unit  · 已收藏" else unit,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = PineInk,
+                    color = if (isDarkMode) CloudWhite else PineInk,
                 )
             }
             if (index != visible.lastIndex) Spacer(modifier = Modifier.height(6.dp))
@@ -3032,6 +3526,7 @@ private fun UnitConversionModule() {
 
 @Composable
 private fun ConstantsModule() {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("calculator_prefs", 0) }
     var keyword by remember { mutableStateOf("") }
@@ -3093,7 +3588,7 @@ private fun ConstantsModule() {
                     tint = Color.White.copy(alpha = 0.44f),
                     borderColor = Color.White.copy(alpha = 0.16f),
                 ) {
-                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, color = PineInk)
+                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite else PineInk)
                 }
                 if (index != favorites.lastIndex) Spacer(modifier = Modifier.height(8.dp))
             }
@@ -3109,7 +3604,7 @@ private fun ConstantsModule() {
                     tint = Color.White.copy(alpha = 0.40f),
                     borderColor = Color.White.copy(alpha = 0.16f),
                 ) {
-                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, color = PineInk)
+                    Text(item, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite else PineInk)
                 }
                 if (index != recent.lastIndex) Spacer(modifier = Modifier.height(8.dp))
             }
@@ -3138,7 +3633,7 @@ private fun ConstantsModule() {
                     text = if (favorites.contains(item)) "$item  · 已收藏" else item,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = PineInk,
+                    color = if (isDarkMode) CloudWhite else PineInk,
                 )
             }
             if (index != visible.lastIndex) Spacer(modifier = Modifier.height(8.dp))
@@ -3148,6 +3643,7 @@ private fun ConstantsModule() {
 
 @Composable
 private fun HypothesisTestModule(settings: CalculatorSettings) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var category by remember { mutableStateOf("拟合优度") }
     var mode by remember { mutableStateOf("χ²检验") }
     var raw by remember { mutableStateOf("12,18,20,15") }
@@ -3165,7 +3661,7 @@ private fun HypothesisTestModule(settings: CalculatorSettings) {
                 else -> "单样本t检验"
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -3173,7 +3669,7 @@ private fun HypothesisTestModule(settings: CalculatorSettings) {
             StatusTag(verdict)
             StatusTag(advice, subtle = true)
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(
             when (category) {
                 "拟合优度" -> "结果说明：用于比较观测频数与期望频数是否一致。\n公式：χ² = Σ((O - E)² / E)"
@@ -3181,24 +3677,60 @@ private fun HypothesisTestModule(settings: CalculatorSettings) {
                 else -> "结果说明：用于检验均值差异或样本均值与给定总体均值是否显著。\n公式：t = (样本均值差) / 标准误"
             },
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         val modes = when (category) {
             "拟合优度" -> listOf("χ²检验")
             "分布检验" -> listOf("KS检验")
             else -> listOf("单样本t检验", "双样本t检验")
         }
         ModuleSelector(modes, mode) { mode = it }
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedTextField(value = raw, onValueChange = { raw = it }, label = { Text("样本 / 观测频数") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+        OutlinedTextField(
+            value = raw, 
+            onValueChange = { raw = it }, 
+            label = { Text("样本 / 观测频数") }, 
+            modifier = Modifier.fillMaxWidth(), 
+            shape = RoundedCornerShape(22.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+                cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+            )
+        )
         if (mode == "χ²检验" || mode == "双样本t检验") {
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = rawY, onValueChange = { rawY = it }, label = { Text(if (mode == "χ²检验") "期望频数" else "第二样本") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedTextField(
+                value = rawY, 
+                onValueChange = { rawY = it }, 
+                label = { Text(if (mode == "χ²检验") "期望频数" else "第二样本") }, 
+                modifier = Modifier.fillMaxWidth(), 
+                shape = RoundedCornerShape(22.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+                    cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+                )
+            )
         }
         if (mode == "单样本t检验") {
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = parameter, onValueChange = { parameter = it }, label = { Text("检验均值 μ0") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedTextField(
+                value = parameter, 
+                onValueChange = { parameter = it }, 
+                label = { Text("检验均值 μ0") }, 
+                modifier = Modifier.fillMaxWidth(), 
+                shape = RoundedCornerShape(22.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                    unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+                    cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+                )
+            )
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         CalcButton("开始检验") {
             result = runCatching {
                 val values = parseNumberList(raw)
@@ -3243,6 +3775,7 @@ private fun HypothesisTestModule(settings: CalculatorSettings) {
 
 @Composable
 private fun DistributionModule(settings: CalculatorSettings) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var mode by remember { mutableStateOf("正态分布") }
     var a by remember { mutableStateOf("0") }
     var b by remember { mutableStateOf("1") }
@@ -3274,46 +3807,53 @@ private fun DistributionModule(settings: CalculatorSettings) {
             subtitle = "按当前模型填写参数，支持正态、离散和抽样场景。",
         ) {
             ModuleSelector(listOf("正态密度", "正态分布", "区间正态", "二项分布", "二项累积", "泊松分布", "几何分布", "超几何分布"), mode) { mode = it }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+            val textFieldColors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+                cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+            )
+            
             if (mode == "正态密度" || mode == "正态分布") {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("x") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 μ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("标准差 σ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("x") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 μ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("标准差 σ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             } else if (mode == "区间正态") {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("下界 a") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = d, onValueChange = { d = it }, label = { Text("上界 b") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 μ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("标准差 σ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("下界 a") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = d, onValueChange = { d = it }, label = { Text("上界 b") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 μ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("标准差 σ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             } else if (mode == "二项分布" || mode == "二项累积") {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("试验次数 n") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("成功概率 p") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("试验次数 n") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("成功概率 p") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             } else if (mode == "泊松分布") {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("事件次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 λ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("事件次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("均值 λ") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             } else if (mode == "几何分布") {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("成功前失败次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功概率 p") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("成功前失败次数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功概率 p") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             } else {
-                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("总体大小 N") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功总体数 K") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("抽样数 n") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(value = d, onValueChange = { d = it }, label = { Text("成功样本数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
+                OutlinedTextField(value = a, onValueChange = { a = it }, label = { Text("总体大小 N") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = b, onValueChange = { b = it }, label = { Text("成功总体数 K") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = c, onValueChange = { c = it }, label = { Text("抽样数 n") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(value = d, onValueChange = { d = it }, label = { Text("成功样本数 k") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         CalcButton("计算") {
             result = runCatching {
                 if (mode == "正态密度" || mode == "正态分布") {
@@ -3369,12 +3909,19 @@ private fun DistributionModule(settings: CalculatorSettings) {
 
 @Composable
 private fun SpreadsheetModule() {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val rows = remember { mutableStateListOf("12", "18", "21", "16", "25") }
     var result by remember { mutableStateOf("可录入 5 行数据并快速汇总") }
     CalculatorCard("数据表格") {
+        val textFieldColors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+            cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+        )
         rows.forEachIndexed { index, value ->
-            OutlinedTextField(value = value, onValueChange = { rows[index] = it }, label = { Text("第 ${index + 1} 行") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(value = value, onValueChange = { rows[index] = it }, label = { Text("第 ${index + 1} 行") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+            Spacer(modifier = Modifier.height(10.dp))
         }
         CalcButton("汇总") {
             result = runCatching {
@@ -3389,6 +3936,7 @@ private fun SpreadsheetModule() {
 
 @Composable
 private fun FunctionTableModule(settings: CalculatorSettings) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     var expression by remember { mutableStateOf("x^2+2*x+1") }
     var expressionG by remember { mutableStateOf("sin(x)") }
     var dual by remember { mutableStateOf(false) }
@@ -3398,7 +3946,7 @@ private fun FunctionTableModule(settings: CalculatorSettings) {
     var result by remember { mutableStateOf("将生成 x 与 y 的对应表") }
     CalculatorCard("函数表格") {
         ModuleSelector(listOf("单函数", "双函数"), if (dual) "双函数" else "单函数") { dual = it == "双函数" }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         FormulaEditor(
             label = "f(x)",
             value = expression,
@@ -3406,7 +3954,7 @@ private fun FunctionTableModule(settings: CalculatorSettings) {
             tokens = listOf("x", "(", ")", "^", "sin(x)", "cos(x)", "tan(x)", "sqrt(", "ln(x)"),
         )
         if (dual) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             FormulaEditor(
                 label = "g(x)",
                 value = expressionG,
@@ -3414,13 +3962,19 @@ private fun FunctionTableModule(settings: CalculatorSettings) {
                 tokens = listOf("x", "(", ")", "^", "sin(x)", "cos(x)", "tan(x)", "sqrt(", "ln(x)"),
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text("起点") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text("终点") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(value = step, onValueChange = { step = it }, label = { Text("步长") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp))
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+        val textFieldColors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            focusedLabelColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+            unfocusedBorderColor = if (isDarkMode) Color.White.copy(alpha = 0.2f) else PineInk.copy(alpha = 0.3f),
+            cursorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+        )
+        OutlinedTextField(value = start, onValueChange = { start = it }, label = { Text("起点") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedTextField(value = end, onValueChange = { end = it }, label = { Text("终点") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedTextField(value = step, onValueChange = { step = it }, label = { Text("步长") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = textFieldColors)
+        Spacer(modifier = Modifier.height(16.dp))
         CalcButton("生成") {
             result = runCatching {
                 var x = start.toDouble()

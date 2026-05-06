@@ -190,23 +190,23 @@ enum class LiquidGlassStylePreset(
     IOS(
         title = "冰川透镜 (Glacier)",
         subtitle = "冷白纯净，顶部高光和边缘切光最强，质感如冰晶般硬朗。",
-        blurScale = 0.82f,
-        refractionScale = 2.36f,
+        blurScale = 0.6f,
+        refractionScale = 1.2f,
         tintScale = 0f,
-        glowScale = 0.06f,
-        edgeScale = 1.66f,
-        whiteSheenScale = 1.08f,
-        chromaticAberration = true,
+        glowScale = 0.02f,
+        edgeScale = 0.4f,
+        whiteSheenScale = 0.4f,
+        chromaticAberration = false,
     ),
     Hyper(
-        title = "流光霓虹 (Prism)",
-        subtitle = "彩色边光、斜向流体光带，折射出深邃的霓虹光效，科技感最强。",
-        blurScale = 0.72f,
-        refractionScale = 2.12f,
-        tintScale = 1.16f,
-        glowScale = 2.46f,
-        edgeScale = 1.26f,
-        whiteSheenScale = 1.08f,
+        title = "深邃星瞳 (Obsidian)",
+        subtitle = "深黑底色，荧光边缘轮廓，无毛玻璃干扰的极客暗黑风。",
+        blurScale = 0.2f,
+        refractionScale = 0.1f,
+        tintScale = 1.0f,
+        glowScale = 1.5f,
+        edgeScale = 2.0f,
+        whiteSheenScale = 0.1f,
         chromaticAberration = true,
     ),
 }
@@ -269,9 +269,9 @@ fun LiquidGlassCard(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 30.dp,
     contentPadding: PaddingValues = PaddingValues(20.dp),
-    tint: Color = PoxiaoThemeState.palette.card.copy(alpha = 0.4f),
-    borderColor: Color = PoxiaoThemeState.palette.cardBorder.copy(alpha = 0.82f),
-    glowColor: Color = PoxiaoThemeState.palette.cardGlow.copy(alpha = 0.3f),
+    tint: Color = PoxiaoThemeState.palette.card.copy(alpha = 0.2f),
+    borderColor: Color = PoxiaoThemeState.palette.cardBorder.copy(alpha = 0.42f),
+    glowColor: Color = PoxiaoThemeState.palette.cardGlow.copy(alpha = 0.1f),
     blurRadius: Dp = 18.dp,
     refractionHeight: Dp = 16.dp,
     refractionAmount: Dp = 26.dp,
@@ -302,10 +302,10 @@ fun LiquidGlassSurface(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 30.dp,
     shapeOverride: Shape? = null,
-    contentPadding: PaddingValues = PaddingValues(20.dp),
-    tint: Color = PoxiaoThemeState.palette.card.copy(alpha = 0.4f),
-    borderColor: Color = PoxiaoThemeState.palette.cardBorder.copy(alpha = 0.82f),
-    glowColor: Color = PoxiaoThemeState.palette.cardGlow.copy(alpha = 0.3f),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    tint: Color = PoxiaoThemeState.palette.card.copy(alpha = 0.2f),
+    borderColor: Color = PoxiaoThemeState.palette.cardBorder.copy(alpha = 0.42f),
+    glowColor: Color = PoxiaoThemeState.palette.cardGlow.copy(alpha = 0.1f),
     shadowColor: Color = Color.Black.copy(alpha = 0.18f),
     blurRadius: Dp = 18.dp,
     refractionHeight: Dp = 16.dp,
@@ -608,9 +608,9 @@ fun LiquidGlassSurface(
                         this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    palette.primary.copy(alpha = 0.24f),
-                                    palette.secondary.copy(alpha = 0.34f),
-                                    styledGlow.copy(alpha = 0.2f),
+                                    palette.primary.copy(alpha = 0.08f),
+                                    palette.secondary.copy(alpha = 0.04f),
+                                    styledGlow.copy(alpha = 0.06f),
                                     Color.Transparent,
                                 ),
                                 start = Offset(size.width * 0.08f, size.height * 0.12f),
@@ -622,9 +622,9 @@ fun LiquidGlassSurface(
                             brush = Brush.linearGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.White.copy(alpha = 0.16f),
-                                    palette.secondary.copy(alpha = 0.24f),
-                                    palette.primary.copy(alpha = 0.14f),
+                                    Color.White.copy(alpha = 0.04f),
+                                    palette.secondary.copy(alpha = 0.06f),
+                                    palette.primary.copy(alpha = 0.04f),
                                     Color.Transparent,
                                 ),
                                 start = Offset(size.width * 0.18f, size.height * 0.08f),
@@ -635,8 +635,8 @@ fun LiquidGlassSurface(
                         this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    palette.primary.copy(alpha = 0.2f),
-                                    palette.secondary.copy(alpha = 0.28f),
+                                    palette.primary.copy(alpha = 0.06f),
+                                    palette.secondary.copy(alpha = 0.08f),
                                     Color.Transparent,
                                 ),
                                 start = Offset(size.width * 0.1f, size.height * 0.74f),
@@ -736,13 +736,19 @@ private fun LiquidGlassBackdropLayer(
             .fillMaxSize()
             .layerBackdrop(backdrop),
     ) {
+        val isDarkMode = stylePreset == LiquidGlassStylePreset.Hyper
+        
         drawRect(
             brush = Brush.verticalGradient(
-                colors = listOf(
-                    palette.backgroundTop.copy(alpha = 0.98f),
-                    palette.backgroundBottom.copy(alpha = 0.98f),
-                    palette.backgroundBottom.copy(alpha = 0.95f),
-                ),
+                colors = if (isDarkMode) {
+                    listOf(Color(0xFF0F0F12), Color(0xFF16161A), Color(0xFF09090B))
+                } else {
+                    listOf(
+                        palette.backgroundTop.copy(alpha = 0.98f),
+                        palette.backgroundBottom.copy(alpha = 0.98f),
+                        palette.backgroundBottom.copy(alpha = 0.95f),
+                    )
+                },
             ),
         )
 
