@@ -316,22 +316,77 @@ fun ScientificCalculatorScreen(
         ) {
             Box(modifier = Modifier.fillMaxSize().background(if (isDarkMode) Color.Black.copy(alpha = 0.5f) else Color.Transparent)) {
             if (showDirectory) {
-                CalculatorDirectoryScreen(
-                    currentRoute = currentRoute,
-                    onOpenApp = openApp,
-                    onOpenUtility = openUtility,
-                    maxHeight = (configuration.screenHeightDp * 0.78f).dp.coerceIn(460.dp, 760.dp),
-                    modifier = Modifier.padding(top = 80.dp)
-                )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // 全局悬浮的 LiquidGlass Header
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 14.dp)
+                    ) {
+                        CalculatorWorkspaceHeader(
+                            title = routeTitle,
+                            subtitle = routeSubtitle,
+                            icon = routeIcon,
+                            actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
+                            actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
+                            onAction = {
+                                if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
+                                    backToCalculator()
+                                } else {
+                                    onBack()
+                                }
+                            },
+                            onOpenDirectory = { showDirectory = true },
+                            directoryOpen = showDirectory,
+                            isDarkMode = isDarkMode,
+                            onToggleTheme = { isDarkMode = !isDarkMode },
+                            modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
+                        )
+                    }
+
+                    CalculatorDirectoryScreen(
+                        currentRoute = currentRoute,
+                        onOpenApp = openApp,
+                        onOpenUtility = openUtility,
+                        maxHeight = (configuration.screenHeightDp * 0.78f).dp.coerceIn(460.dp, 760.dp),
+                        modifier = Modifier.padding(top = 0.dp)
+                    )
+                }
             } else {
                 // 所有模块统一使用带键盘的布局
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // 全局悬浮的 LiquidGlass Header
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 14.dp)
+                    ) {
+                        CalculatorWorkspaceHeader(
+                            title = routeTitle,
+                            subtitle = routeSubtitle,
+                            icon = routeIcon,
+                            actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
+                            actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
+                            onAction = {
+                                if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
+                                    backToCalculator()
+                                } else {
+                                    onBack()
+                                }
+                            },
+                            onOpenDirectory = { showDirectory = true },
+                            directoryOpen = showDirectory,
+                            isDarkMode = isDarkMode,
+                            onToggleTheme = { isDarkMode = !isDarkMode },
+                            modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
+                        )
+                    }
                     Box(modifier = Modifier.weight(1f)) {
                         when (routeState) {
                             is CalculatorRoute.App -> when (routeState.app) {
                                 CalculatorApp.Compute -> ComputeModulePro(
                                     settings = settings,
-                                    topPadding = 80.dp,
+                                    topPadding = 0.dp,
                                     expression = computeExpression,
                                     onExpressionChange = { computeExpression = it },
                                     result = computeResult,
@@ -344,7 +399,7 @@ fun ScientificCalculatorScreen(
                                     routeState = routeState,
                                     settings = settings,
                                     updateSettings = updateSettings,
-                                    topPadding = 80.dp,
+                                    topPadding = 0.dp,
                                     focusTarget = focusTarget,
                                     onFocusChange = { focusTarget = it },
                                     matrixFields = matrixFields,
@@ -361,7 +416,7 @@ fun ScientificCalculatorScreen(
                                 routeState = routeState,
                                 settings = settings,
                                 updateSettings = updateSettings,
-                                topPadding = 80.dp,
+                                topPadding = 0.dp,
                                 focusTarget = focusTarget,
                                 onFocusChange = { focusTarget = it },
                                 matrixFields = matrixFields,
@@ -486,38 +541,8 @@ fun ScientificCalculatorScreen(
                     }
                 }
             }
-
-            // 全局悬浮的 LiquidGlass Header
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 14.dp)
-                    .align(Alignment.TopCenter)
-            ) {
-                CalculatorWorkspaceHeader(
-                    title = routeTitle,
-                    subtitle = routeSubtitle,
-                    icon = routeIcon,
-                    actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
-                    actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
-                    onAction = {
-                        if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
-                            backToCalculator()
-                        } else {
-                            onBack()
-                        }
-                    },
-                    onOpenDirectory = { showDirectory = true },
-                    directoryOpen = showDirectory,
-                    isDarkMode = isDarkMode,
-                    onToggleTheme = { isDarkMode = !isDarkMode },
-                    modifier = Modifier.graphicsLayer { shadowElevation = 16.dp.toPx() } // 增加更强的 Z 轴投影，确保在任何滚动下都不混淆
-                )
-            }
         }
     }
-}
-}
 }
 
 @Composable
@@ -553,7 +578,7 @@ private fun CalculatorScrollableModule(
             routeState = routeState,
             settings = settings,
             updateSettings = updateSettings,
-            topPadding = topPadding,
+            topPadding = 0.dp,
             focusTarget = focusTarget,
             onFocusChange = onFocusChange,
             matrixFields = matrixFields,
@@ -568,7 +593,7 @@ private fun CalculatorScrollableModule(
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = topPadding, bottom = 24.dp),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
@@ -617,7 +642,7 @@ private fun FixedKeypadModuleContainer(
     onBaseValueChange: (String) -> Unit,
     genericFields: MutableMap<String, String>
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(top = topPadding, start = 14.dp, end = 14.dp, bottom = 14.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(top = 0.dp, start = 14.dp, end = 14.dp, bottom = 14.dp)) {
         Box(modifier = Modifier.weight(1f)) {
             AnimatedContent(
                 targetState = routeState,
@@ -1327,7 +1352,7 @@ private fun ComputeModulePro(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // 历史记录与显示区 (占满剩余空间)
-        Box(modifier = Modifier.weight(1f).padding(top = topPadding)) {
+        Box(modifier = Modifier.weight(1f).padding(top = 0.dp)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
