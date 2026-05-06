@@ -1,5 +1,8 @@
 package com.poxiao.app.ui
 
+import androidx.compose.ui.graphics.Color
+import com.poxiao.app.schedule.HitaCourseBlock
+
 internal data class FreeTimeDaySummary(
     val dayLabel: String,
     val freeCount: Int,

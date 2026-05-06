@@ -1,5 +1,14 @@
 package com.poxiao.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -45,26 +54,11 @@ internal fun TodoListSections(
         Spacer(modifier = Modifier.height(12.dp))
         if (viewMode == TodoViewMode.Flat) {
             finalVisibleTasks.forEachIndexed { index, task ->
-                TodoTaskCard(
-                    task = task,
-                    onToggle = { onToggleTask(task) },
-                    onPostpone = { onPostponeTask(task) },
-                    onEdit = { onEditTask(task) },
-                    onBindPomodoro = { onBindPomodoroTask(task) },
-                    onNotify = { onNotifyTask(task) },
-                    onToggleSubtask = { onToggleSubtask(task, it) },
-                    onMoveUp = { onMoveUpTask(task) },
-                    onMoveDown = { onMoveDownTask(task) },
-                    canMoveUp = canMoveUp(task),
-                    canMoveDown = canMoveDown(task),
-                )
-                if (index != finalVisibleTasks.lastIndex) Spacer(modifier = Modifier.height(10.dp))
-            }
-        } else if (viewMode == TodoViewMode.Grouped) {
-            groupedTasks.entries.forEachIndexed { groupIndex, entry ->
-                Text(entry.key, style = MaterialTheme.typography.titleMedium, color = PineInk)
-                Spacer(modifier = Modifier.height(8.dp))
-                entry.value.forEachIndexed { index, task ->
+                AnimatedVisibility(
+                    visible = !task.done, // 如果任务完成就折叠（实际业务可能不仅是done，需根据filter）
+                    enter = fadeIn(tween(400, delayMillis = index * 40)) + slideInVertically(tween(400, delayMillis = index * 40)) { it / 4 },
+                    exit = fadeOut(tween(300)) + shrinkVertically(tween(300))
+                ) {
                     TodoTaskCard(
                         task = task,
                         onToggle = { onToggleTask(task) },
@@ -78,8 +72,35 @@ internal fun TodoListSections(
                         canMoveUp = canMoveUp(task),
                         canMoveDown = canMoveDown(task),
                     )
-                    if (index != entry.value.lastIndex) Spacer(modifier = Modifier.height(10.dp))
                 }
+                if (index != finalVisibleTasks.lastIndex) Spacer(modifier = Modifier.height(10.dp))
+            }
+        } else if (viewMode == TodoViewMode.Grouped) {
+            groupedTasks.entries.forEachIndexed { groupIndex, entry ->
+                Text(entry.key, style = MaterialTheme.typography.titleMedium, color = PineInk)
+                Spacer(modifier = Modifier.height(8.dp))
+                    entry.value.forEachIndexed { index, task ->
+                        AnimatedVisibility(
+                            visible = !task.done,
+                            enter = fadeIn(tween(400, delayMillis = index * 40)) + slideInVertically(tween(400, delayMillis = index * 40)) { it / 4 },
+                            exit = fadeOut(tween(300)) + shrinkVertically(tween(300))
+                        ) {
+                            TodoTaskCard(
+                                task = task,
+                                onToggle = { onToggleTask(task) },
+                                onPostpone = { onPostponeTask(task) },
+                                onEdit = { onEditTask(task) },
+                                onBindPomodoro = { onBindPomodoroTask(task) },
+                                onNotify = { onNotifyTask(task) },
+                                onToggleSubtask = { onToggleSubtask(task, it) },
+                                onMoveUp = { onMoveUpTask(task) },
+                                onMoveDown = { onMoveDownTask(task) },
+                                canMoveUp = canMoveUp(task),
+                                canMoveDown = canMoveDown(task),
+                            )
+                        }
+                        if (index != entry.value.lastIndex) Spacer(modifier = Modifier.height(10.dp))
+                    }
                 if (groupIndex != groupedTasks.entries.size - 1) Spacer(modifier = Modifier.height(14.dp))
             }
         } else {
@@ -88,19 +109,25 @@ internal fun TodoListSections(
                 Text(entry.first, style = MaterialTheme.typography.titleMedium, color = PineInk)
                 Spacer(modifier = Modifier.height(8.dp))
                 entry.second.forEachIndexed { index, task ->
-                    TodoTaskCard(
-                        task = task,
-                        onToggle = { onToggleTask(task) },
-                        onPostpone = { onPostponeTask(task) },
-                        onEdit = { onEditTask(task) },
-                        onBindPomodoro = { onBindPomodoroTask(task) },
-                        onNotify = { onNotifyTask(task) },
-                        onToggleSubtask = { onToggleSubtask(task, it) },
-                        onMoveUp = {},
-                        onMoveDown = {},
-                        canMoveUp = false,
-                        canMoveDown = false,
-                    )
+                    AnimatedVisibility(
+                        visible = !task.done,
+                        enter = fadeIn(tween(400, delayMillis = index * 40)) + slideInVertically(tween(400, delayMillis = index * 40)) { it / 4 },
+                        exit = fadeOut(tween(300)) + shrinkVertically(tween(300))
+                    ) {
+                        TodoTaskCard(
+                            task = task,
+                            onToggle = { onToggleTask(task) },
+                            onPostpone = { onPostponeTask(task) },
+                            onEdit = { onEditTask(task) },
+                            onBindPomodoro = { onBindPomodoroTask(task) },
+                            onNotify = { onNotifyTask(task) },
+                            onToggleSubtask = { onToggleSubtask(task, it) },
+                            onMoveUp = {},
+                            onMoveDown = {},
+                            canMoveUp = false,
+                            canMoveDown = false,
+                        )
+                    }
                     if (index != entry.second.lastIndex) Spacer(modifier = Modifier.height(10.dp))
                 }
                 if (groupIndex != calendarGroups.lastIndex) Spacer(modifier = Modifier.height(14.dp))

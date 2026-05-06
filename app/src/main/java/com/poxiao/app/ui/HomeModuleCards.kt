@@ -47,7 +47,12 @@ internal fun HomeMetricsModuleCard(
     onOpenPomodoro: () -> Unit,
 ) {
     if (paired) {
-        GlassCard(modifier = modifier.clickable(onClick = onOpenScheduleDay)) {
+        LiquidGlassCard(
+            modifier = modifier.clickable(onClick = onOpenScheduleDay),
+            cornerRadius = 24.dp,
+            tint = Color.White.copy(alpha = 0.36f),
+            borderColor = Color.White.copy(alpha = 0.22f),
+        ) {
             Text("核心指标", style = homeSectionTitleStyle(moduleSize), color = PineInk)
             Spacer(modifier = Modifier.height(homeSectionSpacing(moduleSize)))
             HomeLine("课表", "今日课次 $todayClassCount", "待办 $pendingTodoCount · 专注 $focusedMinutes 分钟", sizePreset = HomeModuleSize.Compact)
@@ -79,7 +84,12 @@ internal fun HomeRhythmModuleCard(
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
 ) {
-    GlassCard(modifier = modifier) {
+    LiquidGlassCard(
+        modifier = modifier,
+        cornerRadius = 24.dp,
+        tint = Color.White.copy(alpha = 0.36f),
+        borderColor = Color.White.copy(alpha = 0.22f),
+    ) {
         HomeModuleHeader(
             title = "今天的节奏",
             collapsed = collapsed,
@@ -141,7 +151,12 @@ internal fun HomeLearningModuleCard(
     onBindGoalTodoFocus: (TodoTask) -> Unit,
 ) {
     if (pendingExamItems.isEmpty() && topFocusTask == null && pendingReviewItems.isEmpty()) return
-    GlassCard(modifier = modifier) {
+    LiquidGlassCard(
+        modifier = modifier,
+        cornerRadius = 24.dp,
+        tint = Color.White.copy(alpha = 0.36f),
+        borderColor = Color.White.copy(alpha = 0.22f),
+    ) {
         val visibleExamItems = when {
             paired -> pendingExamItems.take(1)
             moduleSize == HomeModuleSize.Compact -> pendingExamItems.take(1)
@@ -297,7 +312,12 @@ internal fun HomeQuickPointsModuleCard(
 ) {
     if (favoritePoints.isEmpty()) return
     val activeSize = if (paired) HomeModuleSize.Compact else moduleSize
-    GlassCard(modifier = modifier.clickable(onClick = onOpenMap)) {
+    LiquidGlassCard(
+        modifier = modifier.clickable(onClick = onOpenMap),
+        cornerRadius = 24.dp,
+        tint = Color.White.copy(alpha = 0.36f),
+        borderColor = Color.White.copy(alpha = 0.22f),
+    ) {
         Text("首页快捷点位", style = homeSectionTitleStyle(activeSize), color = PineInk)
         Spacer(modifier = Modifier.height(homeSectionSpacing(activeSize) - 2.dp))
         Text(
@@ -324,7 +344,12 @@ internal fun HomeRecentPointsModuleCard(
 ) {
     if (recentPoints.isEmpty()) return
     val activeSize = if (paired) HomeModuleSize.Compact else moduleSize
-    GlassCard(modifier = modifier.clickable(onClick = onOpenMap)) {
+    LiquidGlassCard(
+        modifier = modifier.clickable(onClick = onOpenMap),
+        cornerRadius = 24.dp,
+        tint = Color.White.copy(alpha = 0.36f),
+        borderColor = Color.White.copy(alpha = 0.22f),
+    ) {
         Text("最近访问", style = homeSectionTitleStyle(activeSize), color = PineInk)
         Spacer(modifier = Modifier.height(homeSectionSpacing(activeSize) - 2.dp))
         Text(

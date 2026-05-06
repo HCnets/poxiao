@@ -1,9 +1,15 @@
 package com.poxiao.app.ui
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.poxiao.app.notes.CourseNoteSeed
 import com.poxiao.app.review.ReviewPlannerSeed
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun HomeScreenContent(
     todayLabel: String,
@@ -125,6 +131,7 @@ internal fun HomeScreenContent(
                 moduleRows = moduleRows,
                 renderHomeModule = renderHomeModule,
             )
+            Spacer(modifier = Modifier.height(24.dp)) // 为底部留出呼吸空间
         }
     }
 }

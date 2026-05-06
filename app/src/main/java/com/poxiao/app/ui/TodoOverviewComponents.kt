@@ -30,12 +30,13 @@ import com.poxiao.app.ui.theme.TeaGreen
 
 @Composable
 internal fun TodoOverviewCard(
+    modifier: Modifier = Modifier,
     tasks: List<TodoTask>,
     completedCount: Int,
     focusCount: Int,
     quadrantCounts: Map<TodoQuadrant, Int>,
 ) {
-    GlassCard {
+    GlassCard(modifier = modifier) {
         Text("待办工作台", style = MaterialTheme.typography.headlineMedium, color = PineInk)
         Spacer(modifier = Modifier.height(8.dp))
         Text("支持四象限、自定义任务、提醒、重复与清单归类。", style = MaterialTheme.typography.bodyLarge, color = ForestDeep.copy(alpha = 0.78f))

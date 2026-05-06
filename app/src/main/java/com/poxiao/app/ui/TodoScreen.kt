@@ -1,7 +1,17 @@
 package com.poxiao.app.ui
 
 import android.content.Context
-import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -9,9 +19,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.poxiao.app.todo.TodoTask
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun TodoScreen(
     active: Boolean,
@@ -78,7 +91,21 @@ internal fun TodoScreen(
     CompositionLocalProvider(LocalStaticGlassMode provides true) {
         ScreenColumn {
             item {
+                val transitionScope = LocalSharedTransitionScope.current
+                val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+                val sharedModifier = if (transitionScope != null && animatedVisibilityScope != null) {
+                    with(transitionScope) {
+                        Modifier.sharedElement(
+                            sharedContentState = rememberSharedContentState(key = "home_to_todo_card"),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            boundsTransform = { _, _ -> spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium) }
+                        )
+                    }
+                } else {
+                    Modifier
+                }
                 TodoOverviewCard(
+                    modifier = sharedModifier,
                     tasks = tasks,
                     completedCount = snapshot.completedCount,
                     focusCount = snapshot.focusCount,

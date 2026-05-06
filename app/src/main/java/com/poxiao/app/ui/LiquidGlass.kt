@@ -113,10 +113,14 @@ fun GyroScopeProvider(content: @Composable () -> Unit) {
                 val pitch = event.values[1] // Y轴，上下倾斜
                 val roll = event.values[0]  // X轴，左右倾斜 (纠正: 之前误用 values[2] 且未考虑设备平放姿态)
 
-                // 1. 初始化基准面 (首次拿到数据时设定)
+                // 1. 动态自适应基准面 (解决初始姿态偏右/偏下的问题)
                 if (baseRoll == null || basePitch == null) {
                     baseRoll = roll
                     basePitch = pitch
+                } else {
+                    // 缓慢的自居中校准（Leaky Integrator），确保长时间握持时自然回正
+                    baseRoll = baseRoll!! * 0.995f + roll * 0.005f
+                    basePitch = basePitch!! * 0.995f + pitch * 0.005f
                 }
 
                 // 2. 计算相对偏移量
@@ -124,14 +128,14 @@ fun GyroScopeProvider(content: @Composable () -> Unit) {
                 val relativePitch = pitch - (basePitch ?: 0f)
 
                 // 3. 低通滤波平滑处理 (去除微小抖动)
-                val alpha = 0.15f // 滤波系数，越小越平滑但延迟越大
+                val alpha = 0.12f // 稍微减小滤波系数，增加平滑度
                 smoothedRoll = smoothedRoll + alpha * (relativeRoll - smoothedRoll)
                 smoothedPitch = smoothedPitch + alpha * (relativePitch - smoothedPitch)
                 
                 scope.launch {
-                    // 4. 将加速度转换为合理的范围映射 (-1 到 1)，增加阻尼感
-                    val targetX = (smoothedRoll / 6f).coerceIn(-1f, 1f)
-                    val targetY = (smoothedPitch / 6f).coerceIn(-1f, 1f)
+                    // 4. 将加速度转换为合理的范围映射 (-1 到 1)，提升一点敏感度
+                    val targetX = (smoothedRoll / 4.5f).coerceIn(-1f, 1f)
+                    val targetY = (smoothedPitch / 4.5f).coerceIn(-1f, 1f)
                     
                     xOffset.animateTo(
                         targetValue = targetX,

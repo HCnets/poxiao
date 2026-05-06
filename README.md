@@ -5,7 +5,7 @@
 > **“将大学生活里那些零碎、跳跃、失焦的时刻，重新组织成一个连贯的个人界面。”**
 
 <p>
-  <img src="https://img.shields.io/badge/Version-1.2.0_MAS-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.2.0" />
+  <img src="https://img.shields.io/badge/Version-1.2.6_Golden_Flow-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.2.6" />
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Language-Kotlin_2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Language Kotlin" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="UI Jetpack Compose" />
@@ -22,7 +22,7 @@
 `南工破晓` 是一个面向校园学习与个人效率场景的 Android 原生应用。
 它采用 **Kotlin + Jetpack Compose** 构建，并持续以 **Agent (智能体) 驱动** 的方式进行工程重构与演进。
 
-**v1.2.0 (MAS & Liquid Glass 2.0)** 现已发布，成功落地了多智能体并行调度编排系统，并全面引入了带有陀螺仪物理动效的高定液态玻璃 UI。
+**v1.2.6 (Golden Flow Revolution)** 现已发布，彻底重构了科学计算器的交互架构，通过固定底部键盘与实时预览引擎，将原有的线性滚动交互升级为极致顺滑的专业工具流。
 
 ---
 
@@ -59,7 +59,14 @@
 | `09` | **联动增强** | **逻辑闭环** | 实现复习-待办-课表-番茄钟四端联动，支持掌握度智能写回。 |
 | `10` | **多产品线** | **架构演进** | 引入 hitsz / academic / lite 产品线方案，支持能力感知的动态裁剪。 |
 | `11` | **多智能体** | **内核升级** | 落地基于 `async` 的并行专家网络与 DeepSeek 反思协议，实现主动式助理。 |
-| `当前` | **v1.2.0** | **稳定版 (Stable)** | **MAS & Liquid Glass 2.0** 正式发布，兼顾智能编排与高定物理动效。 |
+| `12` | **极致 UI** | **视觉升维** | 落地 Liquid Glass 2.0，重塑卡片排版留白，增加 SharedElement 共享元素路由过渡与全局 Haptics 触觉物理反馈。 |
+| `13` | **v1.2.0** | **稳定版 (Stable)** | **MAS & Liquid Glass 2.0** 正式发布，兼顾智能编排与高定物理动效。 |
+| `14` | **v1.2.1** | **稳定版 (Stable)** | **UI 极致打磨** 发布，全面引入骨架屏 (SkeletonPlaceholder) 与状态交错动画，修复重声明错误，巩固世界一流体验。 |
+| `15` | **v1.2.2** | **稳定版 (Stable)** | **陀螺仪动效调优** 发布，引入自适应基准面算法，彻底解决设备初始姿态引起的 UI 偏移问题。 |
+| `16` | **v1.2.3** | **稳定版 (Stable)** | **全局组件大一统** 发布，重构计算器等二级页面，消灭僵硬色块，推行 LiquidGlass 组件与 Z 轴浮岛设计。 |
+| `17` | **v1.2.4** | **稳定版 (Stable)** | **人机交互重构** 发布，调整视线焦点与键盘布局，引入实时推演反馈，极大降低认知负荷。 |
+| `18` | **v1.2.5** | **稳定版 (Stable)** | **空间容器重塑** 发布，首页全面引入 Bento Box (便当盒) 仪表盘网格布局。 |
+| `当前` | **v1.2.6** | **稳定版 (Stable)** | **Golden Flow 革命** 发布，彻底重构科学计算器，推行固定底部键盘与全局焦点路由。 |
 
 </details>
 
@@ -69,7 +76,7 @@
 
 | 分支 / 标签 | 状态 | 适用场景 |
 | :--- | :--- | :--- |
-| `main` | **[Stable v1.2.0]** | **当前生产线**：具备多智能体并发与动态玻璃动效的最新稳定版。 |
+| `main` | **[Stable v1.2.6]** | **当前生产线**：包含最新 Golden Flow 布局、Bento 首页与全域联动能力的稳定版。 |
 | `archive-monolithic` | **[Legacy]** | **历史归档**：未拆分单文件版镜像。 |
 | `v1.1.0-linkage-stable` | **[Milestone]** | **里程碑锚点**：联动增强阶段的精确记录。 |
 

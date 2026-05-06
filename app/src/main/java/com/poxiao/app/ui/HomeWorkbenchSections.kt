@@ -65,10 +65,7 @@ internal fun HomeWorkbenchEditorCard(
             key(module) {
                 val isDragging = draggingModule == module
                 val moduleSize = moduleSizes[module] ?: defaultHomeModuleSize(module)
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = if (isDragging) TeaGreen.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.24f),
-                    border = BorderStroke(1.dp, if (isDragging) ForestGreen.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.18f)),
+                LiquidGlassSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .offset { IntOffset(0, if (isDragging) dragOffsetY.roundToInt() else 0) }
@@ -83,6 +80,9 @@ internal fun HomeWorkbenchEditorCard(
                                 },
                             )
                         },
+                    cornerRadius = 18.dp,
+                    tint = if (isDragging) TeaGreen.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.24f),
+                    borderColor = if (isDragging) ForestGreen.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.18f),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -124,19 +124,27 @@ internal fun HomeModuleRowsSection(
     moduleRows: List<List<HomeModule>>,
     renderHomeModule: @Composable (HomeModule, Modifier, Boolean) -> Unit,
 ) {
-    moduleRows.forEach { rowModules ->
-        if (rowModules.size == 2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                rowModules.forEach { module ->
-                    renderHomeModule(module, Modifier.weight(1f), true)
+    // Bento Box 便当盒网格容器
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp) // 更紧凑的网格间距
+    ) {
+        moduleRows.forEach { rowModules ->
+            if (rowModules.size == 2) {
+                // 1x1 小尺寸模块并排
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    rowModules.forEach { module ->
+                        renderHomeModule(module, Modifier.weight(1f), true)
+                    }
                 }
+            } else {
+                // 2x2 或 2x1 大尺寸横跨模块
+                renderHomeModule(rowModules.first(), Modifier.fillMaxWidth(), false)
             }
-        } else {
-            renderHomeModule(rowModules.first(), Modifier.fillMaxWidth(), false)
         }
     }
 }

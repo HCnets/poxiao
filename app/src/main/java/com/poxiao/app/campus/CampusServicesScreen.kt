@@ -1,4 +1,4 @@
-﻿package com.poxiao.app.campus
+package com.poxiao.app.campus
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -26,13 +26,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dataset
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.MeetingRoom
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -49,6 +49,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -64,6 +65,7 @@ import com.poxiao.app.ui.theme.BambooStroke
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.WarmMist
+import com.poxiao.app.ui.interactions.SkeletonPlaceholder
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -418,9 +420,13 @@ fun CampusServicesScreen(
                 } else {
                     if (academicLoading) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ForestDeep)
+                            SkeletonPlaceholder(modifier = Modifier.size(18.dp).clip(CircleShape))
                             Text("\u6b63\u5728\u540c\u6b65\u6559\u52a1\u6570\u636e", color = ForestDeep.copy(alpha = 0.76f))
                         }
+                        Spacer(Modifier.height(10.dp))
+                        SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(20.dp)))
+                        Spacer(Modifier.height(10.dp))
+                        SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(20.dp)))
                     }
                     if (academicError.isNotBlank()) {
                         HintCard("\u540c\u6b65\u63d0\u793a", academicError)

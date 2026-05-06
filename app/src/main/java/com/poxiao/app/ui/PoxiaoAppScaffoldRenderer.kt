@@ -1,5 +1,15 @@
 package com.poxiao.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -8,7 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -23,6 +35,11 @@ import com.poxiao.app.settings.NotificationPreferencesScreen
 import com.poxiao.app.ui.theme.PoxiaoThemePreset
 import com.poxiao.app.ui.EditionCapabilities
 import com.poxiao.app.ui.LocalEditionCapabilities
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+val LocalSharedTransitionScope = compositionLocalOf<SharedTransitionScope?> { null }
+@OptIn(ExperimentalSharedTransitionApi::class)
+val LocalAnimatedVisibilityScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
 @Composable
 internal fun PoxiaoAppScaffoldScene(
@@ -211,64 +228,73 @@ internal fun PoxiaoOverlayHost(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun PoxiaoSectionHost(
     scaffoldState: PoxiaoAppScaffoldState,
 ) {
     with(scaffoldState) {
         val renderSections = sectionOrder.filter { it in residentSections }
-        val transition = rememberPoxiaoSectionTransitionSnapshot(sectionSweepProgress.value)
-        Box(modifier = Modifier.fillMaxSize()) {
-            renderSections.forEach { residentSection ->
-                key(residentSection) {
-                    val isCurrentSection = residentSection == section
-                    val sectionModifier = Modifier.poxiaoSectionHostModifier(
-                        isCurrentSection = isCurrentSection,
-                        transition = transition,
-                    )
-                    Box(modifier = sectionModifier) {
-                        when (residentSection) {
-                            PrimarySection.Home -> HomeScreen(
-                                active = isCurrentSection,
-                                repository = repository,
-                                initialAssistantHistoryFocusAt = assistantHistoryFocusAt,
-                                onAssistantHistoryFocusConsumed = scaffoldState::consumeAssistantHistoryFocus,
-                                onOpenMap = scaffoldState::openCampusMap,
-                                onOpenScheduleDay = scaffoldState::openScheduleDay,
-                                onOpenScheduleExamWeek = scaffoldState::openScheduleExamWeek,
-                                onOpenCampusServices = scaffoldState::openCampusServices,
-                                onOpenTodoPending = { scaffoldState.openTodoPending(it) },
-                                onOpenPomodoro = scaffoldState::openPomodoro,
-                                onOpenReviewPlanner = scaffoldState::openReviewPlanner,
-                                onOpenReviewPlannerSeeded = scaffoldState::openReviewPlanner,
-                                onOpenAssistantPermissions = scaffoldState::openAssistantPermissions,
-                                onOpenCourseNotes = scaffoldState::openCourseNotes,
-                            )
-                            PrimarySection.Schedule -> ScheduleScreen(
-                                repository,
-                                active = isCurrentSection,
-                                initialMode = scheduleEntryMode,
-                                initialWorkbench = scheduleEntryWorkbench,
-                                onOpenAcademicAccount = scaffoldState::openMoreSection,
-                                onOpenCourseNotes = scaffoldState::openCourseNotes,
-                            )
-                            PrimarySection.Todo -> TodoScreen(
-                                active = isCurrentSection,
-                                initialFilter = todoEntryFilter
-                            )
-                            PrimarySection.Pomodoro -> PomodoroScreen(active = isCurrentSection)
-                            PrimarySection.More -> MoreScreen(
-                                repository = repository,
-                                onOpenAcademicAccount = scaffoldState::openAcademicAccount,
-                                onOpenCampusServices = scaffoldState::openCampusServices,
-                                onOpenCalculator = scaffoldState::openCalculator,
-                                onOpenCourseNotes = scaffoldState::openCourseNotes,
-                                onOpenReviewPlanner = scaffoldState::openReviewPlanner,
-                                onOpenNotificationPreferences = scaffoldState::openNotificationPreferences,
-                                onOpenLearningDashboard = scaffoldState::openLearningDashboard,
-                                onOpenExportCenter = scaffoldState::openExportCenter,
-                                onOpenPreferences = scaffoldState::openPreferences,
-                            )
+        SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    renderSections.forEach { residentSection ->
+                        key(residentSection) {
+                            val isCurrentSection = residentSection == section
+                            AnimatedVisibility(
+                                visible = isCurrentSection,
+                                enter = fadeIn(tween(400)) + scaleIn(tween(400), initialScale = 0.96f),
+                                exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.98f),
+                            ) {
+                                val currentAnimatedVisibilityScope = this
+                                CompositionLocalProvider(LocalAnimatedVisibilityScope provides currentAnimatedVisibilityScope) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        when (residentSection) {
+                                            PrimarySection.Home -> HomeScreen(
+                                                active = isCurrentSection,
+                                                repository = repository,
+                                                initialAssistantHistoryFocusAt = assistantHistoryFocusAt,
+                                                onAssistantHistoryFocusConsumed = scaffoldState::consumeAssistantHistoryFocus,
+                                                onOpenMap = scaffoldState::openCampusMap,
+                                                onOpenScheduleDay = scaffoldState::openScheduleDay,
+                                                onOpenScheduleExamWeek = scaffoldState::openScheduleExamWeek,
+                                                onOpenCampusServices = scaffoldState::openCampusServices,
+                                                onOpenTodoPending = { scaffoldState.openTodoPending(it) },
+                                                onOpenPomodoro = scaffoldState::openPomodoro,
+                                                onOpenReviewPlanner = scaffoldState::openReviewPlanner,
+                                                onOpenReviewPlannerSeeded = scaffoldState::openReviewPlanner,
+                                                onOpenAssistantPermissions = scaffoldState::openAssistantPermissions,
+                                                onOpenCourseNotes = scaffoldState::openCourseNotes,
+                                            )
+                                            PrimarySection.Schedule -> ScheduleScreen(
+                                                repository,
+                                                active = isCurrentSection,
+                                                initialMode = scheduleEntryMode,
+                                                initialWorkbench = scheduleEntryWorkbench,
+                                                onOpenAcademicAccount = scaffoldState::openMoreSection,
+                                                onOpenCourseNotes = scaffoldState::openCourseNotes,
+                                            )
+                                            PrimarySection.Todo -> TodoScreen(
+                                                active = isCurrentSection,
+                                                initialFilter = todoEntryFilter
+                                            )
+                                            PrimarySection.Pomodoro -> PomodoroScreen(active = isCurrentSection)
+                                            PrimarySection.More -> MoreScreen(
+                                                repository = repository,
+                                                onOpenAcademicAccount = scaffoldState::openAcademicAccount,
+                                                onOpenCampusServices = scaffoldState::openCampusServices,
+                                                onOpenCalculator = scaffoldState::openCalculator,
+                                                onOpenCourseNotes = scaffoldState::openCourseNotes,
+                                                onOpenReviewPlanner = scaffoldState::openReviewPlanner,
+                                                onOpenNotificationPreferences = scaffoldState::openNotificationPreferences,
+                                                onOpenLearningDashboard = scaffoldState::openLearningDashboard,
+                                                onOpenExportCenter = scaffoldState::openExportCenter,
+                                                onOpenPreferences = scaffoldState::openPreferences,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

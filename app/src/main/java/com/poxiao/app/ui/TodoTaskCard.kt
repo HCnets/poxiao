@@ -52,26 +52,49 @@ internal fun TodoTaskCard(
     val hapticManager = rememberHapticManager()
 
     GlassCard(modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onEdit)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.fillMaxWidth(0.78f)) {
-                    Text(task.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
-                    Text(task.note.ifBlank { "无补充说明" }, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.fillMaxWidth(0.72f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = task.title, 
+                        style = MaterialTheme.typography.titleLarge, 
+                        color = PineInk.copy(alpha = if (task.done) 0.5f else 1f),
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+                    if (task.note.isNotBlank()) {
+                        Text(
+                            text = task.note, 
+                            style = MaterialTheme.typography.bodyMedium, 
+                            color = ForestDeep.copy(alpha = if (task.done) 0.38f else 0.6f)
+                        )
+                    }
                 }
                 ActionPill(
                     text = if (task.done) "已完成" else "完成",
-                    background = if (task.done) MossGreen else ForestGreen,
+                    background = if (task.done) MossGreen.copy(alpha = 0.6f) else ForestGreen,
                     onClick = {
                         if (!task.done) hapticManager.playSuccess() else hapticManager.playLightClick()
                         onToggle()
                     }
                 )
             }
+            
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${task.listName} · ${task.dueText}", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))
                 ActionPill(dueStatus.label, dueStatus.color, onClick = {})
+                Text(
+                    text = "${task.listName} · ${task.dueText}", 
+                    style = MaterialTheme.typography.labelMedium, 
+                    color = ForestDeep.copy(alpha = 0.5f)
+                )
             }
-            Text("${task.reminderText.ifBlank { "不提醒" }} · ${task.repeatText}", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
+            if (task.reminderText.isNotBlank() || task.repeatText.isNotBlank()) {
+                Text(
+                    text = "${task.reminderText.ifBlank { "不提醒" }} · ${task.repeatText}", 
+                    style = MaterialTheme.typography.labelMedium, 
+                    color = ForestDeep.copy(alpha = 0.4f)
+                )
+            }
+            
             Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionPill(task.priority.title, when (task.priority) {
                     TodoPriority.High -> Ginkgo
@@ -80,12 +103,14 @@ internal fun TodoTaskCard(
                 }, onClick = {})
                 ActionPill(task.quadrant.title, TeaGreen, onClick = {})
                 ActionPill(focusProgressLabel, if (focusGoalReached) MossGreen else BambooGlass, onClick = {})
-                if (!task.done) ActionPill("顺延", CloudWhite, onClick = onPostpone)
-                ActionPill("编辑", WarmMist, onClick = onEdit)
-                ActionPill("绑定专注", ForestGreen, onClick = onBindPomodoro)
-                ActionPill("提醒", Ginkgo, onClick = onNotify)
-                if (canMoveUp) ActionPill("上移", CloudWhite, onClick = onMoveUp)
-                if (canMoveDown) ActionPill("下移", CloudWhite, onClick = onMoveDown)
+            }
+            
+            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!task.done) ActionPill("顺延", CloudWhite.copy(alpha = 0.7f), onClick = onPostpone)
+                ActionPill("绑定专注", ForestGreen.copy(alpha = 0.8f), onClick = onBindPomodoro)
+                ActionPill("提醒", Ginkgo.copy(alpha = 0.8f), onClick = onNotify)
+                if (canMoveUp) ActionPill("上移", CloudWhite.copy(alpha = 0.5f), onClick = onMoveUp)
+                if (canMoveDown) ActionPill("下移", CloudWhite.copy(alpha = 0.5f), onClick = onMoveDown)
             }
             if (task.focusGoal > 0) {
                 Text(

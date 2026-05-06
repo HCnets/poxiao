@@ -5,11 +5,24 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -61,6 +74,12 @@ import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.todo.TodoPriority
 import com.poxiao.app.todo.TodoQuadrant
 import com.poxiao.app.todo.TodoTask
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
+import com.poxiao.app.ui.interactions.SkeletonPlaceholder
+import com.poxiao.app.ui.DayAnalysisSummary
+import com.poxiao.app.ui.FreeTimeDaySummary
+import com.poxiao.app.ui.ExamWeekItem
 import com.poxiao.app.ui.theme.BambooStroke
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
@@ -73,6 +92,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun ScheduleScreen(
     repository: AcademicRepository,
@@ -167,13 +187,33 @@ internal fun ScheduleScreen(
 
     ScreenColumn {
         item {
-            GlassCard {
+            val transitionScope = LocalSharedTransitionScope.current
+            val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+            val sharedModifier = if (transitionScope != null && animatedVisibilityScope != null) {
+                with(transitionScope) {
+                    Modifier.sharedElement(
+                        sharedContentState = rememberSharedContentState(key = "home_to_schedule_card"),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        boundsTransform = { _, _ -> spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium) }
+                    )
+                }
+            } else {
+                Modifier
+            }
+            GlassCard(modifier = sharedModifier) {
                 Text("课程中心", style = MaterialTheme.typography.headlineMedium, color = PineInk)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(uiState.status, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.76f))
-                if (lastSyncTime.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("上次同步：$lastSyncTime", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.64f))
+                if (uiState.loading) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(20.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SkeletonPlaceholder(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp))
+                } else {
+                    Text(uiState.status, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.76f))
+                    if (lastSyncTime.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("上次同步：$lastSyncTime", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.64f))
+                    }
                 }
                 if (uiState.authExpired) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -261,6 +301,12 @@ internal fun ScheduleScreen(
                         slots = uiState.weekSchedule.timeSlots,
                         days = uiState.weekSchedule.days,
                         courses = uiState.weekSchedule.courses,
+                        weeklyAnalysis = remember(uiState.weekSchedule.days, uiState.weekSchedule.courses) {
+                            weeklyCourseAnalysis(uiState.weekSchedule.days, uiState.weekSchedule.courses)
+                        },
+                        freeTimeSummary = remember(uiState.weekSchedule.timeSlots, uiState.weekSchedule.days, uiState.weekSchedule.courses) {
+                            weeklyFreeTimeSummary(uiState.weekSchedule.timeSlots, uiState.weekSchedule.days, uiState.weekSchedule.courses)
+                        },
                         reviewBlocks = reviewBlocks,
                         selectedCourse = selectedCourse,
                         onSelectCourse = { selectedCourse = it },
@@ -539,6 +585,8 @@ private fun WeekScheduleCard(
     slots: List<HitaTimeSlot>,
     days: List<HitaWeekDay>,
     courses: List<HitaCourseBlock>,
+    weeklyAnalysis: List<DayAnalysisSummary>,
+    freeTimeSummary: List<FreeTimeDaySummary>,
     reviewBlocks: List<ScheduleReviewBlock> = emptyList(),
     selectedCourse: HitaCourseBlock?,
     onSelectCourse: (HitaCourseBlock) -> Unit,
@@ -546,8 +594,6 @@ private fun WeekScheduleCard(
 ) {
     val headerHeight = 60.dp
     val rowHeight = 108.dp
-    val freeTimeSummary = remember(slots, days, courses) { weeklyFreeTimeSummary(slots, days, courses) }
-    val weeklyAnalysis = remember(days, courses) { weeklyCourseAnalysis(days, courses) }
     GlassCard {
         Text(title, style = MaterialTheme.typography.titleLarge, color = PineInk)
         Spacer(modifier = Modifier.height(12.dp))
@@ -606,12 +652,8 @@ private fun WeekScheduleCard(
             Spacer(modifier = Modifier.height(10.dp))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 for (item in weeklyAnalysis) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.14f)),
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(item.dayLabel, style = MaterialTheme.typography.titleSmall, color = PineInk)
                             Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 for (label in item.highlights) {
@@ -628,16 +670,12 @@ private fun WeekScheduleCard(
         Spacer(modifier = Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             for (item in freeTimeSummary) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White.copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.14f)),
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(item.dayLabel, style = MaterialTheme.typography.titleSmall, color = PineInk)
                             Text("${item.freeCount} 个空闲大节", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.7f))
@@ -742,37 +780,55 @@ private fun DayScheduleCard(
                 } == true
                 val isEventSelected = extraEvent?.id == selectedEventId
                 val relationTags = if (course != null) remember(courses, course) { dayCourseTags(courses, course) } else entry.tags
-                Surface(
-                    shape = RoundedCornerShape(22.dp),
-                    color = if (isSelected || isEventSelected) Color.White.copy(alpha = 0.32f) else Color.White.copy(alpha = 0.24f),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isSelected || isEventSelected) Color.White.copy(alpha = 0.26f) else BambooStroke.copy(alpha = 0.16f),
-                    ),
-                    modifier = Modifier.clickable(enabled = course != null || extraEvent != null) {
-                        when {
-                            course != null -> onSelectCourse(course)
-                            extraEvent != null -> onSelectEvent(extraEvent)
-                        }
-                    },
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(tween(400, delayMillis = index * 40)) + slideInVertically(tween(400, delayMillis = index * 40)) { it / 4 },
                 ) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .width(8.dp)
-                                .height(64.dp)
-                                .clip(CircleShape)
-                                .background(entry.accent),
-                        )
-                        Column {
-                            Text(entry.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
-                            Text(entry.subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
-                            Text(entry.detail, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
-                            if (relationTags.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    relationTags.forEach { tag ->
-                                        SelectionChip(text = tag, chosen = false, onClick = {})
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = if (isSelected || isEventSelected) Color.White.copy(alpha = 0.32f) else Color.White.copy(alpha = 0.24f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected || isEventSelected) Color.White.copy(alpha = 0.26f) else BambooStroke.copy(alpha = 0.16f),
+                        ),
+                        modifier = Modifier.clickable(enabled = course != null || extraEvent != null) {
+                            when {
+                                course != null -> onSelectCourse(course)
+                                extraEvent != null -> onSelectEvent(extraEvent)
+                            }
+                        },
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .width(8.dp)
+                                    .height(64.dp)
+                                    .clip(CircleShape)
+                                    .background(entry.accent),
+                            )
+                            Column {
+                                Text(entry.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
+                                Text(entry.subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
+                                Text(entry.detail, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
+                                if (relationTags.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        relationTags.forEach { tag ->
+                                            SelectionChip(text = tag, chosen = false, onClick = {})
+                                        }
+                                    }
+                                }
+                                if (isEventSelected && extraEvent != null) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        ActionPill("编辑", MossGreen) {
+                                            draftTitle = extraEvent.title
+                                            draftTime = extraEvent.time
+                                            draftType = extraEvent.type
+                                            draftNote = extraEvent.note
+                                            draftReady = true
+                                        }
+                                        ActionPill("删除", WarmMist) { onDeleteEvent(extraEvent.id) }
                                     }
                                 }
                             }
@@ -878,21 +934,29 @@ private fun GradeTrendCard(
     }
     GlassCard {
         Text("成绩趋势", style = MaterialTheme.typography.titleLarge, color = PineInk)
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Text(status, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
         if (loading) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("正在整理平均分、绩点和预警课程。", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
+            Spacer(modifier = Modifier.height(14.dp))
+            SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(48.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SkeletonPlaceholder(modifier = Modifier.weight(1f).height(64.dp))
+                SkeletonPlaceholder(modifier = Modifier.weight(1f).height(64.dp))
+                SkeletonPlaceholder(modifier = Modifier.weight(1f).height(64.dp))
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(80.dp))
             return@GlassCard
         }
         if (points.isEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Text("当前还没有可用于分析的成绩记录。", style = MaterialTheme.typography.bodyLarge, color = ForestDeep.copy(alpha = 0.7f))
             return@GlassCard
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         SelectionRow(options = points, selected = selectedPoint ?: points.first(), label = { it.termName }, onSelect = { onSelectTerm(it.termName) })
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
             MetricCard("平均分", formatTrendValue(selectedPoint?.averageScore), ForestGreen)
             MetricCard("平均绩点", formatTrendValue(selectedPoint?.averageGradePoint), Ginkgo)
@@ -911,11 +975,11 @@ private fun GradeTrendCard(
                         accent = ForestGreen,
                     )
                 }
-                riskyPoint?.let { point ->
+                if (riskyPoint != null && riskyPoint.warningCount > 0) {
                     TrendInsightCard(
                         title = "风险提醒",
-                        headline = point.termName,
-                        body = if (point.warningCount > 0) "共有 ${point.warningCount} 门预警课程，建议优先复盘。" else "当前没有明显预警课程，可继续保持。",
+                        headline = riskyPoint.termName,
+                        body = "共有 ${riskyPoint.warningCount} 门预警课程，建议优先复盘。",
                         accent = WarmMist,
                     )
                 }
@@ -954,20 +1018,20 @@ private fun GradeTrendCard(
             }
             if (index != points.lastIndex) Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             "课程 ${selectedPoint?.courseCount ?: 0} 门 · 优秀 ${selectedPoint?.excellentCount ?: 0} 门 · 预警 ${selectedPoint?.warningCount ?: 0} 门",
             style = MaterialTheme.typography.bodyLarge,
             color = ForestDeep.copy(alpha = 0.76f),
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             ActionPill(if (detailExpanded) "收起详情" else "展开单科", if (detailExpanded) MossGreen else ForestGreen) {
                 detailExpanded = !detailExpanded
             }
         }
         if (detailExpanded && selectedPoint != null) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             OutlinedTextField(
                 value = courseKeyword,
                 onValueChange = { courseKeyword = it },
@@ -975,41 +1039,45 @@ private fun GradeTrendCard(
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             if (visibleCards.isEmpty()) {
                 Text("当前搜索条件下没有匹配课程。", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.7f))
             }
             visibleCards.forEachIndexed { index, card ->
                 Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.26f)) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(card.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
                         Text(card.source, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
                         Text(card.description, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.66f))
                     }
                 }
-                if (index != visibleCards.lastIndex) Spacer(modifier = Modifier.height(8.dp))
+                if (index != visibleCards.lastIndex) Spacer(modifier = Modifier.height(12.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
         }
         points.forEachIndexed { index, point ->
+            val hapticManager = rememberHapticManager()
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = if (point.termName == selectedPoint?.termName) Color.White.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.22f),
                 border = BorderStroke(1.dp, if (point.termName == selectedPoint?.termName) ForestGreen.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier.bouncyClick(hapticManager = hapticManager) {
+                    onSelectTerm(point.termName)
+                }
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(point.termName, style = MaterialTheme.typography.titleMedium, color = PineInk)
                         Text("平均分 ${formatTrendValue(point.averageScore)} · 绩点 ${formatTrendValue(point.averageGradePoint)}", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
                     }
                     Text("${point.warningCount} 项预警", style = MaterialTheme.typography.labelLarge, color = if (point.warningCount > 0) Color(0xFF9A5B34) else ForestDeep.copy(alpha = 0.68f))
                 }
             }
-            if (index != points.lastIndex) Spacer(modifier = Modifier.height(8.dp))
+            if (index != points.lastIndex) Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
@@ -1143,30 +1211,36 @@ private fun ExamWeekModeCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 if (!collapsed) {
                     entry.value.forEachIndexed { itemIndex, item ->
-                        Surface(shape = RoundedCornerShape(22.dp), color = if (item.finished) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.34f)) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(modifier = Modifier.width(24.dp).height(4.dp).clip(CircleShape).background(item.accent))
-                                        Text(item.title, style = MaterialTheme.typography.titleMedium, color = if (item.finished) ForestDeep.copy(alpha = 0.58f) else PineInk)
+                        AnimatedVisibility(
+                            visible = !item.finished || filter == ExamWeekFilter.All || filter == ExamWeekFilter.Finished,
+                            enter = fadeIn(tween(400, delayMillis = itemIndex * 40)) + slideInVertically(tween(400, delayMillis = itemIndex * 40)) { it / 4 },
+                            exit = fadeOut(tween(300)) + shrinkVertically(tween(300))
+                        ) {
+                            Surface(shape = RoundedCornerShape(22.dp), color = if (item.finished) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.34f)) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Box(modifier = Modifier.width(24.dp).height(4.dp).clip(CircleShape).background(item.accent))
+                                            Text(item.title, style = MaterialTheme.typography.titleMedium, color = if (item.finished) ForestDeep.copy(alpha = 0.58f) else PineInk)
+                                        }
+                                        SelectionChip(text = if (item.finished) "已完成" else item.countdownLabel, chosen = item.priority == 0 || item.finished, onClick = {})
                                     }
-                                    SelectionChip(text = if (item.finished) "已完成" else item.countdownLabel, chosen = item.priority == 0 || item.finished, onClick = {})
-                                }
-                                Text(
-                                    when (item.priority) {
-                                        0 -> "最高优先"
-                                        1 -> "临近处理"
-                                        else -> "常规安排"
-                                    },
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = ForestDeep.copy(alpha = 0.68f),
-                                )
-                                Text(item.subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
-                                Text(item.detail, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.66f))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                                    ActionPill(if (item.finished) "恢复" else "完成", if (item.finished) WarmMist else TeaGreen) { onToggleFinished(item) }
-                                    ActionPill("转待办", MossGreen) { onCreateTodo(item) }
-                                    ActionPill("绑定专注", ForestGreen) { onBindFocus(item) }
+                                    Text(
+                                        when (item.priority) {
+                                            0 -> "最高优先"
+                                            1 -> "临近处理"
+                                            else -> "常规安排"
+                                        },
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = ForestDeep.copy(alpha = 0.68f),
+                                    )
+                                    Text(item.subtitle, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.72f))
+                                    Text(item.detail, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.66f))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                                        ActionPill(if (item.finished) "恢复" else "完成", if (item.finished) WarmMist else TeaGreen) { onToggleFinished(item) }
+                                        ActionPill("转待办", MossGreen) { onCreateTodo(item) }
+                                        ActionPill("绑定专注", ForestGreen) { onBindFocus(item) }
+                                    }
                                 }
                             }
                         }

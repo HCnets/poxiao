@@ -26,6 +26,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import com.poxiao.app.notes.CourseNoteSeed
 import com.poxiao.app.ui.theme.BambooGlass
 import com.poxiao.app.ui.theme.BambooStroke
@@ -125,6 +130,7 @@ internal fun HomeWelcomeCard(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 internal fun HomeHeroOverviewCard(
     heroState: HomeHeroState,
@@ -239,12 +245,26 @@ internal fun HomeHeroOverviewCard(
                                 )
                             }
                             todayTimeline.take(3).forEachIndexed { index, item ->
+                                val transitionScope = LocalSharedTransitionScope.current
+                                val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+                                val sharedModifier = if (transitionScope != null && animatedVisibilityScope != null && (item.timeLabel == "今日课程" || item.timeLabel == "待办优先")) {
+                                    with(transitionScope) {
+                                        Modifier.sharedElement(
+                                            sharedContentState = rememberSharedContentState(key = "home_to_${if (item.timeLabel == "今日课程") "schedule" else "todo"}_card"),
+                                            animatedVisibilityScope = animatedVisibilityScope,
+                                            boundsTransform = { _, _ -> spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium) }
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+
                                 HomeLine(
                                     time = item.timeLabel,
                                     title = item.title,
                                     body = item.subtitle,
                                     sizePreset = HomeModuleSize.Standard,
-                                    modifier = Modifier.clickable {
+                                    modifier = sharedModifier.clickable {
                                         when (item.timeLabel) {
                                             "今日课程" -> onOpenScheduleDay()
                                             "考试周" -> onOpenScheduleExamWeek()
