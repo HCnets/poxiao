@@ -145,19 +145,19 @@ import kotlin.math.sqrt
 import kotlin.math.tan
 
 enum class CalculatorApp(val title: String, val subtitle: String) {
-    Compute("计算", "科学计算"),
-    Statistics("统计", "均值方差"),
-    Test("检验", "t检验等"),
-    Distribution("分布", "正态二项"),
-    Spreadsheet("表格", "表格汇总"),
-    FunctionTable("函数", "生成数值"),
-    Equation("方程", "一二次等"),
-    Inequality("不等式", "一元二次"),
-    Complex("复数", "极坐标等"),
-    Base("进制", "2至16进制"),
-    Matrix("矩阵", "行列式等"),
-    Vector("向量", "点积叉积"),
-    Ratio("比例", "正反比例"),
+    Compute("常规计算", "科学计算"),
+    Statistics("统计推断", "均值方差"),
+    Test("假设检验", "t检验等"),
+    Distribution("概率分布", "正态二项"),
+    Spreadsheet("数据表格", "表格汇总"),
+    FunctionTable("函数表格", "生成数值"),
+    Equation("方程求解", "一二次等"),
+    Inequality("不等式求解", "一元二次"),
+    Complex("复数域", "极坐标等"),
+    Base("进制转换", "2至16进制"),
+    Matrix("矩阵代数", "行列式等"),
+    Vector("空间向量", "点积叉积"),
+    Ratio("比例缩放", "正反比例"),
 }
 
 private enum class AngleMode(val title: String) {
@@ -739,7 +739,7 @@ private fun CalculatorWorkspaceHeader(
     val palette = tilePalette(title)
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
-        cornerRadius = 28.dp,
+        cornerRadius = 24.dp,
         tint = palette.primary.copy(alpha = 0.22f),
         borderColor = Color.White.copy(alpha = 0.4f),
         blurRadius = 36.dp // 增加模糊半径，确保在滚动时下层文本被强力模糊
@@ -747,7 +747,7 @@ private fun CalculatorWorkspaceHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp), // 增加内边距，让卡片看起来不拥挤
+                .padding(horizontal = 14.dp, vertical = 10.dp), // 压缩内边距，减少垂直高度
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -763,15 +763,15 @@ private fun CalculatorWorkspaceHeader(
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(48.dp)
-                            .height(48.dp),
+                            .width(42.dp)
+                            .height(42.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
                             tint = palette.primary,
-                            modifier = Modifier.width(22.dp).height(22.dp),
+                            modifier = Modifier.width(20.dp).height(20.dp),
                         )
                     }
                 }
@@ -780,8 +780,20 @@ private fun CalculatorWorkspaceHeader(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = if (isDarkMode) CloudWhite else PineInk)
-                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 2.dp))
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = if (isDarkMode) CloudWhite else PineInk,
+                        modifier = Modifier.alignByBaseline()
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false).alignByBaseline()
+                    )
                 }
             }
             Row(
@@ -796,14 +808,15 @@ private fun CalculatorWorkspaceHeader(
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(48.dp)
-                            .height(48.dp),
+                            .width(42.dp)
+                            .height(42.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = if (isDarkMode) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
                             contentDescription = "切换主题",
                             tint = if (isDarkMode) CloudWhite else PineInk,
+                            modifier = Modifier.width(20.dp).height(20.dp),
                         )
                     }
                 }
@@ -815,14 +828,15 @@ private fun CalculatorWorkspaceHeader(
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(48.dp)
-                            .height(48.dp),
+                            .width(42.dp)
+                            .height(42.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.MoreHoriz,
                             contentDescription = "更多",
                             tint = if (directoryOpen) palette.primary else PineInk,
+                            modifier = Modifier.width(20.dp).height(20.dp),
                         )
                     }
                 }
