@@ -86,7 +86,8 @@
 | `28` | **v1.3.6** | **渲染管线修复 (Pipeline Fix)** | 修正 Compose 渲染管线中的非法 Composable 调用。下沉 UI 防御逻辑至解析层，实现“静默降级”渲染机制。 |
 | `29` | **v1.3.7** | **历史记录稳定性 (History Stabilization)** | 引入 `HistoryRecord` 唯一标识符系统 (UID)。解决 `LazyColumn` 在 `reverseLayout` 下使用非稳定 Key 导致的滑动闪退。 |
 | `30` | **v1.3.8** | **可视化网格输入 (Natural Grid Input)** | 重构矩阵与向量模块为可视化网格布局，支持物理单元格导航与嵌套渲染。实现类似 Excel 的无缝单元格跳转交互。 |
-| `当前` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航；实现多项式与方程组的自然数学渲染，提升代数求解的直觉体验。 |
+| `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
+| `当前` | **v1.3.9.1** | **导航逻辑修正 (Navigation Patch)** | 修复了 `ScientificCalculatorScreen` 中 `onMoveCursor` 回调的状态引用错误，确保物理焦点导航的稳定性。 |
 | `历史补丁` | **v1.3.8.3** | **架构状态补丁 (Architecture State Patch)** | 修复 `FixedKeypadModuleContainer` 中的 `val` 重赋值编译错误。统一状态提升 (State Hoisting) 链路，确保模块间通信逻辑闭合。 |链路，确保模块间通信逻辑闭合。 |
 
 </details>

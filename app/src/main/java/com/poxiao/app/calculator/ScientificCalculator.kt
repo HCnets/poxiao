@@ -702,7 +702,7 @@ fun ScientificCalculatorScreen(
                                                                 nextCol = totalCols - 1
                                                                 nextRow = (nextRow - 1 + totalRows) % totalRows
                                                             }
-                                                            onFocusChange(FocusTarget.MatrixGridCell(nextRow, nextCol, target.isMatrixB))
+                                                            focusTarget = FocusTarget.MatrixGridCell(nextRow, nextCol, target.isMatrixB)
                                                         }
                                                         is FocusTarget.EquationGridCell -> {
                                                             // 根据当前模式决定列数
@@ -717,7 +717,7 @@ fun ScientificCalculatorScreen(
                                                             if (nextCol >= maxCols) { nextCol = 0; nextRow = (nextRow + 1) % 2 }
                                                             else if (nextCol < 0) { nextCol = maxCols - 1; nextRow = (nextRow - 1 + 2) % 2 }
                                                             
-                                                            onFocusChange(FocusTarget.EquationGridCell(nextRow, nextCol, target.equationId))
+                                                            focusTarget = FocusTarget.EquationGridCell(nextRow, nextCol, target.equationId)
                                                         }
                                                         else -> {}
                                                     }
