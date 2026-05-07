@@ -228,6 +228,7 @@ private sealed class FocusTarget {
     object BaseInput : FocusTarget()
     data class GenericInput(val id: String) : FocusTarget() // 用于 Equation, Vector 等通用输入
     data class MatrixGridCell(val row: Int, val col: Int, val isMatrixB: Boolean = false) : FocusTarget()
+    data class EquationGridCell(val row: Int, val col: Int, val equationId: String = "eq") : FocusTarget()
 }
 
 private sealed interface CalculatorRoute {
@@ -321,7 +322,7 @@ fun ScientificCalculatorScreen(
             CalculatorApp.Matrix -> FocusTarget.MatrixGridCell(0, 0, false)
             CalculatorApp.Statistics -> FocusTarget.StatisticsCell(0, false)
             CalculatorApp.Base -> FocusTarget.BaseInput
-            CalculatorApp.Equation -> FocusTarget.GenericInput("eq_a")
+            CalculatorApp.Equation -> FocusTarget.EquationGridCell(0, 0, "eq")
             CalculatorApp.Vector -> FocusTarget.MatrixGridCell(0, 0, false)
             CalculatorApp.Complex -> FocusTarget.GenericInput("c_z1re")
             CalculatorApp.Inequality -> FocusTarget.GenericInput("ineq_a")
@@ -581,6 +582,11 @@ fun ScientificCalculatorScreen(
                                                             val current = genericFields[target.id] ?: ""
                                                             genericFields[target.id] = current + mappedToken
                                                         }
+                                                        is FocusTarget.EquationGridCell -> {
+                                                            val key = "${target.equationId}_r${target.row}c${target.col}"
+                                                            val current = genericFields[key] ?: ""
+                                                            genericFields[key] = if (current == "0") mappedToken else current + mappedToken
+                                                        }
                                                         FocusTarget.None -> {}
                                                     }
                                                 },
@@ -612,6 +618,11 @@ fun ScientificCalculatorScreen(
                                                             val current = genericFields[target.id] ?: ""
                                                             if (current.isNotEmpty()) genericFields[target.id] = current.dropLast(1)
                                                         }
+                                                        is FocusTarget.EquationGridCell -> {
+                                                            val key = "${target.equationId}_r${target.row}c${target.col}"
+                                                            val current = genericFields[key] ?: ""
+                                                            if (current.isNotEmpty()) genericFields[key] = current.dropLast(1).ifEmpty { "0" }
+                                                        }
                                                         FocusTarget.None -> {}
                                                     }
                                                 },
@@ -638,6 +649,10 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         is FocusTarget.GenericInput -> {
                                                             genericFields[target.id] = ""
+                                                        }
+                                                        is FocusTarget.EquationGridCell -> {
+                                                            val key = "${target.equationId}_r${target.row}c${target.col}"
+                                                            genericFields[key] = "0"
                                                         }
                                                         FocusTarget.None -> {}
                                                     }
@@ -687,7 +702,22 @@ fun ScientificCalculatorScreen(
                                                                 nextCol = totalCols - 1
                                                                 nextRow = (nextRow - 1 + totalRows) % totalRows
                                                             }
-                                                            focusTarget = FocusTarget.MatrixGridCell(nextRow, nextCol, target.isMatrixB)
+                                                            onFocusChange(FocusTarget.MatrixGridCell(nextRow, nextCol, target.isMatrixB))
+                                                        }
+                                                        is FocusTarget.EquationGridCell -> {
+                                                            // 根据当前模式决定列数
+                                                            // 模式存储在 genericFields 或局部状态，这里由于是 lambda，我们可以从 routeState 判断或简化逻辑
+                                                            // 实际上 EquationGridCell 的导航逻辑取决于 UI 渲染时的 mode
+                                                            // 这里先实现一个通用的循环导航
+                                                            var nextCol = target.col + delta
+                                                            var nextRow = target.row
+                                                            
+                                                            // 简单的 5 列兼容逻辑 (多项式最大 5 列，二元一次 3 列)
+                                                            val maxCols = 5 
+                                                            if (nextCol >= maxCols) { nextCol = 0; nextRow = (nextRow + 1) % 2 }
+                                                            else if (nextCol < 0) { nextCol = maxCols - 1; nextRow = (nextRow - 1 + 2) % 2 }
+                                                            
+                                                            onFocusChange(FocusTarget.EquationGridCell(nextRow, nextCol, target.equationId))
                                                         }
                                                         else -> {}
                                                     }
@@ -3181,23 +3211,43 @@ private fun EquationModulePro(
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
 
     CalculatorCard("方程 Pro") {
-        ModuleSelector(listOf("线性方程", "二元一次", "多项式"), mode) { mode = it }
+        ModuleSelector(listOf("线性方程", "二元一次", "多项式"), mode) { 
+            mode = it 
+            // 切换模式时重置焦点
+            onFocusChange(FocusTarget.EquationGridCell(0, 0, "eq"))
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         when (mode) {
             "线性方程" -> {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("求解 ax + b = 0", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProCell(fields.getOrDefault("eq_a", "1"), "a", focusTarget == FocusTarget.GenericInput("eq_a"), { onFocusChange(FocusTarget.GenericInput("eq_a")) }, Modifier.weight(1f))
-                        ProCell(fields.getOrDefault("eq_b", "0"), "b", focusTarget == FocusTarget.GenericInput("eq_b"), { onFocusChange(FocusTarget.GenericInput("eq_b")) }, Modifier.weight(1f))
+                    Text("求解 ax + b = 0", style = MaterialTheme.typography.labelMedium, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.6f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        EquationGridCell(
+                            value = fields.getOrDefault("eq_r0c0", "1"),
+                            label = "a",
+                            isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == 0 && focusTarget.col == 0,
+                            onClick = { onFocusChange(FocusTarget.EquationGridCell(0, 0)) }
+                        )
+                        Text(" x + ", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                        EquationGridCell(
+                            value = fields.getOrDefault("eq_r0c1", "0"),
+                            label = "b",
+                            isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == 0 && focusTarget.col == 1,
+                            onClick = { onFocusChange(FocusTarget.EquationGridCell(0, 1)) }
+                        )
+                        Text(" = 0", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 CalcButton("执行线性求解") {
                     result = runCatching {
-                        val a = fields.getOrDefault("eq_a", "1").toDouble()
-                        val b = fields.getOrDefault("eq_b", "0").toDouble()
+                        val a = fields.getOrDefault("eq_r0c0", "1").toDouble()
+                        val b = fields.getOrDefault("eq_r0c1", "0").toDouble()
                         if (abs(a) < 1e-9) {
                             if (abs(b) < 1e-9) "无数解" else "无解"
                         } else {
@@ -3208,27 +3258,46 @@ private fun EquationModulePro(
             }
             "二元一次" -> {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("a₁x + b₁y = c₁\na₂x + b₂y = c₂", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProCell(fields.getOrDefault("eq_a1", "1"), "a1", focusTarget == FocusTarget.GenericInput("eq_a1"), { onFocusChange(FocusTarget.GenericInput("eq_a1")) }, Modifier.weight(1f))
-                        ProCell(fields.getOrDefault("eq_b1", "1"), "b1", focusTarget == FocusTarget.GenericInput("eq_b1"), { onFocusChange(FocusTarget.GenericInput("eq_b1")) }, Modifier.weight(1f))
-                        ProCell(fields.getOrDefault("eq_c1", "0"), "c1", focusTarget == FocusTarget.GenericInput("eq_c1"), { onFocusChange(FocusTarget.GenericInput("eq_c1")) }, Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ProCell(fields.getOrDefault("eq_a2", "1"), "a2", focusTarget == FocusTarget.GenericInput("eq_a2"), { onFocusChange(FocusTarget.GenericInput("eq_a2")) }, Modifier.weight(1f))
-                        ProCell(fields.getOrDefault("eq_b2", "1"), "b2", focusTarget == FocusTarget.GenericInput("eq_b2"), { onFocusChange(FocusTarget.GenericInput("eq_b2")) }, Modifier.weight(1f))
-                        ProCell(fields.getOrDefault("eq_c2", "0"), "c2", focusTarget == FocusTarget.GenericInput("eq_c2"), { onFocusChange(FocusTarget.GenericInput("eq_c2")) }, Modifier.weight(1f))
+                    Text("a₁x + b₁y = c₁\na₂x + b₂y = c₂", style = MaterialTheme.typography.labelMedium, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.6f))
+                    
+                    repeat(2) { r ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            EquationGridCell(
+                                value = fields.getOrDefault("eq_r${r}c0", if(r==0) "1" else "0"),
+                                label = if(r==0) "a1" else "a2",
+                                isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == r && focusTarget.col == 0,
+                                onClick = { onFocusChange(FocusTarget.EquationGridCell(r, 0)) }
+                            )
+                            Text(" x + ", style = MaterialTheme.typography.titleSmall, color = if (isDarkMode) CloudWhite else PineInk)
+                            EquationGridCell(
+                                value = fields.getOrDefault("eq_r${r}c1", if(r==0) "0" else "1"),
+                                label = if(r==0) "b1" else "b2",
+                                isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == r && focusTarget.col == 1,
+                                onClick = { onFocusChange(FocusTarget.EquationGridCell(r, 1)) }
+                            )
+                            Text(" y = ", style = MaterialTheme.typography.titleSmall, color = if (isDarkMode) CloudWhite else PineInk)
+                            EquationGridCell(
+                                value = fields.getOrDefault("eq_r${r}c2", "0"),
+                                label = if(r==0) "c1" else "c2",
+                                isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == r && focusTarget.col == 2,
+                                onClick = { onFocusChange(FocusTarget.EquationGridCell(r, 2)) }
+                            )
+                        }
                     }
                 }
-                        Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 CalcButton("执行克莱姆法则求解") {
                     result = runCatching {
-                        val a1 = fields.getOrDefault("eq_a1", "1").toDouble()
-                        val b1 = fields.getOrDefault("eq_b1", "1").toDouble()
-                        val c1 = fields.getOrDefault("eq_c1", "0").toDouble()
-                        val a2 = fields.getOrDefault("eq_a2", "1").toDouble()
-                        val b2 = fields.getOrDefault("eq_b2", "1").toDouble()
-                        val c2 = fields.getOrDefault("eq_c2", "0").toDouble()
+                        val a1 = fields.getOrDefault("eq_r0c0", "1").toDouble()
+                        val b1 = fields.getOrDefault("eq_r0c1", "1").toDouble()
+                        val c1 = fields.getOrDefault("eq_r0c2", "0").toDouble()
+                        val a2 = fields.getOrDefault("eq_r1c0", "1").toDouble()
+                        val b2 = fields.getOrDefault("eq_r1c1", "1").toDouble()
+                        val c2 = fields.getOrDefault("eq_r1c2", "0").toDouble()
                         val det = a1 * b2 - a2 * b1
                         if (abs(det) < 1e-9) "行列式为 0，无唯一解"
                         else "x = ${formatNumber((c1 * b2 - c2 * b1) / det)}\ny = ${formatNumber((a1 * c2 - a2 * c1) / det)}"
@@ -3237,13 +3306,34 @@ private fun EquationModulePro(
             }
             "多项式" -> {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ModuleSelector(listOf("2次", "3次", "4次"), degree) { degree = it }
+                    ModuleSelector(listOf("2次", "3次", "4次"), degree) { 
+                        degree = it 
+                        onFocusChange(FocusTarget.EquationGridCell(0, 0))
+                    }
                     val count = when(degree) { "2次" -> 3; "3次" -> 4; else -> 5 }
-                    val labels = listOf("a", "b", "c", "d", "e")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                         repeat(count) { i ->
-                            val id = "poly_${labels[i]}"
-                            ProCell(fields.getOrDefault(id, if(i==0) "1" else "0"), labels[i], focusTarget == FocusTarget.GenericInput(id), { onFocusChange(FocusTarget.GenericInput(id)) }, Modifier.weight(1f))
+                            val power = count - 1 - i
+                            EquationGridCell(
+                                value = fields.getOrDefault("eq_r0c$i", if(i==0) "1" else "0"),
+                                label = ('a' + i).toString(),
+                                isFocused = focusTarget is FocusTarget.EquationGridCell && focusTarget.row == 0 && focusTarget.col == i,
+                                onClick = { onFocusChange(FocusTarget.EquationGridCell(0, i)) }
+                            )
+                            if (power > 0) {
+                                Text(
+                                    if (power > 1) "x$power + " else "x + ",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = if (isDarkMode) CloudWhite else PineInk
+                                )
+                            } else {
+                                Text(" = 0", style = MaterialTheme.typography.titleSmall, color = if (isDarkMode) CloudWhite else PineInk)
+                            }
                         }
                     }
                 }
@@ -3251,8 +3341,7 @@ private fun EquationModulePro(
                 CalcButton("Durand-Kerner 算法求解") {
                     result = runCatching {
                         val count = when(degree) { "2次" -> 3; "3次" -> 4; else -> 5 }
-                        val labels = listOf("a", "b", "c", "d", "e")
-                        val coeffs = (0 until count).map { i -> fields.getOrDefault("poly_${labels[i]}", if(i==0) "1" else "0").toDouble() }
+                        val coeffs = (0 until count).map { i -> fields.getOrDefault("eq_r0c$i", if(i==0) "1" else "0").toDouble() }
                         solvePolynomial(coeffs)
                     }.getOrElse { it.message ?: "输入无效" }
                 }
@@ -3260,6 +3349,50 @@ private fun EquationModulePro(
         }
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
+    }
+}
+
+@Composable
+private fun EquationGridCell(
+    value: String,
+    label: String,
+    isFocused: Boolean,
+    onClick: () -> Unit
+) {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    val focusColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.15f) else ForestGreen.copy(alpha = 0.1f)
+    val dotColor = if (isDarkMode) CloudWhite.copy(alpha = 0.1f) else PineInk.copy(alpha = 0.1f)
+    
+    Box(
+        modifier = Modifier
+            .size(width = 64.dp, height = 48.dp)
+            .background(
+                if (isFocused) focusColor else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
+            .drawBehind {
+                if (!isFocused) {
+                    drawCircle(color = dotColor, radius = 1.5.dp.toPx(), center = center)
+                }
+            }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (value.isEmpty() || value == "0") {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.3f)
+            )
+        } else {
+            NaturalMathRenderer(
+                expression = value,
+                cursorIndex = -1,
+                fontSize = 14.sp,
+                color = if (isDarkMode) CloudWhite else PineInk,
+                isDarkMode = isDarkMode
+            )
+        }
     }
 }
 
