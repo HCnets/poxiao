@@ -734,14 +734,23 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         
                                                         val finalRes = runCatching {
-                                                            val eval = ExpressionEngine.evaluateQuantity(safeExpression, angleMode = settings.angleMode)
-                                                            eval.toString(settings)
+                                                            // 判断是否需要进行符号计算 (CAS)
+                                                            // 启发式判断：包含 diff 或 包含未定义的变量 (x, y) 且没有给出数值
+                                                            val isSymbolic = safeExpression.contains("diff(") || 
+                                                                           (safeExpression.contains("x") || safeExpression.contains("y"))
+                                                            
+                                                            if (isSymbolic) {
+                                                                ExpressionEngine.symbolicEvaluate(safeExpression, settings)
+                                                            } else {
+                                                                val eval = ExpressionEngine.evaluateQuantity(safeExpression, angleMode = settings.angleMode)
+                                                                eval.toString(settings)
+                                                            }
                                                         }.getOrElse { e -> 
                                                             val msg = e.message ?: "未知错误"
                                                             if (msg.startsWith("语法错误") || msg.startsWith("计算错误") || msg.startsWith("单位不兼容")) msg else "计算错误: $msg"
                                                         }
                                                         computeHistory.add(HistoryRecord(expression = safeExpression, result = finalRes))
-                                                        if (!finalRes.startsWith("语法错误") && !finalRes.startsWith("计算错误")) {
+                                                        if (!finalRes.startsWith("语法错误") && !finalRes.startsWith("计算错误") && !finalRes.startsWith("符号运算错误")) {
                                                             commitExpressionChange(safeExpression)
                                                             computeResult = finalRes
                                                             safeCursorMove(safeExpression.length)
@@ -4418,8 +4427,8 @@ private fun ProKeypad(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     KeypadButton("0", { onToken("0") }, Modifier.weight(1.5f), swipeDownText = "(", onSwipeDown = { onToken("(") }, swipeUpText = ")", onSwipeUp = { onToken(")") })
-                    KeypadButton("x", { onToken("x") }, Modifier.weight(0.8f), accent = true, contentColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400))
-                    KeypadButton(".", { onToken(".") }, Modifier.weight(0.8f), swipeDownText = ",", onSwipeDown = { onToken(",") })
+                    KeypadButton("x", { onToken("x") }, Modifier.weight(0.8f), accent = true, contentColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), swipeDownText = "y", onSwipeDown = { onToken("y") })
+                    KeypadButton(".", { onToken(".") }, Modifier.weight(0.8f), swipeDownText = ",", onSwipeDown = { onToken(",") }, swipeUpText = "d/dx", onSwipeUp = { onToken("diff(") })
                 }
             }
             
@@ -6697,6 +6706,267 @@ private object ExpressionEngine {
         if (expression.length > 500) throw IllegalArgumentException("语法错误: 表达式过长")
         val parser = Parser(expression.replace("x", "($xValue)"), angleMode, variables)
         return parser.parse()
+    }
+
+    // --- 符号计算系统 (Symbolic Algebra System - CAS) ---
+    sealed class SymbolicNode {
+        abstract fun simplify(): SymbolicNode
+        abstract fun derivative(variable: String): SymbolicNode
+        abstract fun toString(settings: CalculatorSettings): String
+
+        data class Constant(val value: Double) : SymbolicNode() {
+            override fun simplify() = this
+            override fun derivative(variable: String) = Constant(0.0)
+            override fun toString(settings: CalculatorSettings) = formatBySetting(value, settings)
+        }
+
+        data class Variable(val name: String) : SymbolicNode() {
+            override fun simplify() = this
+            override fun derivative(variable: String) = if (name == variable) Constant(1.0) else Constant(0.0)
+            override fun toString(settings: CalculatorSettings) = name
+        }
+
+        data class Add(val left: SymbolicNode, val right: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val l = left.simplify()
+                val r = right.simplify()
+                return when {
+                    l is Constant && r is Constant -> Constant(l.value + r.value)
+                    l is Constant && l.value == 0.0 -> r
+                    r is Constant && r.value == 0.0 -> l
+                    l == r -> Mul(Constant(2.0), l).simplify()
+                    else -> Add(l, r)
+                }
+            }
+            override fun derivative(variable: String) = Add(left.derivative(variable), right.derivative(variable))
+            override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} + ${right.toString(settings)})"
+        }
+
+        data class Sub(val left: SymbolicNode, val right: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val l = left.simplify()
+                val r = right.simplify()
+                return when {
+                    l is Constant && r is Constant -> Constant(l.value - r.value)
+                    r is Constant && r.value == 0.0 -> l
+                    l == r -> Constant(0.0)
+                    else -> Sub(l, r)
+                }
+            }
+            override fun derivative(variable: String) = Sub(left.derivative(variable), right.derivative(variable))
+            override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} - ${right.toString(settings)})"
+        }
+
+        data class Mul(val left: SymbolicNode, val right: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val l = left.simplify()
+                val r = right.simplify()
+                return when {
+                    l is Constant && r is Constant -> Constant(l.value * r.value)
+                    l is Constant && l.value == 0.0 -> Constant(0.0)
+                    r is Constant && r.value == 0.0 -> Constant(0.0)
+                    l is Constant && l.value == 1.0 -> r
+                    r is Constant && r.value == 1.0 -> l
+                    else -> Mul(l, r)
+                }
+            }
+            override fun derivative(variable: String) = Add(Mul(left.derivative(variable), right), Mul(left, right.derivative(variable)))
+            override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} * ${right.toString(settings)})"
+        }
+
+        data class Div(val left: SymbolicNode, val right: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val l = left.simplify()
+                val r = right.simplify()
+                return when {
+                    l is Constant && r is Constant -> Constant(l.value / r.value)
+                    l is Constant && l.value == 0.0 -> Constant(0.0)
+                    r is Constant && r.value == 1.0 -> l
+                    l == r -> Constant(1.0)
+                    else -> Div(l, r)
+                }
+            }
+            override fun derivative(variable: String) = Div(Sub(Mul(left.derivative(variable), right), Mul(left, right.derivative(variable))), Pow(right, Constant(2.0)))
+            override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} / ${right.toString(settings)})"
+        }
+
+        data class Pow(val base: SymbolicNode, val exponent: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val b = base.simplify()
+                val e = exponent.simplify()
+                return when {
+                    b is Constant && e is Constant -> Constant(b.value.pow(e.value))
+                    e is Constant && e.value == 0.0 -> Constant(1.0)
+                    e is Constant && e.value == 1.0 -> b
+                    b is Constant && b.value == 0.0 -> Constant(0.0)
+                    b is Constant && b.value == 1.0 -> Constant(1.0)
+                    else -> Pow(b, e)
+                }
+            }
+            override fun derivative(variable: String): SymbolicNode {
+                // 简化版的幂法则：d/dx (u^n) = n * u^(n-1) * u' (仅支持指数为常数的情况，CAS 扩展需支持 u^v)
+                return if (exponent is Constant) {
+                    Mul(Mul(exponent, Pow(base, Constant(exponent.value - 1))), base.derivative(variable))
+                } else {
+                    // 通用公式: d/dx(u^v) = u^v * (v' ln u + v u' / u)
+                    Mul(this, Add(Mul(exponent.derivative(variable), Function("ln", base)), Div(Mul(exponent, base.derivative(variable)), base)))
+                }
+            }
+            override fun toString(settings: CalculatorSettings) = "(${base.toString(settings)}^${exponent.toString(settings)})"
+        }
+
+        data class Function(val name: String, val argument: SymbolicNode) : SymbolicNode() {
+            override fun simplify(): SymbolicNode {
+                val arg = argument.simplify()
+                if (arg is Constant) {
+                    // 这里可以调用原有的 applyFunction 进行数值折叠
+                    // 但为了保持符号完整性，暂不折叠
+                }
+                return Function(name, arg)
+            }
+            override fun derivative(variable: String): SymbolicNode {
+                val argDeriv = argument.derivative(variable)
+                val funcDeriv = when (name.lowercase()) {
+                    "sin" -> Function("cos", argument)
+                    "cos" -> Mul(Constant(-1.0), Function("sin", argument))
+                    "tan" -> Div(Constant(1.0), Pow(Function("cos", argument), Constant(2.0)))
+                    "ln" -> Div(Constant(1.0), argument)
+                    "exp" -> Function("exp", argument)
+                    "sqrt" -> Div(Constant(1.0), Mul(Constant(2.0), Function("sqrt", argument)))
+                    else -> Constant(0.0)
+                }
+                return Mul(funcDeriv, argDeriv)
+            }
+            override fun toString(settings: CalculatorSettings) = "$name(${argument.toString(settings)})"
+        }
+    }
+
+    fun symbolicEvaluate(expression: String, settings: CalculatorSettings): String {
+        return runCatching {
+            val parser = SymbolicParser(expression)
+            var node = parser.parse()
+            
+            // 如果包含 diff(...)，执行求导
+            if (expression.contains("diff(")) {
+                // 简单的求导指令识别，例如 diff(sin(x))
+                // 这里的逻辑可以更精细化
+            }
+            
+            node.simplify().toString(settings)
+                .replace("( ", "(").replace(" )", ")")
+                .replace(" + -", " - ")
+                .replace(" * 1.0", "")
+                .replace("1.0 * ", "")
+        }.getOrElse { it.message ?: "符号运算错误" }
+    }
+
+    private class SymbolicParser(private val source: String) {
+        private var index = 0
+        
+        fun parse(): SymbolicNode {
+            val node = parseExpression()
+            if (index < source.length) throw IllegalArgumentException("语法错误")
+            return node
+        }
+
+        private fun parseExpression(): SymbolicNode {
+            var value = parseTerm()
+            while (true) {
+                skipSpace()
+                value = when {
+                    match('+') -> SymbolicNode.Add(value, parseTerm())
+                    match('-') -> SymbolicNode.Sub(value, parseTerm())
+                    else -> return value
+                }
+            }
+        }
+
+        private fun parseTerm(): SymbolicNode {
+            var value = parsePower()
+            while (true) {
+                skipSpace()
+                value = when {
+                    match('*') -> SymbolicNode.Mul(value, parsePower())
+                    match('/') -> SymbolicNode.Div(value, parsePower())
+                    peek() == '(' || peek().isLetter() || peek().isDigit() -> {
+                        SymbolicNode.Mul(value, parsePower())
+                    }
+                    else -> return value
+                }
+            }
+        }
+
+        private fun parsePower(): SymbolicNode {
+            var value = parseUnary()
+            if (match('^')) {
+                value = SymbolicNode.Pow(value, parsePower())
+            }
+            return value
+        }
+
+        private fun parseUnary(): SymbolicNode {
+            skipSpace()
+            return when {
+                match('+') -> parseUnary()
+                match('-') -> SymbolicNode.Mul(SymbolicNode.Constant(-1.0), parseUnary())
+                else -> parsePrimary()
+            }
+        }
+
+        private fun parsePrimary(): SymbolicNode {
+            skipSpace()
+            if (match('(')) {
+                val value = parseExpression()
+                match(')')
+                return value
+            }
+            if (peek().isLetter()) {
+                val name = parseIdentifier()
+                if (name == "diff" && match('(')) {
+                    val node = parseExpression()
+                    match(')')
+                    return node.derivative("x") // 默认对 x 求导
+                }
+                if (match('(')) {
+                    val arg = parseExpression()
+                    match(')')
+                    return SymbolicNode.Function(name, arg)
+                }
+                return when (name.lowercase()) {
+                    "pi" -> SymbolicNode.Constant(PI)
+                    "e" -> SymbolicNode.Constant(kotlin.math.E)
+                    else -> SymbolicNode.Variable(name)
+                }
+            }
+            return SymbolicNode.Constant(parseNumber())
+        }
+
+        private fun parseNumber(): Double {
+            skipSpace()
+            val start = index
+            while (index < source.length && (source[index].isDigit() || source[index] == '.')) index++
+            return source.substring(start, index).toDoubleOrNull() ?: 0.0
+        }
+
+        private fun parseIdentifier(): String {
+            val start = index
+            while (index < source.length && source[index].isLetter()) index++
+            return source.substring(start, index)
+        }
+
+        private fun skipSpace() {
+            while (index < source.length && source[index].isWhitespace()) index++
+        }
+
+        private fun match(char: Char): Boolean {
+            if (index < source.length && source[index] == char) {
+                index++
+                return true
+            }
+            return false
+        }
+
+        private fun peek(): Char = if (index < source.length) source[index] else '\u0000'
     }
 
     private class Parser(
