@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -134,6 +135,7 @@ import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.text.DecimalFormat
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.PI
@@ -349,6 +351,15 @@ fun ScientificCalculatorScreen(
     var computeCursorIndex by remember { mutableStateOf(computeExpression.length) }
     val computeHistory = remember { mutableStateListOf<Pair<String, String>>().apply { addAll(loadHistory(prefs)) } }
     
+    // 一键复制辅助
+    val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val haptic = LocalHapticFeedback.current
+    val copyToClipboard: (String) -> Unit = { text ->
+        clipboardManager.setPrimaryClip(ClipData.newPlainText("Calculator Data", text))
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        android.widget.Toast.makeText(context, "已复制: $text", android.widget.Toast.LENGTH_SHORT).show()
+    }
+    
     // Undo/Redo 堆栈状态
     val undoStack = remember { mutableStateListOf<String>() }
     val redoStack = remember { mutableStateListOf<String>() }
@@ -450,7 +461,8 @@ fun ScientificCalculatorScreen(
                                                 onResultChange = { computeResult = it },
                                                 cursorIndex = computeCursorIndex,
                                                 onCursorMove = { computeCursorIndex = it },
-                                                history = computeHistory
+                                                history = computeHistory,
+                                                onCopy = copyToClipboard
                                             )
                                             else -> CalculatorScrollableModule(
                                                 routeState = routeState,
@@ -575,18 +587,27 @@ fun ScientificCalculatorScreen(
                                                 },
                                                 onEqual = {
                                                     if (focusTarget == FocusTarget.ComputeExpression && computeExpression.isNotBlank()) {
+                                                        // 智能括号补全
+                                                        val openBrackets = computeExpression.count { it == '(' }
+                                                        val closeBrackets = computeExpression.count { it == ')' }
+                                                        val safeExpression = if (openBrackets > closeBrackets) {
+                                                            computeExpression + ")".repeat(openBrackets - closeBrackets)
+                                                        } else {
+                                                            computeExpression
+                                                        }
+                                                        
                                                         val finalRes = runCatching {
-                                                            val eval = ExpressionEngine.evaluate(computeExpression, angleMode = settings.angleMode)
+                                                            val eval = ExpressionEngine.evaluate(safeExpression, angleMode = settings.angleMode)
                                                             formatBySetting(eval, settings)
                                                         }.getOrElse { e -> 
                                                             val msg = e.message ?: "Error"
                                                             if (msg.startsWith("语法错误") || msg.startsWith("计算错误")) msg else "Error: $msg"
                                                         }
-                                                        computeHistory.add(computeExpression to finalRes)
+                                                        computeHistory.add(safeExpression to finalRes)
                                                         if (!finalRes.startsWith("语法错误") && !finalRes.startsWith("计算错误") && !finalRes.startsWith("Error")) {
-                                                            commitExpressionChange(finalRes)
+                                                            commitExpressionChange(safeExpression)
                                                             computeResult = finalRes
-                                                            computeCursorIndex = finalRes.length
+                                                            computeCursorIndex = safeExpression.length
                                                         } else {
                                                             computeResult = finalRes
                                                         }
@@ -1448,7 +1469,8 @@ private fun ComputeModulePro(
     onResultChange: (String) -> Unit,
     cursorIndex: Int,
     onCursorMove: (Int) -> Unit,
-    history: SnapshotStateList<Pair<String, String>>
+    history: SnapshotStateList<Pair<String, String>>,
+    onCopy: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // 历史记录与显示区 (占满剩余空间)
@@ -1468,6 +1490,7 @@ private fun ComputeModulePro(
                             result = result,
                             settings = settings,
                             modifier = Modifier.fillMaxWidth(),
+                            onCopy = onCopy,
                             onDelete = {
                                 if (cursorIndex > 0) {
                                     val nextExpr = expression.removeRange(cursorIndex - 1, cursorIndex)
@@ -1503,6 +1526,7 @@ private fun ComputeModulePro(
                                     onResultChange(res)
                                     onCursorMove(expr.length)
                                 },
+                                onCopy = onCopy,
                                 onDelete = {
                                     isVisible = false
                                     // 延迟移除以允许退出动画播放
@@ -1535,7 +1559,7 @@ private fun ComputeModulePro(
 }
 
 @Composable
-private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onCopy: (String) -> Unit, onDelete: () -> Unit) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val haptic = LocalHapticFeedback.current
     val displayExpr = expr.replace("*", "×").replace("/", "÷")
@@ -1591,7 +1615,20 @@ private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete
             tint = if (isDarkMode) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.46f),
             borderColor = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.2f),
         ) {
-            Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.End) {
+            Column(
+                modifier = Modifier.padding(14.dp).fillMaxWidth().pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = { 
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onClick() 
+                        },
+                        onLongPress = {
+                            onCopy(res)
+                        }
+                    )
+                }, 
+                horizontalAlignment = Alignment.End
+            ) {
                 Text(
                     text = formatMathExpression(expr, if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f)), 
                     style = MaterialTheme.typography.bodyMedium
@@ -3112,6 +3149,7 @@ private fun ProCalculatorDisplay(
     result: String,
     settings: CalculatorSettings,
     modifier: Modifier = Modifier,
+    onCopy: (String) -> Unit,
     onDelete: (() -> Unit)? = null
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
@@ -3316,20 +3354,53 @@ private fun ProCalculatorDisplay(
                 fontWeight = FontWeight.Bold,
                 maxLines = if (isError) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.offset { IntOffset(shakeOffset.roundToInt(), 0) }
+                modifier = Modifier
+                    .offset { IntOffset(shakeOffset.roundToInt(), 0) }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = { onCopy(result) }
+                        )
+                    }
             )
             
             val numRes = result.toDoubleOrNull()
             val fraction = if (!isError && numRes != null) doubleToFraction(numRes) else null
             
-            androidx.compose.animation.AnimatedVisibility(visible = fraction != null && fraction != formattedResult) {
-                if (fraction != null) {
-                    Text(
-                        text = "= $fraction",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+            // 进制预览 (Base-N Preview) - 仅针对非错误且为整数的结果
+            val isInteger = numRes != null && !isError && abs(numRes % 1.0) < 1e-9 && numRes < Long.MAX_VALUE && numRes > Long.MIN_VALUE
+            
+            androidx.compose.animation.AnimatedVisibility(visible = isInteger || (fraction != null && fraction != formattedResult)) {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (isInteger && numRes != null) {
+                        val longVal = numRes.toLong()
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                text = "HEX: ${longVal.toString(16).uppercase()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = "BIN: ${longVal.toString(2)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.5f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 120.dp)
+                            )
+                        }
+                    }
+                    if (fraction != null && fraction != formattedResult) {
+                        Text(
+                            text = "= $fraction",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
         }
