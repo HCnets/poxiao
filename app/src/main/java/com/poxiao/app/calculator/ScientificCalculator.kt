@@ -134,7 +134,8 @@ import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.text.DecimalFormat
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.acos
@@ -213,6 +214,53 @@ private sealed class FocusTarget {
 private sealed interface CalculatorRoute {
     data class App(val app: CalculatorApp) : CalculatorRoute
     data class Utility(val page: UtilityPage) : CalculatorRoute
+}
+
+// 持久化工具函数
+private fun saveHistory(prefs: SharedPreferences, history: List<Pair<String, String>>) {
+    val array = JSONArray()
+    history.forEach { (expr, res) ->
+        val obj = JSONObject()
+        obj.put("expr", expr)
+        obj.put("res", res)
+        array.put(obj)
+    }
+    prefs.edit().putString("compute_history", array.toString()).apply()
+}
+
+private fun loadHistory(prefs: SharedPreferences): List<Pair<String, String>> {
+    val result = mutableListOf<Pair<String, String>>()
+    val jsonStr = prefs.getString("compute_history", null) ?: return result
+    runCatching {
+        val array = JSONArray(jsonStr)
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            result.add(obj.getString("expr") to obj.getString("res"))
+        }
+    }
+    return result
+}
+
+// 分数推导函数 (Farey 序列/连分数近似)
+private fun doubleToFraction(value: Double, tolerance: Double = 1.0E-6): String? {
+    if (value.isNaN() || value.isInfinite()) return null
+    val absValue = abs(value)
+    if (absValue > 1e7 || absValue < 1e-5) return null
+    var h1 = 1L; var h2 = 0L
+    var k1 = 0L; var k2 = 1L
+    var b = absValue
+    do {
+        val a = kotlin.math.floor(b).toLong()
+        var aux = h1; h1 = a * h1 + h2; h2 = aux
+        aux = k1; k1 = a * k1 + k2; k2 = aux
+        b = 1 / (b - a)
+    } while (abs(absValue - h1.toDouble() / k1) > absValue * tolerance && k1 <= 1000L)
+    
+    if (k1 in 2..1000L) {
+        val sign = if (value < 0) "-" else ""
+        return "$sign$h1/$k1"
+    }
+    return null
 }
 
 @Composable
@@ -296,10 +344,10 @@ fun ScientificCalculatorScreen(
     }
     
     // 计算模块状态
-    var computeExpression by remember { mutableStateOf("") }
-    var computeResult by remember { mutableStateOf("0") }
-    var computeCursorIndex by remember { mutableStateOf(0) }
-    val computeHistory = remember { mutableStateListOf<Pair<String, String>>() }
+    var computeExpression by remember { mutableStateOf(prefs.getString("compute_expression", "") ?: "") }
+    var computeResult by remember { mutableStateOf(prefs.getString("compute_result", "0") ?: "0") }
+    var computeCursorIndex by remember { mutableStateOf(computeExpression.length) }
+    val computeHistory = remember { mutableStateListOf<Pair<String, String>>().apply { addAll(loadHistory(prefs)) } }
     
     // Undo/Redo 堆栈状态
     val undoStack = remember { mutableStateListOf<String>() }
@@ -311,7 +359,16 @@ fun ScientificCalculatorScreen(
             if (undoStack.size > 20) undoStack.removeAt(0) // 限制堆栈深度为 20
             redoStack.clear()
             computeExpression = newExpr
+            prefs.edit().putString("compute_expression", newExpr).apply()
         }
+    }
+    
+    LaunchedEffect(computeResult) {
+        prefs.edit().putString("compute_result", computeResult).apply()
+    }
+    
+    LaunchedEffect(computeHistory.size) {
+        saveHistory(prefs, computeHistory)
     }
 
     // 专业模块状态 (矩阵、统计、进制等)
@@ -1540,6 +1597,9 @@ private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete
                     style = MaterialTheme.typography.bodyMedium
                 )
                 
+                val numRes = res.toDoubleOrNull()
+                val fraction = if (numRes != null) doubleToFraction(numRes) else null
+                
                 val formattedRes = runCatching {
                     val num = res.toDouble()
                     if (num % 1.0 == 0.0 && num < 1e12 && num > -1e12) {
@@ -1548,6 +1608,15 @@ private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete
                 }.getOrElse { res }
                 
                 Text(formattedRes, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.8f) else PineInk, fontWeight = FontWeight.Bold)
+                
+                if (fraction != null && fraction != formattedRes) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "= $fraction",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.5f) else ForestDeep.copy(alpha = 0.5f)
+                    )
+                }
             }
         }
     }
@@ -3249,6 +3318,20 @@ private fun ProCalculatorDisplay(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.offset { IntOffset(shakeOffset.roundToInt(), 0) }
             )
+            
+            val numRes = result.toDoubleOrNull()
+            val fraction = if (!isError && numRes != null) doubleToFraction(numRes) else null
+            
+            androidx.compose.animation.AnimatedVisibility(visible = fraction != null && fraction != formattedResult) {
+                if (fraction != null) {
+                    Text(
+                        text = "= $fraction",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
         }
     }
 }
