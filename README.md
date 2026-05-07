@@ -89,8 +89,8 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.5.3** | **交互反馈深度进化 (Interaction Feedback Evolution)** | 引入滑动预览气泡 (Swipe Ghosting Preview)；实装 ProCell/EquationGridCell 液态呼吸焦点动效；建立功能感知 Haptic 震动矩阵。 |
-| `历史版本` | **v1.5.2** | **极致 UI/UX 打磨 (Ultimate UI Polish)** | 引入按键“压力感应”缩放动画、功能感知 Haptic 反馈；实现“灵动屏”与键盘的物理联动动效，增强输入反馈的视觉深度。 |
+| `当前` | **v1.5.3.1** | **手势反馈紧急修复 (Gesture & Haptic Patch)** | 重构 KeypadButton 手势系统，解决侧滑触发困难与气泡闪烁问题；增强 Haptic 震动强度，确保物理反馈真实可感知。 |
+| `历史版本` | **v1.5.3** | **交互反馈深度进化 (Interaction Feedback Evolution)** | 引入滑动预览气泡 (Swipe Ghosting Preview)；实装 ProCell/EquationGridCell 液态呼吸焦点动效；建立功能感知 Haptic 震动矩阵。 |
 | `历史版本` | **v1.5.1.1** | **编译稳定性补丁 (Compilation Stability Patch)** | 修复了 ScientificCalculator.kt 中的作用域引用错误 (statsRawX/Y)、CalcButton 参数识别异常以及 Int 比较时的操作符修饰符误报问题。 |
 | `历史版本` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
 

@@ -8,11 +8,11 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.consumePositionChange
@@ -4510,7 +4510,6 @@ private fun KeypadButton(
     
     var isSwiping by remember { mutableStateOf(false) }
     var swipePreviewText by remember { mutableStateOf<String?>(null) }
-    var swipePreviewOffset by remember { mutableLongStateOf(0L) } // 用于触发动画的 key
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     Box(modifier = finalModifier) {
@@ -4522,83 +4521,63 @@ private fun KeypadButton(
                     scaleY = scale 
                 }
                 .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = { offset ->
-                            val press = androidx.compose.foundation.interaction.PressInteraction.Press(offset)
-                            coroutineScope.launch {
-                                interactionSource.emit(press)
-                            }
-                            try {
-                                awaitRelease()
-                                coroutineScope.launch {
-                                    interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press))
-                                }
-                            } catch (c: androidx.compose.foundation.gestures.GestureCancellationException) {
-                                coroutineScope.launch {
-                                    interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press))
-                                }
-                            }
-                        },
-                        onTap = {
-                            val hapticType = when {
-                                text == "=" || containerColor != null -> HapticFeedbackType.LongPress
-                                text == "⌫" || text == "C" -> HapticFeedbackType.LongPress // 警告/确认类按键
-                                accent -> HapticFeedbackType.TextHandleMove // 运算符类按键
-                                else -> HapticFeedbackType.TextHandleMove // 数字键
-                            }
-                            // 为删除和清空键提供二次震动增强（如果支持，这里模拟两次震动）
-                            if (text == "⌫" || text == "C") {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            }
-                            haptic.performHapticFeedback(hapticType)
-                            onClick()
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { isSwiping = true },
-                        onDragEnd = { 
-                            isSwiping = false
-                            swipePreviewText = null
-                        },
-                        onDragCancel = { 
-                            isSwiping = false
-                            swipePreviewText = null
-                        },
-                        onDrag = { change, dragAmount ->
-                            if (!isSwiping) return@detectDragGestures
+                    awaitPointerEventScope {
+                        while (true) {
+                            val down = awaitFirstDown()
+                            val press = androidx.compose.foundation.interaction.PressInteraction.Press(down.position)
+                            coroutineScope.launch { interactionSource.emit(press) }
                             
-                            // 动态预览气泡逻辑
-                            if (dragAmount.y > 15f && swipeDownText != null) {
-                                if (swipePreviewText != swipeDownText) {
-                                    swipePreviewText = swipeDownText
-                                    swipePreviewOffset = System.currentTimeMillis()
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            var totalY = 0f
+                            var isDragTriggered = false
+                            var hasExecuted = false
+                            
+                            val dragResult = verticalDrag(down.id) { change ->
+                                val dragAmount = change.positionChange().y
+                                totalY += dragAmount
+                                change.consume()
+                                
+                                // 预览逻辑：基于累计位移而非单次增量
+                                if (kotlin.math.abs(totalY) > 30f) {
+                                    isDragTriggered = true
+                                    val newPreview = if (totalY > 30f) swipeDownText else if (totalY < -30f) swipeUpText else null
+                                    if (newPreview != swipePreviewText && newPreview != null) {
+                                        swipePreviewText = newPreview
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress) // 使用更强的震动
+                                    }
+                                } else {
+                                    swipePreviewText = null
                                 }
-                            } else if (dragAmount.y < -15f && swipeUpText != null) {
-                                if (swipePreviewText != swipeUpText) {
-                                    swipePreviewText = swipeUpText
-                                    swipePreviewOffset = System.currentTimeMillis()
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+
+                                // 执行逻辑
+                                if (!hasExecuted) {
+                                    if (totalY > 120f && swipeDownText != null && onSwipeDown != null) {
+                                        onSwipeDown()
+                                        hasExecuted = true
+                                        swipePreviewText = null
+                                    } else if (totalY < -120f && swipeUpText != null && onSwipeUp != null) {
+                                        onSwipeUp()
+                                        hasExecuted = true
+                                        swipePreviewText = null
+                                    }
                                 }
-                            } else if (kotlin.math.abs(dragAmount.y) < 5f) {
-                                swipePreviewText = null
                             }
 
-                            if (dragAmount.y > 45f && swipeDownText != null && onSwipeDown != null) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onSwipeDown()
-                                isSwiping = false
-                                swipePreviewText = null
-                            } else if (dragAmount.y < -45f && swipeUpText != null && onSwipeUp != null) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onSwipeUp()
-                                isSwiping = false
-                                swipePreviewText = null
+                            // 抬起处理
+                            if (dragResult || !isDragTriggered) {
+                                // 如果是点击
+                                if (!isDragTriggered) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onClick()
+                                }
+                                coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press)) }
+                            } else {
+                                coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press)) }
                             }
+                            
+                            swipePreviewText = null
+                            isDragTriggered = false
                         }
-                    )
+                    }
                 },
             shape = RoundedCornerShape(if (isSmall) 18.dp else 22.dp),
             color = animatedBgColor,
