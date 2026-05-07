@@ -185,6 +185,7 @@ private enum class ResultFormat(val title: String) {
     Fixed2("定点2位"),
     Scientific("科学"),
     Engineering("工程"),
+    DMS("度分秒"),
 }
 
 private enum class RoundingRule(val title: String, val mode: RoundingMode) {
@@ -518,12 +519,20 @@ fun ScientificCalculatorScreen(
                                                 onEqual = {
                                                     if (focusTarget == FocusTarget.ComputeExpression && computeExpression.isNotBlank()) {
                                                         val finalRes = runCatching {
-                                                            ExpressionEngine.evaluate(computeExpression, angleMode = settings.angleMode).toString()
-                                                        }.getOrElse { "Error" }
+                                                            val eval = ExpressionEngine.evaluate(computeExpression, angleMode = settings.angleMode)
+                                                            formatBySetting(eval, settings)
+                                                        }.getOrElse { e -> 
+                                                            val msg = e.message ?: "Error"
+                                                            if (msg.startsWith("语法错误") || msg.startsWith("计算错误")) msg else "Error: $msg"
+                                                        }
                                                         computeHistory.add(computeExpression to finalRes)
-                                                        commitExpressionChange(finalRes)
-                                                        computeResult = finalRes
-                                                        computeCursorIndex = finalRes.length
+                                                        if (!finalRes.startsWith("语法错误") && !finalRes.startsWith("计算错误") && !finalRes.startsWith("Error")) {
+                                                            commitExpressionChange(finalRes)
+                                                            computeResult = finalRes
+                                                            computeCursorIndex = finalRes.length
+                                                        } else {
+                                                            computeResult = finalRes
+                                                        }
                                                     }
                                                 },
                                                 onMoveCursor = { delta ->
@@ -1456,7 +1465,10 @@ private fun ComputeModulePro(
                 val evalRes = runCatching {
                     val eval = ExpressionEngine.evaluate(expression, angleMode = settings.angleMode)
                     formatBySetting(eval, settings)
-                }.getOrElse { result }
+                }.getOrElse { e -> 
+                    val msg = e.message ?: "Error"
+                    if (msg.startsWith("语法错误") || msg.startsWith("计算错误")) msg else "Error" 
+                }
                 onResultChange(evalRes)
             } else {
                 onResultChange("0")
@@ -4382,6 +4394,7 @@ private fun formatBySetting(value: Double, settings: CalculatorSettings): String
         ResultFormat.Fixed2 -> roundDecimal(value, 2, settings.roundingRule.mode).toPlainString()
         ResultFormat.Scientific -> scientificString(value, settings.displayDigits, settings.roundingRule.mode)
         ResultFormat.Engineering -> engineeringString(value, settings.displayDigits, settings.roundingRule.mode)
+        ResultFormat.DMS -> dmsString(value)
     }
 }
 
@@ -4391,7 +4404,18 @@ private fun formatBySetting(value: Double, format: ResultFormat): String {
         ResultFormat.Fixed2 -> String.format("%.2f", value)
         ResultFormat.Scientific -> String.format("%.6e", value)
         ResultFormat.Engineering -> engineeringFormat(value)
+        ResultFormat.DMS -> dmsString(value)
     }
+}
+
+private fun dmsString(value: Double): String {
+    val absValue = abs(value)
+    val d = kotlin.math.floor(absValue)
+    val rem = (absValue - d) * 60
+    val m = kotlin.math.floor(rem)
+    val s = (rem - m) * 60
+    val sign = if (value < 0) "-" else ""
+    return String.format("%s%.0f°%.0f'%.2f\"", sign, d, m, s)
 }
 
 private fun roundDecimal(value: Double, scale: Int, mode: RoundingMode): BigDecimal {
@@ -5463,7 +5487,7 @@ private object ExpressionEngine {
         fun parse(): Double {
             val value = parseExpression()
             skipSpace()
-            require(index == source.length) { "存在无法识别的字符" }
+            require(index == source.length) { "语法错误: 存在无法识别的字符" }
             return value
         }
 
@@ -5483,9 +5507,14 @@ private object ExpressionEngine {
             var value = parsePower()
             while (true) {
                 skipSpace()
+                val oldIndex = index
                 value = when {
                     match('*') -> value * parsePower()
                     match('/') -> value / parsePower()
+                    // 隐式乘法: 如果遇到 (, 字母 (变量/常数/函数), 或是数字, 则当作乘法处理
+                    peek() == '(' || peek().isLetter() || peek().isDigit() -> {
+                        value * parsePower()
+                    }
                     else -> return value
                 }
             }
@@ -5523,7 +5552,7 @@ private object ExpressionEngine {
             skipSpace()
             if (match('(')) {
                 val value = parseExpression()
-                require(match(')')) { "缺少右括号" }
+                require(match(')')) { "语法错误: 缺少右括号" }
                 return value
             }
             if (peek().isLetter()) {
@@ -5531,13 +5560,14 @@ private object ExpressionEngine {
                 skipSpace()
                 if (match('(')) {
                     val value = parseExpression()
-                    require(match(')')) { "函数缺少右括号" }
+                    require(match(')')) { "语法错误: 函数缺少右括号" }
                     return applyFunction(name, value)
                 }
                 return when (name.lowercase()) {
                     "pi" -> PI
                     "e" -> kotlin.math.E
-                    else -> variables[name]?.orZero() ?: variables[name.uppercase()]?.orZero() ?: error("未知标识符 $name")
+                    "ans" -> variables["ans"] ?: 0.0
+                    else -> variables[name]?.orZero() ?: variables[name.uppercase()]?.orZero() ?: error("语法错误: 未知标识符 $name")
                 }
             }
             return parseNumber()
@@ -5557,13 +5587,13 @@ private object ExpressionEngine {
                 "log" -> log10(value)
                 "abs" -> abs(value)
                 "exp" -> exp(value)
-                else -> error("未知函数 $name")
+                else -> error("语法错误: 未知函数 $name")
             }
         }
 
         private fun factorial(value: Double): Double {
-            require(abs(value - round(value)) < 1e-9) { "阶乘要求整数" }
-            require(value >= 0) { "阶乘要求非负整数" }
+            require(abs(value - round(value)) < 1e-9) { "计算错误: 阶乘要求整数" }
+            require(value >= 0) { "计算错误: 阶乘要求非负整数" }
             val target = round(value).toInt()
             var result = 1.0
             for (i in 2..target) result *= i
@@ -5574,7 +5604,7 @@ private object ExpressionEngine {
             skipSpace()
             val start = index
             while (index < source.length && (source[index].isDigit() || source[index] == '.')) index++
-            require(start != index) { "缺少数值" }
+            require(start != index) { "语法错误: 缺少数值" }
             return source.substring(start, index).toDouble()
         }
 
