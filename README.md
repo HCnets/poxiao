@@ -5,7 +5,7 @@
 > **“将大学生活里那些零碎、跳跃、失焦的时刻，重新组织成一个连贯的个人界面。”**
 
 <p>
-  <img src="https://img.shields.io/badge/Version-1.3.0_Ultimate_Calculator-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.3.0" />
+  <img src="https://img.shields.io/badge/Version-1.3.4_Stability_Refinement-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.3.4" />
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Language-Kotlin_2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Language Kotlin" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="UI Jetpack Compose" />
@@ -78,7 +78,15 @@
 | `20` | **v1.2.7** | **稳定版 (Stable)** | **Obsidian Neon 进化** 发布，全量落地计算器双主题美学与物理级 Haptics 触觉反馈。 |
 | `21` | **v1.2.8** | **稳定版 (Stable)** | **Pro Toolchain & Gesture** 发布，实现专业数学工具链逻辑闭环，引入侧滑删除等高阶交互。 |
 | `22` | **v1.2.9** | **稳定版 (Stable)** | **Workspace Header 优化** 发布，修复计算器顶部信息卡片纵向排版导致的面板遮挡问题，提升空间利用率。 |
-| `当前` | **v1.3.0** | **稳定版 (Stable)** | **Ultimate Calculator** 发布，引入 Swipe-on-Keys 全域交互、Undo/Redo 堆栈、Base-N 实时预览、智能括号补全与一键复制。 |
+| `23` | **v1.3.0** | **稳定版 (Stable)** | **Ultimate Calculator** 发布，引入 Swipe-on-Keys 全域交互、Undo/Redo 堆栈、Base-N 实时预览、智能括号补全与一键复制。 |
+| `24` | **v1.3.1** | **稳定版 (Stable)** | **Natural Math Engine** 发布，实现自然数学书写渲染 (WYSIWYG)，支持嵌套分数、根式与物理光标定位。 |
+| `25` | **v1.3.2** | **稳定版 (Stable)** | **Intelligence Awareness** 发布，引入实时函数图像预览 (Graphing Sparkline)、触觉光标刻度感。 |
+| `26` | **v1.3.3** | **稳定版 (Stable)** | **Unit-Aware Computation** 发布，支持带单位的物理混合运算（如 5km + 300m）与自动量纲推导。 |
+| `27` | **v1.3.5** | **稳定版 (Stable)** | **Architectural Stability** 发布，实施架构级递归深度监控与手势硬边界钳位。 |
+| `28` | **v1.3.6** | **稳定版 (Stable)** | **Rendering Pipeline Fix** 发布，修正 Compose 渲染管线中的非法 Composable 调用，下沉防御逻辑至解析层。 |
+| `29` | **v1.3.7** | **稳定版 (Stable)** | **History List Stabilization** 发布，引入 HistoryRecord 唯一标识符系统，解决历史记录长列表滑动时的键值冲突闪退。 |
+| `30` | **v1.3.8** | **稳定版 (Stable)** | **Natural Grid Input** 发布，重构矩阵与向量模块为可视化网格布局，支持物理单元格导航与嵌套渲染。 |
+| `当前` | **v1.3.8.3** | **稳定版 (Stable)** | **Architecture State Patch** 发布，修复了模块容器中 `focusTarget` 的 `val` 重赋值编译错误，统一了状态上报链路。 |
 
 </details>
 
