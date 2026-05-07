@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.*
 import com.poxiao.app.pomodoro.NoisePlayer
 import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.settings.loadNotificationPreferenceState
@@ -126,6 +127,18 @@ internal fun PomodoroScreen(active: Boolean) {
     }
     
     val hapticManager = rememberHapticManager()
+    
+    // LiquidGlass 流光动效状态
+    val infiniteTransition = rememberInfiniteTransition(label = "LiquidGlassGlow")
+    val glowPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "GlowPhase"
+    )
 
     LaunchedEffect(running, leftSeconds, preset.seconds) {
         if (!running) return@LaunchedEffect
@@ -150,11 +163,27 @@ internal fun PomodoroScreen(active: Boolean) {
                     sendAppNotification(context, "专注已完成", if (boundTask.isBlank()) "本轮专注已结束" else "已完成：$boundTask")
                 }
                 val updatedTask = todoTasks.firstOrNull { it.title == boundTask }
-                if (updatedTask != null && updatedTask.focusGoal > 0 && updatedTask.focusCount >= updatedTask.focusGoal) {
-                    if (loadNotificationPreferenceState(context).pomodoroEnabled) {
-                        sendAppNotification(context, "任务专注目标已达成", "${updatedTask.title} 已达到 ${updatedTask.focusGoal} 轮")
+                if (updatedTask != null) {
+                    // 写回进度到待办任务时增加额外的校验与更新广播
+                    if (updatedTask.focusGoal > 0 && updatedTask.focusCount >= updatedTask.focusGoal) {
+                        if (loadNotificationPreferenceState(context).pomodoroEnabled) {
+                            sendAppNotification(context, "任务专注目标已达成", "${updatedTask.title} 已达到 ${updatedTask.focusGoal} 轮")
+                        }
+                        // 如果任务达成目标，自动将其标记为已完成（可选行为，但增强了联动）
+                        if (!updatedTask.done) {
+                            val newTasks = todoTasks.map { if (it.id == updatedTask.id) it.copy(done = true) else it }
+                            todoTasks.clear()
+                            todoTasks.addAll(newTasks)
+                            saveTodoTasks(todoPrefs, newTasks)
+                            sessionHint = "任务 ${updatedTask.title} 专注目标达成，已自动标记完成！"
+                        }
+                    } else {
+                        sessionHint = "任务 ${updatedTask.title} 专注进度 +1 轮"
                     }
+                } else {
+                    sessionHint = "本轮专注已结束"
                 }
+                
                 focusMinutes += preset.seconds / 60
                 cycles += 1
                 if (autoNext) {
@@ -260,20 +289,52 @@ internal fun PomodoroScreen(active: Boolean) {
                     Text(sessionHint, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.68f))
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                SelectionRow(options = PomodoroMode.entries.toList(), selected = mode, label = { it.title }) {
-                    mode = it
-                    val seconds = when (it) {
-                        PomodoroMode.Focus -> 25 * 60
-                        PomodoroMode.ShortBreak -> 5 * 60
-                        PomodoroMode.LongBreak -> 20 * 60
+                LiquidGlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 32.dp,
+                    tint = if (running) ForestGreen.copy(alpha = 0.08f + 0.05f * glowPhase) else Color.White.copy(alpha = 0.28f),
+                    borderColor = if (running) ForestGreen.copy(alpha = 0.3f + 0.2f * glowPhase) else Color.White.copy(alpha = 0.36f),
+                    blurRadius = if (running) (48 + 16 * glowPhase).dp else 24.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        SelectionRow(options = PomodoroMode.entries.toList(), selected = mode, label = { it.title }) {
+                            mode = it
+                            val seconds = when (it) {
+                                PomodoroMode.Focus -> 25 * 60
+                                PomodoroMode.ShortBreak -> 5 * 60
+                                PomodoroMode.LongBreak -> 20 * 60
+                            }
+                            preset = PomodoroPreset("${seconds / 60} 分钟", seconds)
+                            leftSeconds = seconds
+                            running = false
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = formatSeconds(leftSeconds), 
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Light,
+                                fontSize = androidx.compose.ui.unit.TextUnit(82f, androidx.compose.ui.unit.TextUnitType.Sp)
+                            ), 
+                            color = if (running) ForestGreen else PineInk
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            ActionPill(if (running) "暂停" else "开始", ForestGreen) { 
+                                hapticManager.playHeavyClick()
+                                running = !running 
+                            }
+                            ActionPill("重置", Ginkgo) {
+                                hapticManager.playLightClick()
+                                running = false
+                                leftSeconds = preset.seconds
+                            }
+                        }
                     }
-                    preset = PomodoroPreset("${seconds / 60} 分钟", seconds)
-                    leftSeconds = seconds
-                    running = false
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(formatSeconds(leftSeconds), style = MaterialTheme.typography.headlineLarge, color = PineInk)
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     presets.forEach { item ->
                         ActionPill(item.title, if (item == preset) ForestGreen else MossGreen) {
@@ -288,18 +349,6 @@ internal fun PomodoroScreen(active: Boolean) {
                             leftSeconds = recommendedFocusSeconds
                             running = false
                         }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionPill(if (running) "暂停" else "开始", ForestGreen) { 
-                        hapticManager.playHeavyClick()
-                        running = !running 
-                    }
-                    ActionPill("重置", Ginkgo) {
-                        hapticManager.playLightClick()
-                        running = false
-                        leftSeconds = preset.seconds
                     }
                 }
             }
