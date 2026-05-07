@@ -574,7 +574,23 @@ fun ScientificCalculatorScreen(
                                                             matrixFields[index] = if (matrixFields[index] == "0") mappedToken else matrixFields[index] + mappedToken
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
-                                                            if (target.isY) statsRawY += mappedToken else statsRawX += mappedToken
+                                                            if (target.isY) {
+                                                                val list = rawY.split(",").toMutableList()
+                                                                while (list.size <= target.index) list.add("")
+                                                                list[target.index] = if (list[target.index] == "0") mappedToken else list[target.index] + mappedToken
+                                                                onRawYChange(list.joinToString(","))
+                                                            } else {
+                                                                val list = rawX.split(",").toMutableList()
+                                                                while (list.size <= target.index) list.add("")
+                                                                list[target.index] = if (list[target.index] == "0") mappedToken else list[target.index] + mappedToken
+                                                                onRawXChange(list.joinToString(","))
+                                                            }
+                                                        }
+                                                        is FocusTarget.StatisticsCell -> {
+                                                            var nextIndex = target.index + delta
+                                                            if (nextIndex >= 5) nextIndex = 0
+                                                            else if (nextIndex < 0) nextIndex = 4
+                                                            focusTarget = FocusTarget.StatisticsCell(nextIndex, target.isY)
                                                         }
                                                         is FocusTarget.BaseInput -> {
                                                             baseValue += mappedToken
@@ -614,8 +630,19 @@ fun ScientificCalculatorScreen(
                                                             if (matrixFields[index].isNotEmpty()) matrixFields[index] = matrixFields[index].dropLast(1).ifEmpty { "0" }
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
-                                                            if (target.isY) { if (statsRawY.isNotEmpty()) statsRawY = statsRawY.dropLast(1) }
-                                                            else { if (statsRawX.isNotEmpty()) statsRawX = statsRawX.dropLast(1) }
+                                                            if (target.isY) {
+                                                                val list = rawY.split(",").toMutableList()
+                                                                if (list.size > target.index) {
+                                                                    list[target.index] = list[target.index].dropLast(1).ifEmpty { "0" }
+                                                                    onRawYChange(list.joinToString(","))
+                                                                }
+                                                            } else {
+                                                                val list = rawX.split(",").toMutableList()
+                                                                if (list.size > target.index) {
+                                                                    list[target.index] = list[target.index].dropLast(1).ifEmpty { "0" }
+                                                                    onRawXChange(list.joinToString(","))
+                                                                }
+                                                            }
                                                         }
                                                         is FocusTarget.BaseInput -> {
                                                             if (baseValue.isNotEmpty()) baseValue = baseValue.dropLast(1)
@@ -653,7 +680,19 @@ fun ScientificCalculatorScreen(
                                                             matrixFields[index] = "0"
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
-                                                            if (target.isY) statsRawY = "" else statsRawX = ""
+                                                            if (target.isY) {
+                                                                val list = rawY.split(",").toMutableList()
+                                                                if (list.size > target.index) {
+                                                                    list[target.index] = "0"
+                                                                    onRawYChange(list.joinToString(","))
+                                                                }
+                                                            } else {
+                                                                val list = rawX.split(",").toMutableList()
+                                                                if (list.size > target.index) {
+                                                                    list[target.index] = "0"
+                                                                    onRawXChange(list.joinToString(","))
+                                                                }
+                                                            }
                                                         }
                                                         is FocusTarget.BaseInput -> {
                                                             baseValue = ""
@@ -3072,42 +3111,90 @@ private fun StatisticsModulePro(
     onFocusChange: (FocusTarget) -> Unit
 ) {
     var mode by remember { mutableStateOf("单变量") }
-    var predictX by remember { mutableStateOf("100") }
     var result by remember { mutableStateOf("结果将在这里显示") }
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     
-    CalculatorCard("统计") {
-        ModuleSelector(listOf("单变量", "线性回归", "指数回归", "对数回归", "幂回归", "二次回归"), mode) { mode = it }
+    // 解析数据为列表
+    val listX = remember(rawX) { rawX.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList() }
+    val listY = remember(rawY) { rawY.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList() }
+    
+    // 确保至少有一定行数供显示
+    val displayRows = 5
+    
+    CalculatorCard("统计 Pro") {
+        ModuleSelector(listOf("单变量", "回归分析"), mode) { mode = it }
         Spacer(modifier = Modifier.height(16.dp))
         
-        ProInputField(
-            value = rawX,
-            label = "X 样本数据 (逗号分隔)",
-            isFocused = focusTarget == FocusTarget.StatisticsCell(0, false),
-            onClick = { onFocusChange(FocusTarget.StatisticsCell(0, false)) }
-        )
-        
-        if (mode != "单变量") {
-            Spacer(modifier = Modifier.height(12.dp))
-            ProInputField(
-                value = rawY,
-                label = "Y 样本数据 (逗号分隔)",
-                isFocused = focusTarget == FocusTarget.StatisticsCell(0, true),
-                onClick = { onFocusChange(FocusTarget.StatisticsCell(0, true)) }
-            )
+        // 数据表格标题
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("No.", modifier = Modifier.width(32.dp), style = MaterialTheme.typography.labelSmall, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.5f), textAlign = TextAlign.Center)
+            Text("X 数据", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.5f), textAlign = TextAlign.Center)
+            if (mode != "单变量") {
+                Text("Y 数据", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.5f), textAlign = TextAlign.Center)
+            }
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        CalcButton("执行分析") {
-            result = runCatching {
-                val values = parseNumberList(rawX)
-                if (mode == "单变量") {
-                    val mean = values.average()
-                    "均值: ${formatBySetting(mean, settings)}\n标准差: ${formatBySetting(sqrt(values.map { (it - mean).pow(2) }.average()), settings)}"
-                } else {
-                    "回归分析结果..."
+
+        // 数据编辑网格
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            repeat(displayRows) { r ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("${r + 1}", modifier = Modifier.width(32.dp), style = MaterialTheme.typography.bodySmall, color = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = 0.4f), textAlign = TextAlign.Center)
+                    
+                    // X 单元格
+                    EquationGridCell(
+                        value = listX.getOrNull(r) ?: "",
+                        label = "x${r+1}",
+                        isFocused = focusTarget is FocusTarget.StatisticsCell && !focusTarget.isY && focusTarget.index == r,
+                        onClick = { onFocusChange(FocusTarget.StatisticsCell(r, false)) }
+                    )
+                    
+                    if (mode != "单变量") {
+                        // Y 单元格
+                        EquationGridCell(
+                            value = listY.getOrNull(r) ?: "",
+                            label = "y${r+1}",
+                            isFocused = focusTarget is FocusTarget.StatisticsCell && focusTarget.isY && focusTarget.index == r,
+                            onClick = { onFocusChange(FocusTarget.StatisticsCell(r, true)) }
+                        )
+                    }
                 }
-            }.getOrElse { it.message ?: "分析失败" }
+            }
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CalcButton("执行分析", modifier = Modifier.weight(1f)) {
+                result = runCatching {
+                    val valuesX = listX.mapNotNull { it.toDoubleOrNull() }
+                    if (valuesX.isEmpty()) throw Exception("X 数据为空")
+                    
+                    if (mode == "单变量") {
+                        val mean = valuesX.average()
+                        val variance = valuesX.map { (it - mean).pow(2) }.average()
+                        "样本数: ${valuesX.size}\n均值: ${formatBySetting(mean, settings)}\n标准差: ${formatBySetting(sqrt(variance), settings)}\n方差: ${formatBySetting(variance, settings)}"
+                    } else {
+                        val valuesY = listY.mapNotNull { it.toDoubleOrNull() }
+                        if (valuesY.size < valuesX.size) throw Exception("Y 数据长度不足")
+                        "回归分析暂未实现..."
+                    }
+                }.getOrElse { it.message ?: "分析失败" }
+            }
+            
+            CalcButton("清空", modifier = Modifier.weight(0.4f)) {
+                onRawXChange("")
+                onRawYChange("")
+                result = "已清空数据"
+            }
+        }
+        
         Spacer(modifier = Modifier.height(12.dp))
         ResultBlock(result)
     }
