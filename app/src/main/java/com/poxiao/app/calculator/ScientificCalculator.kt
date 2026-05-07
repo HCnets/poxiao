@@ -229,6 +229,7 @@ private sealed class FocusTarget {
     data class GenericInput(val id: String) : FocusTarget() // 用于 Equation, Vector 等通用输入
     data class MatrixGridCell(val row: Int, val col: Int, val isMatrixB: Boolean = false) : FocusTarget()
     data class EquationGridCell(val row: Int, val col: Int, val equationId: String = "eq") : FocusTarget()
+    data class ComplexGridCell(val index: Int, val isPolar: Boolean = false) : FocusTarget()
 }
 
 private sealed interface CalculatorRoute {
@@ -323,8 +324,8 @@ fun ScientificCalculatorScreen(
             CalculatorApp.Statistics -> FocusTarget.StatisticsCell(0, false)
             CalculatorApp.Base -> FocusTarget.BaseInput
             CalculatorApp.Equation -> FocusTarget.EquationGridCell(0, 0, "eq")
+            CalculatorApp.Complex -> FocusTarget.ComplexGridCell(0, false)
             CalculatorApp.Vector -> FocusTarget.MatrixGridCell(0, 0, false)
-            CalculatorApp.Complex -> FocusTarget.GenericInput("c_z1re")
             CalculatorApp.Inequality -> FocusTarget.GenericInput("ineq_a")
             CalculatorApp.Ratio -> FocusTarget.GenericInput("rat_a")
             else -> FocusTarget.ComputeExpression
@@ -587,6 +588,11 @@ fun ScientificCalculatorScreen(
                                                             val current = genericFields[key] ?: ""
                                                             genericFields[key] = if (current == "0") mappedToken else current + mappedToken
                                                         }
+                                                        is FocusTarget.ComplexGridCell -> {
+                                                            val key = if (target.isPolar) "c_p${target.index}" else "c_a${target.index}"
+                                                            val current = genericFields[key] ?: ""
+                                                            genericFields[key] = if (current == "0") mappedToken else current + mappedToken
+                                                        }
                                                         FocusTarget.None -> {}
                                                     }
                                                 },
@@ -623,6 +629,11 @@ fun ScientificCalculatorScreen(
                                                             val current = genericFields[key] ?: ""
                                                             if (current.isNotEmpty()) genericFields[key] = current.dropLast(1).ifEmpty { "0" }
                                                         }
+                                                        is FocusTarget.ComplexGridCell -> {
+                                                            val key = if (target.isPolar) "c_p${target.index}" else "c_a${target.index}"
+                                                            val current = genericFields[key] ?: ""
+                                                            if (current.isNotEmpty()) genericFields[key] = current.dropLast(1).ifEmpty { "0" }
+                                                        }
                                                         FocusTarget.None -> {}
                                                     }
                                                 },
@@ -652,6 +663,10 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         is FocusTarget.EquationGridCell -> {
                                                             val key = "${target.equationId}_r${target.row}c${target.col}"
+                                                            genericFields[key] = "0"
+                                                        }
+                                                        is FocusTarget.ComplexGridCell -> {
+                                                            val key = if (target.isPolar) "c_p${target.index}" else "c_a${target.index}"
                                                             genericFields[key] = "0"
                                                         }
                                                         FocusTarget.None -> {}
@@ -718,6 +733,12 @@ fun ScientificCalculatorScreen(
                                                             else if (nextCol < 0) { nextCol = maxCols - 1; nextRow = (nextRow - 1 + 2) % 2 }
                                                             
                                                             focusTarget = FocusTarget.EquationGridCell(nextRow, nextCol, target.equationId)
+                                                        }
+                                                        is FocusTarget.ComplexGridCell -> {
+                                                            var nextIndex = target.index + delta
+                                                            if (nextIndex >= 4) nextIndex = 0
+                                                            else if (nextIndex < 0) nextIndex = 3
+                                                            focusTarget = FocusTarget.ComplexGridCell(nextIndex, target.isPolar)
                                                         }
                                                         else -> {}
                                                     }
@@ -3478,49 +3499,88 @@ private fun ComplexModulePro(
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
 
     CalculatorCard("复数 Pro") {
-        ModuleSelector(listOf("代数式", "极坐标"), mode) { mode = it }
+        ModuleSelector(listOf("代数式", "极坐标"), mode) { 
+            mode = it 
+            onFocusChange(FocusTarget.ComplexGridCell(0, it == "极坐标"))
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (mode == "代数式") {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProCell(fields.getOrDefault("c_z1re", "2"), "z1 实部", focusTarget == FocusTarget.GenericInput("c_z1re"), { onFocusChange(FocusTarget.GenericInput("c_z1re")) }, Modifier.weight(1f))
-                    ProCell(fields.getOrDefault("c_z1im", "3"), "z1 虚部", focusTarget == FocusTarget.GenericInput("c_z1im"), { onFocusChange(FocusTarget.GenericInput("c_z1im")) }, Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProCell(fields.getOrDefault("c_z2re", "1"), "z2 实部", focusTarget == FocusTarget.GenericInput("c_z2re"), { onFocusChange(FocusTarget.GenericInput("c_z2re")) }, Modifier.weight(1f))
-                    ProCell(fields.getOrDefault("c_z2im", "-4"), "z2 虚部", focusTarget == FocusTarget.GenericInput("c_z2im"), { onFocusChange(FocusTarget.GenericInput("c_z2im")) }, Modifier.weight(1f))
-                }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProCell(fields.getOrDefault("c_z1r", "5"), "z1 模长 r", focusTarget == FocusTarget.GenericInput("c_z1r"), { onFocusChange(FocusTarget.GenericInput("c_z1r")) }, Modifier.weight(1f))
-                    ProCell(fields.getOrDefault("c_z1theta", "45"), "z1 辐角 θ", focusTarget == FocusTarget.GenericInput("c_z1theta"), { onFocusChange(FocusTarget.GenericInput("c_z1theta")) }, Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProCell(fields.getOrDefault("c_z2r", "3"), "z2 模长 r", focusTarget == FocusTarget.GenericInput("c_z2r"), { onFocusChange(FocusTarget.GenericInput("c_z2r")) }, Modifier.weight(1f))
-                    ProCell(fields.getOrDefault("c_z2theta", "30"), "z2 辐角 θ", focusTarget == FocusTarget.GenericInput("c_z2theta"), { onFocusChange(FocusTarget.GenericInput("c_z2theta")) }, Modifier.weight(1f))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            repeat(2) { i ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("z${i+1} = ", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                    
+                    if (mode == "代数式") {
+                        // a + bi
+                        val reKey = "c_a${i*2}"
+                        val imKey = "c_a${i*2+1}"
+                        
+                        EquationGridCell(
+                            value = fields.getOrDefault(reKey, if(i==0) "2" else "1"),
+                            label = "实部",
+                            isFocused = focusTarget is FocusTarget.ComplexGridCell && !focusTarget.isPolar && focusTarget.index == i*2,
+                            onClick = { onFocusChange(FocusTarget.ComplexGridCell(i*2, false)) }
+                        )
+                        Text(" + ", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                        EquationGridCell(
+                            value = fields.getOrDefault(imKey, if(i==0) "3" else "-4"),
+                            label = "虚部",
+                            isFocused = focusTarget is FocusTarget.ComplexGridCell && !focusTarget.isPolar && focusTarget.index == i*2+1,
+                            onClick = { onFocusChange(FocusTarget.ComplexGridCell(i*2+1, false)) }
+                        )
+                        Text(" i", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                    } else {
+                        // r ∠ θ
+                        val rKey = "c_p${i*2}"
+                        val tKey = "c_p${i*2+1}"
+                        
+                        EquationGridCell(
+                            value = fields.getOrDefault(rKey, if(i==0) "5" else "3"),
+                            label = "模长",
+                            isFocused = focusTarget is FocusTarget.ComplexGridCell && focusTarget.isPolar && focusTarget.index == i*2,
+                            onClick = { onFocusChange(FocusTarget.ComplexGridCell(i*2, true)) }
+                        )
+                        Text(" ∠ ", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                        EquationGridCell(
+                            value = fields.getOrDefault(tKey, if(i==0) "45" else "30"),
+                            label = "辐角",
+                            isFocused = focusTarget is FocusTarget.ComplexGridCell && focusTarget.isPolar && focusTarget.index == i*2+1,
+                            onClick = { onFocusChange(FocusTarget.ComplexGridCell(i*2+1, true)) }
+                        )
+                        Text(" °", style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) CloudWhite else PineInk)
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         CalcButton(if (mode == "代数式") "执行四则运算" else "转换与运算") {
             result = runCatching {
                 if (mode == "代数式") {
-                    val z1 = ComplexNumber(fields.getOrDefault("c_z1re", "2").toDouble(), fields.getOrDefault("c_z1im", "3").toDouble())
-                    val z2 = ComplexNumber(fields.getOrDefault("c_z2re", "1").toDouble(), fields.getOrDefault("c_z2im", "-4").toDouble())
+                    val z1re = fields.getOrDefault("c_a0", "2").toDouble()
+                    val z1im = fields.getOrDefault("c_a1", "3").toDouble()
+                    val z2re = fields.getOrDefault("c_a2", "1").toDouble()
+                    val z2im = fields.getOrDefault("c_a3", "-4").toDouble()
+                    
+                    val z1 = ComplexNumber(z1re, z1im)
+                    val z2 = ComplexNumber(z2re, z2im)
                     val sum = z1 + z2
                     val diff = z1 - z2
                     val prod = z1 * z2
                     val quot = z1 / z2
                     "z1 + z2 = $sum\nz1 - z2 = $diff\nz1 × z2 = $prod\nz1 / z2 = $quot"
                 } else {
-                    val r1 = fields.getOrDefault("c_z1r", "5").toDouble()
-                    val t1 = fields.getOrDefault("c_z1theta", "45").toDouble() * PI / 180
-                    val r2 = fields.getOrDefault("c_z2r", "3").toDouble()
-                    val t2 = fields.getOrDefault("c_z2theta", "30").toDouble() * PI / 180
+                    val r1 = fields.getOrDefault("c_p0", "5").toDouble()
+                    val t1 = fields.getOrDefault("c_p1", "45").toDouble() * PI / 180
+                    val r2 = fields.getOrDefault("c_p2", "3").toDouble()
+                    val t2 = fields.getOrDefault("c_p3", "30").toDouble() * PI / 180
                     
                     val z1 = ComplexNumber(r1 * cos(t1), r1 * sin(t1))
                     val z2 = ComplexNumber(r2 * cos(t2), r2 * sin(t2))
