@@ -5,6 +5,11 @@ import android.content.SharedPreferences
 import android.content.ClipData
 import android.content.ClipboardManager
 
+import android.content.Context
+import android.os.Vibrator
+import android.os.VibrationEffect
+import android.os.Build
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -4512,6 +4517,19 @@ private fun KeypadButton(
 
     val finalModifier = if (fillHeight) modifier.fillMaxHeight() else modifier.height(if (isSmall) 42.dp else 62.dp)
     
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
+    
+    // 统一的原生震动函数
+    val performVibration: (Long) -> Unit = { duration ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(duration)
+        }
+    }
+
     var isSwiping by remember { mutableStateOf(false) }
     var swipePreviewText by remember { mutableStateOf<String?>(null) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -4528,6 +4546,7 @@ private fun KeypadButton(
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitFirstDown()
+                            performVibration(25L) // 按下即震动，原生 API 确保触感
                             val press = androidx.compose.foundation.interaction.PressInteraction.Press(down.position)
                             coroutineScope.launch { interactionSource.emit(press) }
                             
@@ -4546,7 +4565,7 @@ private fun KeypadButton(
                                     val newPreview = if (totalY > 30f) swipeDownText else if (totalY < -30f) swipeUpText else null
                                     if (newPreview != swipePreviewText && newPreview != null) {
                                         swipePreviewText = newPreview
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress) // 使用更强的震动
+                                        performVibration(15L) // 预览切换震动
                                     }
                                 } else {
                                     swipePreviewText = null
@@ -4555,10 +4574,12 @@ private fun KeypadButton(
                                 // 执行逻辑
                                 if (!hasExecuted) {
                                     if (totalY > 120f && swipeDownText != null && onSwipeDown != null) {
+                                        performVibration(45L) // 侧滑执行强震动
                                         onSwipeDown()
                                         hasExecuted = true
                                         swipePreviewText = null
                                     } else if (totalY < -120f && swipeUpText != null && onSwipeUp != null) {
+                                        performVibration(45L) // 侧滑执行强震动
                                         onSwipeUp()
                                         hasExecuted = true
                                         swipePreviewText = null
@@ -4570,7 +4591,12 @@ private fun KeypadButton(
                             if (dragResult || !isDragTriggered) {
                                 // 如果是点击
                                 if (!isDragTriggered) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val vibrationDuration = when {
+                                        text == "=" || containerColor != null -> 50L
+                                        text == "⌫" || text == "C" -> 40L
+                                        else -> 25L
+                                    }
+                                    performVibration(vibrationDuration)
                                     onClick()
                                 }
                                 coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press)) }
