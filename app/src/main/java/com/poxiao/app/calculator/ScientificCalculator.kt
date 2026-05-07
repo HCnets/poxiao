@@ -4482,7 +4482,6 @@ private fun KeypadButton(
     onSwipeDown: (() -> Unit)? = null
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
-    val haptic = LocalHapticFeedback.current
     
     // 微缩放动画与物理反馈
     val interactionSource = remember { MutableInteractionSource() }
@@ -4517,7 +4516,6 @@ private fun KeypadButton(
 
     val finalModifier = if (fillHeight) modifier.fillMaxHeight() else modifier.height(if (isSmall) 42.dp else 62.dp)
     
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     

@@ -89,8 +89,8 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.5.3.3** | **原生 Haptic 引擎重构 (Native Haptic Engine)** | 引入 `Vibrator` 原生 API 替代 Compose Haptic，彻底解决按键震动缺失问题；实现按下即震动反馈，支持差异化震动时长。 |
-| `历史版本` | **v1.5.3.2** | **手势 API 兼容性补丁 (Gesture API Patch)** | 修复了 ScientificCalculator.kt 中的 `awaitEachGesture` 引用错误与 `PointerInputChange` 成员访问冲突。 |
+| `当前` | **v1.5.3.4** | **变量冲突修复 (Variable Conflict Patch)** | 修复了 ScientificCalculator.kt 中由于重复声明 `haptic` 导致的编译错误；统一了震动反馈链路。 |
+| `历史版本` | **v1.5.3.3** | **原生 Haptic 引擎重构 (Native Haptic Engine)** | 引入 `Vibrator` 原生 API 替代 Compose Haptic，彻底解决按键震动缺失问题；实现按下即震动反馈，支持差异化震动时长。 |
 | `历史版本` | **v1.5.1.1** | **编译稳定性补丁 (Compilation Stability Patch)** | 修复了 ScientificCalculator.kt 中的作用域引用错误 (statsRawX/Y)、CalcButton 参数识别异常以及 Int 比较时的操作符修饰符误报问题。 |
 | `历史版本` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
 
