@@ -1033,12 +1033,23 @@ private fun CalculatorWorkspaceHeader(
     modifier: Modifier = Modifier
 ) {
     val palette = tilePalette(title)
+    val infiniteTransition = rememberInfiniteTransition(label = "HeaderGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.12f,
+        targetValue = 0.28f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes { durationMillis = 3000 },
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "HeaderAlpha"
+    )
+
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
-        tint = palette.primary.copy(alpha = 0.22f),
-        borderColor = Color.White.copy(alpha = 0.4f),
-        blurRadius = 36.dp // 增加模糊半径，确保在滚动时下层文本被强力模糊
+        tint = palette.primary.copy(alpha = glowAlpha),
+        borderColor = if (isDarkMode) palette.primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.4f),
+        blurRadius = 36.dp
     ) {
         Row(
             modifier = Modifier
@@ -1777,11 +1788,25 @@ private fun CalculatorCard(
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val palette = tilePalette(title)
+    
+    // UI 增强：卡片呼吸光效
+    val infiniteTransition = rememberInfiniteTransition(label = "CardPulse")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes { durationMillis = 4000 },
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "BorderAlpha"
+    )
+
     LiquidGlassCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.36f),
-        borderColor = Color.White.copy(alpha = 0.4f),
+        tint = (if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.36f)),
+        borderColor = palette.primary.copy(alpha = borderAlpha),
+        blurRadius = 12.dp
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
