@@ -5,7 +5,7 @@
 > **“将大学生活里那些零碎、跳跃、失焦的时刻，重新组织成一个连贯的个人界面。”**
 
 <p>
-  <img src="https://img.shields.io/badge/Version-1.2.9_Header_Fix-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.2.9" />
+  <img src="https://img.shields.io/badge/Version-1.3.0_Ultimate_Calculator-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.3.0" />
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Language-Kotlin_2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Language Kotlin" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="UI Jetpack Compose" />
@@ -21,6 +21,8 @@
 
 `南工破晓` 是一个面向校园学习与个人效率场景的 Android 原生应用。
 它采用 **Kotlin + Jetpack Compose** 构建，并持续以 **Agent (智能体) 驱动** 的方式进行工程重构与演进。
+
+**v1.3.0 (Ultimate Calculator)** 现已发布。本次更新对标国际顶级 App 的终极交互形态，科学计算器引入全局撤销/重做堆栈 (Undo/Redo Stack) 以防长公式误删；全面引入键盘侧滑输入 (Swipe-on-Keys) 系统，彻底移除了占用空间的二级高级面板，将高级函数（如 sin, cos, ln, 根号, 幂次等）集成至主键盘的滑动交互中，实现操作零层级跃迁。
 
 **v1.2.9 (Workspace Header Layout Fix)** 现已发布。本次更新针对科学计算器的顶部信息卡片（Workspace Header）进行了空间优化，将其内部的标题与副标题由纵向排列改为横向紧凑排列，大幅缩减了卡片的垂直高度。此修复有效解决了进入各专业计算模块时，顶部卡片过大导致遮挡下方操作面板和输入区的问题，同时恢复了经典的模块命名体系，进一步提升了专业工具的空间利用率和交互视野。
 

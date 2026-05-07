@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +55,10 @@ import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.ViewColumn
 import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material.icons.outlined.Redo
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -109,8 +114,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import com.poxiao.app.ui.LiquidGlassCard
 import com.poxiao.app.ui.LiquidGlassSurface
@@ -213,7 +221,6 @@ fun ScientificCalculatorScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("calculator_prefs", 0) }
-    val configuration = LocalConfiguration.current
     var settings by remember { mutableStateOf(loadCalculatorSettings(prefs)) }
     var currentRoute by remember { mutableStateOf<CalculatorRoute>(CalculatorRoute.App(CalculatorApp.Compute)) }
     var showDirectory by remember { mutableStateOf(false) }
@@ -275,6 +282,7 @@ fun ScientificCalculatorScreen(
     if (!view.isInEditMode) {
         androidx.compose.runtime.SideEffect {
             val window = (view.context as android.app.Activity).window
+            @Suppress("DEPRECATION")
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDarkMode
         }
@@ -291,6 +299,19 @@ fun ScientificCalculatorScreen(
     var computeResult by remember { mutableStateOf("0") }
     var computeCursorIndex by remember { mutableStateOf(0) }
     val computeHistory = remember { mutableStateListOf<Pair<String, String>>() }
+    
+    // Undo/Redo 堆栈状态
+    val undoStack = remember { mutableStateListOf<String>() }
+    val redoStack = remember { mutableStateListOf<String>() }
+    
+    val commitExpressionChange: (String) -> Unit = { newExpr ->
+        if (newExpr != computeExpression) {
+            undoStack.add(computeExpression)
+            if (undoStack.size > 20) undoStack.removeAt(0) // 限制堆栈深度为 20
+            redoStack.clear()
+            computeExpression = newExpr
+        }
+    }
 
     // 专业模块状态 (矩阵、统计、进制等)
     val matrixFields = remember { mutableStateListOf<String>().apply { repeat(18) { add("0") } } }
@@ -298,6 +319,10 @@ fun ScientificCalculatorScreen(
     var statsRawY by remember { mutableStateOf("78,81,88,70,86,91") }
     var baseValue by remember { mutableStateOf("255") }
     val genericFields = remember { mutableStateMapOf<String, String>() }
+    
+    // UI 配置变量
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
 
     CompositionLocalProvider(
         LocalLiquidGlassStylePreset provides if (isDarkMode) LiquidGlassStylePreset.Hyper else LiquidGlassStylePreset.IOS
@@ -315,9 +340,8 @@ fun ScientificCalculatorScreen(
             color = Color.Transparent,
         ) {
             Box(modifier = Modifier.fillMaxSize().background(if (isDarkMode) Color.Black.copy(alpha = 0.5f) else Color.Transparent)) {
-            if (showDirectory) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // 全局悬浮的 LiquidGlass Header
+                    // 全局统一的 LiquidGlass Header，放置于 Column 顶层
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -344,202 +368,198 @@ fun ScientificCalculatorScreen(
                         )
                     }
 
-                    CalculatorDirectoryScreen(
-                        currentRoute = currentRoute,
-                        onOpenApp = openApp,
-                        onOpenUtility = openUtility,
-                        maxHeight = (configuration.screenHeightDp * 0.78f).dp.coerceIn(460.dp, 760.dp),
-                        modifier = Modifier.padding(top = 0.dp)
-                    )
-                }
-            } else {
-                // 所有模块统一使用带键盘的布局
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // 全局悬浮的 LiquidGlass Header
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 14.dp)
-                    ) {
-                        CalculatorWorkspaceHeader(
-                            title = routeTitle,
-                            subtitle = routeSubtitle,
-                            icon = routeIcon,
-                            actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
-                            actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
-                            onAction = {
-                                if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
-                                    backToCalculator()
-                                } else {
-                                    onBack()
-                                }
-                            },
-                            onOpenDirectory = { showDirectory = true },
-                            directoryOpen = showDirectory,
-                            isDarkMode = isDarkMode,
-                            onToggleTheme = { isDarkMode = !isDarkMode },
-                            modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
-                        )
-                    }
+                    // 下方区域根据状态切换
                     Box(modifier = Modifier.weight(1f)) {
-                        when (routeState) {
-                            is CalculatorRoute.App -> when (routeState.app) {
-                                CalculatorApp.Compute -> ComputeModulePro(
-                                    settings = settings,
-                                    topPadding = 0.dp,
-                                    expression = computeExpression,
-                                    onExpressionChange = { computeExpression = it },
-                                    result = computeResult,
-                                    onResultChange = { computeResult = it },
-                                    cursorIndex = computeCursorIndex,
-                                    onCursorMove = { computeCursorIndex = it },
-                                    history = computeHistory
-                                )
-                                else -> CalculatorScrollableModule(
-                                    routeState = routeState,
-                                    settings = settings,
-                                    updateSettings = updateSettings,
-                                    topPadding = 0.dp,
-                                    focusTarget = focusTarget,
-                                    onFocusChange = { focusTarget = it },
-                                    matrixFields = matrixFields,
-                                    statsRawX = statsRawX,
-                                    onRawXChange = { statsRawX = it },
-                                    statsRawY = statsRawY,
-                                    onRawYChange = { statsRawY = it },
-                                    baseValue = baseValue,
-                                    onBaseValueChange = { baseValue = it },
-                                    genericFields = genericFields
-                                )
-                            }
-                            is CalculatorRoute.Utility -> CalculatorScrollableModule(
-                                routeState = routeState,
-                                settings = settings,
-                                updateSettings = updateSettings,
-                                topPadding = 0.dp,
-                                focusTarget = focusTarget,
-                                onFocusChange = { focusTarget = it },
-                                matrixFields = matrixFields,
-                                statsRawX = statsRawX,
-                                onRawXChange = { statsRawX = it },
-                                statsRawY = statsRawY,
-                                onRawYChange = { statsRawY = it },
-                                baseValue = baseValue,
-                                onBaseValueChange = { baseValue = it },
-                                genericFields = genericFields
+                        if (showDirectory) {
+                            CalculatorDirectoryScreen(
+                                currentRoute = currentRoute,
+                                onOpenApp = openApp,
+                                onOpenUtility = openUtility,
+                                maxHeight = (configuration.screenHeightDp * 0.78f).dp.coerceIn(460.dp, 760.dp),
+                                modifier = Modifier.padding(top = 0.dp)
                             )
-                        }
-                    }
-                    
-                    // 全局键盘逻辑 (仅在 App 路由下显示，且该模块需要固定键盘)
-                    if (routeState is CalculatorRoute.App) {
-                        val showGlobalKeypad = when (routeState.app) {
-                            CalculatorApp.Test, CalculatorApp.Distribution, CalculatorApp.Spreadsheet, 
-                            CalculatorApp.FunctionTable -> false
-                            else -> true
-                        }
-                        if (showGlobalKeypad) {
-                            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                ProKeypad(
-                                onToken = { token ->
-                                    val mappedToken = appendFormulaToken("", token)
-                                    when (val target = focusTarget) {
-                                        is FocusTarget.ComputeExpression -> {
-                                            val next = insertAtCursor(TextFieldValue(computeExpression, TextRange(computeCursorIndex)), mappedToken)
-                                            computeExpression = next.text
-                                            computeCursorIndex = next.selection.start
+                        } else {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    when (routeState) {
+                                        is CalculatorRoute.App -> when (routeState.app) {
+                                            CalculatorApp.Compute -> ComputeModulePro(
+                                                settings = settings,
+                                                topPadding = 0.dp,
+                                                expression = computeExpression,
+                                                onExpressionChange = commitExpressionChange,
+                                                result = computeResult,
+                                                onResultChange = { computeResult = it },
+                                                cursorIndex = computeCursorIndex,
+                                                onCursorMove = { computeCursorIndex = it },
+                                                history = computeHistory
+                                            )
+                                            else -> CalculatorScrollableModule(
+                                                routeState = routeState,
+                                                settings = settings,
+                                                updateSettings = updateSettings,
+                                                topPadding = 0.dp,
+                                                focusTarget = focusTarget,
+                                                onFocusChange = { focusTarget = it },
+                                                matrixFields = matrixFields,
+                                                statsRawX = statsRawX,
+                                                onRawXChange = { statsRawX = it },
+                                                statsRawY = statsRawY,
+                                                onRawYChange = { statsRawY = it },
+                                                baseValue = baseValue,
+                                                onBaseValueChange = { baseValue = it },
+                                                genericFields = genericFields
+                                            )
                                         }
-                                        is FocusTarget.MatrixCell -> {
-                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
-                                            matrixFields[index] = if (matrixFields[index] == "0") mappedToken else matrixFields[index] + mappedToken
-                                        }
-                                        is FocusTarget.StatisticsCell -> {
-                                            if (target.isY) statsRawY += mappedToken else statsRawX += mappedToken
-                                        }
-                                        is FocusTarget.BaseInput -> {
-                                            baseValue += mappedToken
-                                        }
-                                        is FocusTarget.GenericInput -> {
-                                            val current = genericFields[target.id] ?: ""
-                                            genericFields[target.id] = current + mappedToken
-                                        }
-                                        FocusTarget.None -> {}
+                                        is CalculatorRoute.Utility -> CalculatorScrollableModule(
+                                            routeState = routeState,
+                                            settings = settings,
+                                            updateSettings = updateSettings,
+                                            topPadding = 0.dp,
+                                            focusTarget = focusTarget,
+                                            onFocusChange = { focusTarget = it },
+                                            matrixFields = matrixFields,
+                                            statsRawX = statsRawX,
+                                            onRawXChange = { statsRawX = it },
+                                            statsRawY = statsRawY,
+                                            onRawYChange = { statsRawY = it },
+                                            baseValue = baseValue,
+                                            onBaseValueChange = { baseValue = it },
+                                            genericFields = genericFields
+                                        )
                                     }
-                                },
-                                onDelete = {
-                                    when (val target = focusTarget) {
-                                        is FocusTarget.ComputeExpression -> {
-                                            if (computeCursorIndex > 0) {
-                                                computeExpression = computeExpression.removeRange(computeCursorIndex - 1, computeCursorIndex)
-                                                computeCursorIndex--
-                                            }
-                                        }
-                                        is FocusTarget.MatrixCell -> {
-                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
-                                            if (matrixFields[index].isNotEmpty()) matrixFields[index] = matrixFields[index].dropLast(1).ifEmpty { "0" }
-                                        }
-                                        is FocusTarget.StatisticsCell -> {
-                                            if (target.isY) { if (statsRawY.isNotEmpty()) statsRawY = statsRawY.dropLast(1) }
-                                            else { if (statsRawX.isNotEmpty()) statsRawX = statsRawX.dropLast(1) }
-                                        }
-                                        is FocusTarget.BaseInput -> {
-                                            if (baseValue.isNotEmpty()) baseValue = baseValue.dropLast(1)
-                                        }
-                                        is FocusTarget.GenericInput -> {
-                                            val current = genericFields[target.id] ?: ""
-                                            if (current.isNotEmpty()) genericFields[target.id] = current.dropLast(1)
-                                        }
-                                        FocusTarget.None -> {}
-                                    }
-                                },
-                                onClear = {
-                                    when (val target = focusTarget) {
-                                        is FocusTarget.ComputeExpression -> {
-                                            computeExpression = ""
-                                            computeResult = "0"
-                                            computeCursorIndex = 0
-                                        }
-                                        is FocusTarget.MatrixCell -> {
-                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
-                                            matrixFields[index] = "0"
-                                        }
-                                        is FocusTarget.StatisticsCell -> {
-                                            if (target.isY) statsRawY = "" else statsRawX = ""
-                                        }
-                                        is FocusTarget.BaseInput -> {
-                                            baseValue = ""
-                                        }
-                                        is FocusTarget.GenericInput -> {
-                                            genericFields[target.id] = ""
-                                        }
-                                        FocusTarget.None -> {}
-                                    }
-                                },
-                                onEqual = {
-                                    if (focusTarget == FocusTarget.ComputeExpression && computeExpression.isNotBlank()) {
-                                        val finalRes = runCatching {
-                                            ExpressionEngine.evaluate(computeExpression, angleMode = settings.angleMode).toString()
-                                        }.getOrElse { "Error" }
-                                        computeHistory.add(computeExpression to finalRes)
-                                        computeExpression = finalRes
-                                        computeResult = finalRes
-                                        computeCursorIndex = finalRes.length
-                                    }
-                                },
-                                onMoveCursor = { delta ->
-                                    if (focusTarget == FocusTarget.ComputeExpression) {
-                                        computeCursorIndex = (computeCursorIndex + delta).coerceIn(0, computeExpression.length)
-                                    }
-                                },
-                                settings = settings,
-                                onToggleAngleMode = {
-                                    val nextMode = if (settings.angleMode == AngleMode.Deg) AngleMode.Rad else AngleMode.Deg
-                                    updateSettings(settings.copy(angleMode = nextMode))
                                 }
-                            )
+                                
+                                // 全局键盘逻辑 (仅在 App 路由下显示，且该模块需要固定键盘)
+                                if (routeState is CalculatorRoute.App) {
+                                    val showGlobalKeypad = when (routeState.app) {
+                                        CalculatorApp.Test, CalculatorApp.Distribution, CalculatorApp.Spreadsheet, 
+                                        CalculatorApp.FunctionTable -> false
+                                        else -> true
+                                    }
+                                    if (showGlobalKeypad) {
+                                        Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                            ProKeypad(
+                                                onToken = { token ->
+                                                    val mappedToken = appendFormulaToken("", token)
+                                                    when (val target = focusTarget) {
+                                                        is FocusTarget.ComputeExpression -> {
+                                                            val next = insertAtCursor(TextFieldValue(computeExpression, TextRange(computeCursorIndex)), mappedToken)
+                                                            commitExpressionChange(next.text)
+                                                            computeCursorIndex = next.selection.start
+                                                        }
+                                                        is FocusTarget.MatrixCell -> {
+                                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
+                                                            matrixFields[index] = if (matrixFields[index] == "0") mappedToken else matrixFields[index] + mappedToken
+                                                        }
+                                                        is FocusTarget.StatisticsCell -> {
+                                                            if (target.isY) statsRawY += mappedToken else statsRawX += mappedToken
+                                                        }
+                                                        is FocusTarget.BaseInput -> {
+                                                            baseValue += mappedToken
+                                                        }
+                                                        is FocusTarget.GenericInput -> {
+                                                            val current = genericFields[target.id] ?: ""
+                                                            genericFields[target.id] = current + mappedToken
+                                                        }
+                                                        FocusTarget.None -> {}
+                                                    }
+                                                },
+                                                onDelete = {
+                                                    when (val target = focusTarget) {
+                                                        is FocusTarget.ComputeExpression -> {
+                                                            if (computeCursorIndex > 0) {
+                                                                val nextText = computeExpression.removeRange(computeCursorIndex - 1, computeCursorIndex)
+                                                                commitExpressionChange(nextText)
+                                                                computeCursorIndex--
+                                                            }
+                                                        }
+                                                        is FocusTarget.MatrixCell -> {
+                                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
+                                                            if (matrixFields[index].isNotEmpty()) matrixFields[index] = matrixFields[index].dropLast(1).ifEmpty { "0" }
+                                                        }
+                                                        is FocusTarget.StatisticsCell -> {
+                                                            if (target.isY) { if (statsRawY.isNotEmpty()) statsRawY = statsRawY.dropLast(1) }
+                                                            else { if (statsRawX.isNotEmpty()) statsRawX = statsRawX.dropLast(1) }
+                                                        }
+                                                        is FocusTarget.BaseInput -> {
+                                                            if (baseValue.isNotEmpty()) baseValue = baseValue.dropLast(1)
+                                                        }
+                                                        is FocusTarget.GenericInput -> {
+                                                            val current = genericFields[target.id] ?: ""
+                                                            if (current.isNotEmpty()) genericFields[target.id] = current.dropLast(1)
+                                                        }
+                                                        FocusTarget.None -> {}
+                                                    }
+                                                },
+                                                onClear = {
+                                                    when (val target = focusTarget) {
+                                                        is FocusTarget.ComputeExpression -> {
+                                                            commitExpressionChange("")
+                                                            computeResult = "0"
+                                                            computeCursorIndex = 0
+                                                        }
+                                                        is FocusTarget.MatrixCell -> {
+                                                            val index = target.index + (if (target.isMatrixB) 9 else 0)
+                                                            matrixFields[index] = "0"
+                                                        }
+                                                        is FocusTarget.StatisticsCell -> {
+                                                            if (target.isY) statsRawY = "" else statsRawX = ""
+                                                        }
+                                                        is FocusTarget.BaseInput -> {
+                                                            baseValue = ""
+                                                        }
+                                                        is FocusTarget.GenericInput -> {
+                                                            genericFields[target.id] = ""
+                                                        }
+                                                        FocusTarget.None -> {}
+                                                    }
+                                                },
+                                                onEqual = {
+                                                    if (focusTarget == FocusTarget.ComputeExpression && computeExpression.isNotBlank()) {
+                                                        val finalRes = runCatching {
+                                                            ExpressionEngine.evaluate(computeExpression, angleMode = settings.angleMode).toString()
+                                                        }.getOrElse { "Error" }
+                                                        computeHistory.add(computeExpression to finalRes)
+                                                        commitExpressionChange(finalRes)
+                                                        computeResult = finalRes
+                                                        computeCursorIndex = finalRes.length
+                                                    }
+                                                },
+                                                onMoveCursor = { delta ->
+                                                    if (focusTarget == FocusTarget.ComputeExpression) {
+                                                        computeCursorIndex = (computeCursorIndex + delta).coerceIn(0, computeExpression.length)
+                                                    }
+                                                },
+                                                onUndo = {
+                                                    if (undoStack.isNotEmpty()) {
+                                                        redoStack.add(computeExpression)
+                                                        computeExpression = undoStack.removeLast()
+                                                        computeCursorIndex = computeExpression.length
+                                                    }
+                                                },
+                                                onRedo = {
+                                                    if (redoStack.isNotEmpty()) {
+                                                        undoStack.add(computeExpression)
+                                                        computeExpression = redoStack.removeLast()
+                                                        computeCursorIndex = computeExpression.length
+                                                    }
+                                                },
+                                                canUndo = undoStack.isNotEmpty(),
+                                                canRedo = redoStack.isNotEmpty(),
+                                                settings = settings,
+                                                onToggleAngleMode = {
+                                                    val nextMode = if (settings.angleMode == AngleMode.Deg) AngleMode.Rad else AngleMode.Deg
+                                                    updateSettings(settings.copy(angleMode = nextMode))
+                                                }
+                                            )
                         }
                     }
                 }
+            }
+        }
+    }
+}
             }
         }
     }
@@ -800,24 +820,38 @@ private fun CalculatorWorkspaceHeader(
                         )
                     }
                 }
-                Row(
+                Column(
                     modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = if (isDarkMode) CloudWhite else PineInk,
-                        modifier = Modifier.alignByBaseline()
                     )
+                    // 动态获取准确的副标题描述，防止文字显示不全或解释不全面
+                    val detailedSubtitle = when (title) {
+                        "常规计算" -> "科学公式、自然书写与表达式推演"
+                        "矩阵计算" -> "最高 3x3 矩阵运算、求逆、特征值分析"
+                        "统计分析" -> "一维/二维统计量、线性回归建模"
+                        "基数转换" -> "HEX/DEC/OCT/BIN 多进制实时同步"
+                        "方程求解" -> "一元二次/三次方程、线性方程组"
+                        "复数计算" -> "直角坐标与极坐标复数四则运算"
+                        "向量计算" -> "二维/三维向量点乘、叉乘、夹角"
+                        "假设检验" -> "Z 检验、T 检验、卡方检验"
+                        "概率分布" -> "正态分布、二项分布、泊松分布"
+                        "函数表格" -> "基于解析式的动态数值表格"
+                        "电子表格" -> "迷你单元格数据处理与汇总"
+                        "不等式" -> "一元二次、高次不等式求解"
+                        "比例计算" -> "正比例、反比例与系数缩放"
+                        else -> subtitle
+                    }
                     Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = detailedSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
                         color = if (isDarkMode) CloudWhite.copy(alpha = 0.74f) else ForestDeep.copy(alpha = 0.74f),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false).alignByBaseline()
                     )
                 }
             }
@@ -1415,18 +1449,18 @@ private fun ComputeModulePro(
                 }
             }
         }
-    }
 
-    // 实时计算预览
-    LaunchedEffect(expression) {
-        if (expression.isNotBlank()) {
-            val evalRes = runCatching {
-                val eval = ExpressionEngine.evaluate(expression, angleMode = settings.angleMode)
-                formatBySetting(eval, settings)
-            }.getOrElse { result }
-            onResultChange(evalRes)
-        } else {
-            onResultChange("0")
+        // 实时计算预览
+        LaunchedEffect(expression) {
+            if (expression.isNotBlank()) {
+                val evalRes = runCatching {
+                    val eval = ExpressionEngine.evaluate(expression, angleMode = settings.angleMode)
+                    formatBySetting(eval, settings)
+                }.getOrElse { result }
+                onResultChange(evalRes)
+            } else {
+                onResultChange("0")
+            }
         }
     }
 }
@@ -1489,8 +1523,19 @@ private fun HistoryItem(expr: String, res: String, onClick: () -> Unit, onDelete
             borderColor = if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.2f),
         ) {
             Column(modifier = Modifier.padding(14.dp), horizontalAlignment = Alignment.End) {
-                Text(displayExpr, style = MaterialTheme.typography.bodyMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
-                Text(res, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.8f) else PineInk, fontWeight = FontWeight.Bold)
+                Text(
+                    text = formatMathExpression(expr, if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f)), 
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                
+                val formattedRes = runCatching {
+                    val num = res.toDouble()
+                    if (num % 1.0 == 0.0 && num < 1e12 && num > -1e12) {
+                        java.text.DecimalFormat("#,###").format(num)
+                    } else res
+                }.getOrElse { res }
+                
+                Text(formattedRes, style = MaterialTheme.typography.titleMedium, color = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.8f) else PineInk, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -2333,9 +2378,8 @@ private fun ProCell(
         ) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = if (isDarkMode) CloudWhite.copy(alpha = 0.5f) else ForestDeep.copy(alpha = 0.5f))
             Text(
-                value,
+                text = formatMathExpression(value, if (isFocused) (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen) else (if (isDarkMode) CloudWhite else PineInk)),
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen) else (if (isDarkMode) CloudWhite else PineInk),
                 fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -2364,13 +2408,22 @@ private fun ProInputField(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) CloudWhite.copy(alpha = 0.6f) else ForestDeep.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = value.ifEmpty { "点击输入数据..." },
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (value.isEmpty()) PineInk.copy(alpha = 0.3f) else (if (isDarkMode) CloudWhite else PineInk),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (value.isEmpty()) {
+                Text(
+                    text = "点击输入数据...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = PineInk.copy(alpha = 0.3f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = formatMathExpression(value, if (isDarkMode) CloudWhite else PineInk),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -2585,7 +2638,7 @@ private fun EquationModulePro(
                         ProCell(fields.getOrDefault("eq_c2", "0"), "c2", focusTarget == FocusTarget.GenericInput("eq_c2"), { onFocusChange(FocusTarget.GenericInput("eq_c2")) }, Modifier.weight(1f))
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                 CalcButton("执行克莱姆法则求解") {
                     result = runCatching {
                         val a1 = fields.getOrDefault("eq_a1", "1").toDouble()
@@ -2898,6 +2951,79 @@ private fun CalcButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
+private fun formatMathExpression(expression: String, baseColor: Color): androidx.compose.ui.text.AnnotatedString {
+    val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    val operatorColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+    val functionColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400)
+    val bracketColor = baseColor.copy(alpha = 0.4f)
+
+    return androidx.compose.ui.text.buildAnnotatedString {
+        val displayValue = expression.replace("*", "×").replace("/", "÷")
+        var i = 0
+        while (i < displayValue.length) {
+            val char = displayValue[i]
+            when {
+                char == '^' -> {
+                    // Start superscript for the next number or variable
+                    i++
+                    var exponent = ""
+                    while (i < displayValue.length && (displayValue[i].isDigit() || displayValue[i] == '.' || displayValue[i] == '-')) {
+                        exponent += displayValue[i]
+                        i++
+                    }
+                    if (exponent.isEmpty() && i < displayValue.length && displayValue[i].isLetter()) {
+                        exponent += displayValue[i]
+                        i++
+                    }
+                    if (exponent.isNotEmpty()) {
+                        withStyle(androidx.compose.ui.text.SpanStyle(
+                            baselineShift = androidx.compose.ui.text.style.BaselineShift.Superscript,
+                            fontSize = androidx.compose.ui.unit.TextUnit(0.7f, androidx.compose.ui.unit.TextUnitType.Em),
+                            color = functionColor
+                        )) {
+                            append(exponent)
+                        }
+                    }
+                    continue // Skip the normal i++ at the end of the loop
+                }
+                char.isDigit() || char == '.' -> {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = baseColor)) {
+                        append(char)
+                    }
+                }
+                char in listOf('+', '-', '×', '÷', '=', '%', '!', '√') -> {
+                    withStyle(androidx.compose.ui.text.SpanStyle(
+                        color = operatorColor, 
+                        fontWeight = FontWeight.Bold
+                    )) {
+                        append(char)
+                    }
+                }
+                char in listOf('(', ')') -> {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = bracketColor)) {
+                        append(char)
+                    }
+                }
+                char.isLetter() -> {
+                    withStyle(androidx.compose.ui.text.SpanStyle(
+                        color = functionColor,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )) {
+                        append(char)
+                    }
+                }
+                else -> {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = baseColor)) {
+                        append(char)
+                    }
+                }
+            }
+            i++
+        }
+    }
+}
+
+@Composable
 private fun ProCalculatorDisplay(
     value: String,
     cursorIndex: Int,
@@ -2983,12 +3109,21 @@ private fun ProCalculatorDisplay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val safeCursor = cursorIndex.coerceIn(0, value.length)
-                    val textBefore = displayValue.substring(0, safeCursor)
-                    val textAfter = displayValue.substring(safeCursor)
+                    val textBefore = value.substring(0, safeCursor)
+                    val textAfter = value.substring(safeCursor)
                     
-                    val expressionFontSize = if (displayValue.length > 20) MaterialTheme.typography.titleLarge.fontSize else MaterialTheme.typography.headlineMedium.fontSize
+                    // 无缝动态缩放算法：根据字符长度平滑缩放字体
+                    val baseFontSize = MaterialTheme.typography.headlineMedium.fontSize.value
+                    val minFontSize = MaterialTheme.typography.titleMedium.fontSize.value
+                    val calculatedSize = if (value.length <= 12) baseFontSize else (baseFontSize - (value.length - 12) * 1.5f).coerceAtLeast(minFontSize)
+                    val expressionFontSize = androidx.compose.ui.unit.TextUnit(calculatedSize, androidx.compose.ui.unit.TextUnitType.Sp)
                     
-                    Text(textBefore, style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize), color = if (isDarkMode) CloudWhite else PineInk)
+                    val textColor = if (isDarkMode) CloudWhite else PineInk
+                    
+                    Text(
+                        text = formatMathExpression(textBefore, textColor), 
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize)
+                    )
                     // 模拟闪烁光标
                     val infiniteTransition = rememberInfiniteTransition()
                     val alpha by infiniteTransition.animateFloat(
@@ -3005,16 +3140,43 @@ private fun ProCalculatorDisplay(
                     Box(
                         modifier = Modifier
                             .width(2.5.dp)
-                            .height(28.dp)
+                            .height(with(LocalDensity.current) { expressionFontSize.toDp() * 1.2f })
                             .background((if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = alpha))
                     )
-                    Text(textAfter, style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize), color = if (isDarkMode) CloudWhite else PineInk)
+                    Text(
+                        text = formatMathExpression(textAfter, textColor), 
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize)
+                    )
                 }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // 结果展示行
+            // 结果展示行 (带错误抖动效果)
+            val isError = result == "Error"
+            var shakeOffset by remember { mutableStateOf(0f) }
+            
+            LaunchedEffect(result) {
+                if (isError) {
+                    // 触发抖动与触觉反馈
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val anim = androidx.compose.animation.core.Animatable(0f)
+                    anim.animateTo(
+                        targetValue = 0f,
+                        animationSpec = keyframes {
+                            durationMillis = 400
+                            -15f at 50
+                            15f at 150
+                            -10f at 250
+                            10f at 300
+                            0f at 400
+                        }
+                    ) {
+                        shakeOffset = this.value
+                    }
+                }
+            }
+
             val formattedResult = runCatching {
                 val num = result.toDouble()
                 if (num % 1.0 == 0.0 && num < 1e12 && num > -1e12) {
@@ -3025,15 +3187,19 @@ private fun ProCalculatorDisplay(
                 }
             }.getOrElse { result }
             
-            val resultFontSize = if (formattedResult.length > 12) MaterialTheme.typography.headlineMedium.fontSize else MaterialTheme.typography.displayMedium.fontSize
+            val resultBaseFontSize = MaterialTheme.typography.displayMedium.fontSize.value
+            val resultMinFontSize = MaterialTheme.typography.headlineMedium.fontSize.value
+            val resultCalculatedSize = if (formattedResult.length <= 10) resultBaseFontSize else (resultBaseFontSize - (formattedResult.length - 10) * 2f).coerceAtLeast(resultMinFontSize)
+            val resultFontSize = androidx.compose.ui.unit.TextUnit(resultCalculatedSize, androidx.compose.ui.unit.TextUnitType.Sp)
             
             Text(
-                text = formattedResult,
+                text = if (isError) "格式错误" else formattedResult,
                 style = MaterialTheme.typography.displayMedium.copy(fontSize = resultFontSize),
-                color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
+                color = if (isError) Color(0xFFFF5252) else if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.offset { IntOffset(shakeOffset.roundToInt(), 0) }
             )
         }
     }
@@ -3046,13 +3212,16 @@ private fun ProKeypad(
     onClear: () -> Unit,
     onEqual: () -> Unit,
     onMoveCursor: (Int) -> Unit,
+    onUndo: (() -> Unit)? = null,
+    onRedo: (() -> Unit)? = null,
+    canUndo: Boolean = false,
+    canRedo: Boolean = false,
     onDismiss: (() -> Unit)? = null,
     settings: CalculatorSettings? = null,
     onToggleAngleMode: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
-    var showAdvanced by remember { mutableStateOf(false) }
     
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // 模式切换条与光标控制
@@ -3062,27 +3231,6 @@ private fun ProKeypad(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); showAdvanced = !showAdvanced },
-                    shape = CircleShape,
-                    color = if (showAdvanced) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.16f) else ForestGreen.copy(alpha = 0.16f)) else if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (showAdvanced) Icons.Outlined.Functions else Icons.Outlined.Calculate,
-                            contentDescription = null,
-                            tint = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
-                            modifier = Modifier.width(16.dp).height(16.dp)
-                        )
-                        Text(if (showAdvanced) "高级" else "基础", style = MaterialTheme.typography.labelMedium, color = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen)
-                    }
-                }
-
                 if (settings != null && onToggleAngleMode != null) {
                     Surface(
                         onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggleAngleMode() },
@@ -3103,6 +3251,32 @@ private fun ProKeypad(
             
             // 方向键与功能
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onUndo != null && onRedo != null) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .clickable(enabled = canUndo) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onUndo() }
+                                    .padding(8.dp)
+                            ) {
+                                Icon(Icons.Outlined.Undo, null, tint = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = if (canUndo) 1f else 0.3f), modifier = Modifier.size(20.dp))
+                            }
+                            Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.1f)))
+                            Box(
+                                modifier = Modifier
+                                    .clickable(enabled = canRedo) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onRedo() }
+                                    .padding(8.dp)
+                            ) {
+                                Icon(Icons.Outlined.Redo, null, tint = (if (isDarkMode) CloudWhite else PineInk).copy(alpha = if (canRedo) 1f else 0.3f), modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+                
                 if (onDismiss != null) {
                     KeypadIconButton(Icons.Outlined.KeyboardHide, onClick = onDismiss)
                 }
@@ -3117,75 +3291,62 @@ private fun ProKeypad(
                         Box(
                             modifier = Modifier.clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMoveCursor(-1) }.padding(8.dp)
                         ) {
-                            Icon(Icons.Outlined.SwapHoriz, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Outlined.ChevronLeft, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
                         }
                         Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(alpha = 0.1f)))
                         Box(
                             modifier = Modifier.clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onMoveCursor(1) }.padding(8.dp)
                         ) {
-                            Icon(Icons.Outlined.SwapHoriz, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Outlined.ChevronRight, null, tint = if (isDarkMode) CloudWhite else PineInk, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
             }
         }
 
-        if (showAdvanced) {
-            // 高级面板
-            val advRows = listOf(
-                listOf("sin(", "cos(", "tan(", "log(", "ln("),
-                listOf("√", "^", "x²", "x³", "x!"),
-                listOf("π", "e", "(", ")", "Ans")
-            )
-            advRows.forEach { row ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { key ->
-                        KeypadButton(text = key, onClick = { onToken(key) }, modifier = Modifier.weight(1f), isSmall = true)
-                    }
-                }
-            }
-        }
-
-        // 主键盘
+        // 主键盘 (带侧滑高级功能)
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // 数字区
             Column(modifier = Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val numRows = listOf(
-                    listOf("7", "8", "9"),
-                    listOf("4", "5", "6"),
-                    listOf("1", "2", "3")
-                )
-                numRows.forEach { row ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        row.forEach { key ->
-                            KeypadButton(text = key, onClick = { onToken(key) }, modifier = Modifier.weight(1f))
-                        }
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    KeypadButton("7", { onToken("7") }, Modifier.weight(1f), swipeDownText = "sin", onSwipeDown = { onToken("sin(") }, swipeUpText = "asin", onSwipeUp = { onToken("asin(") })
+                    KeypadButton("8", { onToken("8") }, Modifier.weight(1f), swipeDownText = "cos", onSwipeDown = { onToken("cos(") }, swipeUpText = "acos", onSwipeUp = { onToken("acos(") })
+                    KeypadButton("9", { onToken("9") }, Modifier.weight(1f), swipeDownText = "tan", onSwipeDown = { onToken("tan(") }, swipeUpText = "atan", onSwipeUp = { onToken("atan(") })
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    KeypadButton(text = "0", onClick = { onToken("0") }, modifier = Modifier.weight(2f))
-                    KeypadButton(text = ".", onClick = { onToken(".") }, modifier = Modifier.weight(1f))
+                    KeypadButton("4", { onToken("4") }, Modifier.weight(1f), swipeDownText = "ln", onSwipeDown = { onToken("ln(") }, swipeUpText = "e^x", onSwipeUp = { onToken("e^") })
+                    KeypadButton("5", { onToken("5") }, Modifier.weight(1f), swipeDownText = "log", onSwipeDown = { onToken("log(") }, swipeUpText = "10^x", onSwipeUp = { onToken("10^") })
+                    KeypadButton("6", { onToken("6") }, Modifier.weight(1f), swipeDownText = "√", onSwipeDown = { onToken("√") }, swipeUpText = "x²", onSwipeUp = { onToken("x²") })
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    KeypadButton("1", { onToken("1") }, Modifier.weight(1f), swipeDownText = "π", onSwipeDown = { onToken("π") }, swipeUpText = "x!", onSwipeUp = { onToken("x!") })
+                    KeypadButton("2", { onToken("2") }, Modifier.weight(1f), swipeDownText = "e", onSwipeDown = { onToken("e") }, swipeUpText = "x³", onSwipeUp = { onToken("x³") })
+                    KeypadButton("3", { onToken("3") }, Modifier.weight(1f), swipeDownText = "^", onSwipeDown = { onToken("^") }, swipeUpText = "Ans", onSwipeUp = { onToken("Ans") })
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    KeypadButton("0", { onToken("0") }, Modifier.weight(2f), swipeDownText = "(", onSwipeDown = { onToken("(") }, swipeUpText = ")", onSwipeUp = { onToken(")") })
+                    KeypadButton(".", { onToken(".") }, Modifier.weight(1f), swipeDownText = ",", onSwipeDown = { onToken(",") })
                 }
             }
             
             // 操作符区
             Column(modifier = Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val dangerColor = if (isDarkMode) Color(0xFFFF4D4D) else Color(0xFFE57373)
-                KeypadButton(text = "⌫", onClick = onDelete, accent = false, modifier = Modifier.fillMaxWidth(), contentColor = dangerColor)
-                KeypadButton(text = "C", onClick = onClear, accent = false, modifier = Modifier.fillMaxWidth(), contentColor = dangerColor)
-                KeypadButton(text = "÷", onClick = { onToken("÷") }, accent = true, modifier = Modifier.fillMaxWidth())
-                KeypadButton(text = "×", onClick = { onToken("×") }, accent = true, modifier = Modifier.fillMaxWidth())
+                KeypadButton("⌫", onDelete, Modifier.fillMaxWidth(), accent = false, contentColor = dangerColor)
+                KeypadButton("C", onClear, Modifier.fillMaxWidth(), accent = false, contentColor = dangerColor)
+                KeypadButton("÷", { onToken("÷") }, Modifier.fillMaxWidth(), accent = true)
+                KeypadButton("×", { onToken("×") }, Modifier.fillMaxWidth(), accent = true)
             }
             
             // 主执行区
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                KeypadButton(text = "-", onClick = { onToken("-") }, accent = true, modifier = Modifier.fillMaxWidth())
-                KeypadButton(text = "+", onClick = { onToken("+") }, accent = true, modifier = Modifier.fillMaxWidth())
+                KeypadButton("-", { onToken("-") }, Modifier.fillMaxWidth(), accent = true)
+                KeypadButton("+", { onToken("+") }, Modifier.fillMaxWidth(), accent = true)
                 KeypadButton(
                     text = "=", 
                     onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onEqual() }, 
-                    accent = true, 
                     modifier = Modifier.weight(1f).fillMaxWidth(),
+                    accent = true, 
                     fillHeight = true,
                     containerColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.2f) else ForestGreen,
                     contentColor = if (isDarkMode) Color(0xFF66FFB2) else CloudWhite
@@ -3220,7 +3381,11 @@ private fun KeypadButton(
     isSmall: Boolean = false,
     fillHeight: Boolean = false,
     containerColor: Color? = null,
-    contentColor: Color? = null
+    contentColor: Color? = null,
+    swipeUpText: String? = null,
+    onSwipeUp: (() -> Unit)? = null,
+    swipeDownText: String? = null,
+    onSwipeDown: (() -> Unit)? = null
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     val haptic = LocalHapticFeedback.current
@@ -3258,27 +3423,91 @@ private fun KeypadButton(
 
     val finalModifier = if (fillHeight) modifier.fillMaxHeight() else modifier.height(if (isSmall) 42.dp else 62.dp)
     
+    var isSwiping by remember { mutableStateOf(false) }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
     Surface(
-        onClick = { 
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick() 
-        },
-        modifier = finalModifier.graphicsLayer { scaleX = scale; scaleY = scale },
+        modifier = finalModifier
+            .graphicsLayer { 
+                scaleX = scale
+                scaleY = scale 
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = { offset ->
+                        val press = androidx.compose.foundation.interaction.PressInteraction.Press(offset)
+                        coroutineScope.launch {
+                            interactionSource.emit(press)
+                        }
+                        try {
+                            awaitRelease()
+                            coroutineScope.launch {
+                                interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press))
+                            }
+                        } catch (c: androidx.compose.foundation.gestures.GestureCancellationException) {
+                            coroutineScope.launch {
+                                interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press))
+                            }
+                        }
+                    },
+                    onTap = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onClick()
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { isSwiping = true },
+                    onDragEnd = { isSwiping = false },
+                    onDragCancel = { isSwiping = false },
+                    onDrag = { change, dragAmount ->
+                        if (!isSwiping) return@detectDragGestures
+                        if (dragAmount.y > 20f && swipeDownText != null && onSwipeDown != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSwipeDown()
+                            isSwiping = false
+                        } else if (dragAmount.y < -20f && swipeUpText != null && onSwipeUp != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSwipeUp()
+                            isSwiping = false
+                        }
+                    }
+                )
+            },
         shape = RoundedCornerShape(if (isSmall) 18.dp else 22.dp),
         color = animatedBgColor,
-        interactionSource = interactionSource,
+        shadowElevation = 0.dp, // 彻底关闭所有按键的阴影，避免 Compose 渲染层在透明/彩色背景下产生奇怪的矩形轮廓
         border = androidx.compose.foundation.BorderStroke(
             width = 1.dp,
             color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f)
         )
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = text,
-                style = if (isSmall) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium,
-                color = textColor,
-                fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium
-            )
+        Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
+            if (swipeUpText != null) {
+                Text(
+                    text = swipeUpText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = textColor.copy(alpha = 0.6f),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp)
+                )
+            }
+            if (swipeDownText != null) {
+                Text(
+                    text = swipeDownText,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = textColor.copy(alpha = 0.6f),
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+                )
+            }
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = text,
+                    style = if (isSmall) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium,
+                    color = textColor,
+                    fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium
+                )
+            }
         }
     }
 }
