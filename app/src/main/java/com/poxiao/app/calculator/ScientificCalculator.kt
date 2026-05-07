@@ -24,6 +24,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.consumePositionChange
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -4324,8 +4325,61 @@ private fun ProKeypad(
 ) {
     val haptic = LocalHapticFeedback.current
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
-    
+    val context = LocalContext.current
+    val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
+
+    // 单位选择器状态
+    var showUnitPicker by remember { mutableStateOf(false) }
+    val units = listOf(
+        "m", "km", "cm", "mm", "in", "ft", // 长度
+        "kg", "g", "t",                    // 质量
+        "s", "min", "h",                  // 时间
+        "N", "J", "W"                     // 力/能/功率
+    )
+
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 单位选择器浮层
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showUnitPicker,
+            enter = fadeIn() + androidx.compose.animation.expandVertically(),
+            exit = fadeOut() + androidx.compose.animation.shrinkVertically()
+        ) {
+            LiquidGlassSurface(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                cornerRadius = 20.dp,
+                tint = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.4f),
+                borderColor = Color.White.copy(alpha = 0.1f)
+            ) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    units.forEach { unit ->
+                        Surface(
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+                                }
+                                onToken(unit)
+                                showUnitPicker = false
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.6f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                        ) {
+                            Text(
+                                text = unit,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (isDarkMode) CloudWhite else PineInk,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // 模式切换条与光标控制
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -4428,7 +4482,7 @@ private fun ProKeypad(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     KeypadButton("0", { onToken("0") }, Modifier.weight(1.5f), swipeDownText = "(", onSwipeDown = { onToken("(") }, swipeUpText = ")", onSwipeUp = { onToken(")") })
                     KeypadButton("x", { onToken("x") }, Modifier.weight(0.8f), accent = true, contentColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), swipeDownText = "y", onSwipeDown = { onToken("y") })
-                    KeypadButton(".", { onToken(".") }, Modifier.weight(0.8f), swipeDownText = ",", onSwipeDown = { onToken(",") }, swipeUpText = "d/dx", onSwipeUp = { onToken("diff(") })
+                    KeypadButton(".", { onToken(".") }, Modifier.weight(0.8f), swipeDownText = ",", onSwipeDown = { onToken(",") }, swipeUpText = "d/dx", onSwipeUp = { onToken("diff(") }, onLongClick = { showUnitPicker = !showUnitPicker })
                 }
             }
             
@@ -4488,7 +4542,8 @@ private fun KeypadButton(
     swipeUpText: String? = null,
     onSwipeUp: (() -> Unit)? = null,
     swipeDownText: String? = null,
-    onSwipeDown: (() -> Unit)? = null
+    onSwipeDown: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     
@@ -4549,7 +4604,7 @@ private fun KeypadButton(
                     scaleX = scale
                     scaleY = scale 
                 }
-                .pointerInput(Unit) {
+                .pointerInput(onLongClick) {
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitFirstDown()
@@ -4560,8 +4615,27 @@ private fun KeypadButton(
                             var totalY = 0f
                             var isDragTriggered = false
                             var hasExecuted = false
+                            var isLongClickTriggered = false
+
+                            // 启动长按计时
+                            val longClickJob = if (onLongClick != null) {
+                                coroutineScope.launch {
+                                    withTimeoutOrNull(500L) {
+                                        // 等待直到被取消或超时
+                                        kotlinx.coroutines.delay(600L)
+                                    } ?: run {
+                                        // 超时且未取消，触发长按
+                                        if (!isDragTriggered && !hasExecuted) {
+                                            isLongClickTriggered = true
+                                            performVibration(40L)
+                                            onLongClick()
+                                        }
+                                    }
+                                }
+                            } else null
                             
                             val dragResult = verticalDrag(down.id) { change ->
+                                longClickJob?.cancel() // 产生位移，取消长按
                                 val dragAmount = change.positionChange().y
                                 totalY += dragAmount
                                 change.consume()
@@ -4579,7 +4653,7 @@ private fun KeypadButton(
                                 }
 
                                 // 执行逻辑
-                                if (!hasExecuted) {
+                                if (!hasExecuted && !isLongClickTriggered) {
                                     if (totalY > 120f && swipeDownText != null && onSwipeDown != null) {
                                         performVibration(45L) // 侧滑执行强震动
                                         onSwipeDown()
@@ -4594,10 +4668,12 @@ private fun KeypadButton(
                                 }
                             }
 
+                            longClickJob?.cancel()
+
                             // 抬起处理
                             if (dragResult || !isDragTriggered) {
                                 // 如果是点击
-                                if (!isDragTriggered) {
+                                if (!isDragTriggered && !isLongClickTriggered) {
                                     val vibrationDuration = when {
                                         text == "=" || containerColor != null -> 50L
                                         text == "⌫" || text == "C" -> 40L

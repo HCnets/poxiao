@@ -89,8 +89,8 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.6.0** | **符号计算引擎 (Symbolic Math Engine)** | 深度集成符号代数系统 (CAS)，支持变量 (x, y) 运算、代数式简化及符号导数 (diff) 计算；键盘新增 x, y, d/dx 快捷入口。 |
-| `历史版本` | **v1.5.3.4** | **变量冲突修复 (Variable Conflict Patch)** | 修复了 ScientificCalculator.kt 中由于重复声明 `haptic` 导致的编译错误；统一了震动反馈链路。 |
+| `当前` | **v1.6.1** | **液态单位选择器 (Liquid Unit Picker)** | 在 `.` 键引入长按唤起单位条功能，支持 15+ 种专业物理单位 (m, kg, N, J 等) 的快捷输入；优化量纲计算链路，彻底消灭功能空壳。 |
+| `历史版本` | **v1.6.0** | **符号计算引擎 (Symbolic Math Engine)** | 深度集成符号代数系统 (CAS)，支持变量 (x, y) 运算、代数式简化及符号导数 (diff) 计算；键盘新增 x, y, d/dx 快捷入口。 |
 | `历史版本` | **v1.5.1.1** | **编译稳定性补丁 (Compilation Stability Patch)** | 修复了 ScientificCalculator.kt 中的作用域引用错误 (statsRawX/Y)、CalcButton 参数识别异常以及 Int 比较时的操作符修饰符误报问题。 |
 | `历史版本` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
 
