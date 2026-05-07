@@ -68,25 +68,25 @@
 | `10` | **多产品线** | **架构演进** | 引入 hitsz / academic / lite 产品线方案，支持能力感知的动态裁剪。 |
 | `11` | **多智能体** | **内核升级** | 落地基于 `async` 的并行专家网络与 DeepSeek 反思协议，实现主动式助理。 |
 | `12` | **极致 UI** | **视觉升维** | 落地 Liquid Glass 2.0，重塑卡片排版留白，增加 SharedElement 共享元素路由过渡与全局 Haptics 触觉物理反馈。 |
-| `13` | **v1.2.0** | **稳定版 (Stable)** | **MAS & Liquid Glass 2.0** 正式发布，兼顾智能编排与高定物理动效。 |
-| `14` | **v1.2.1** | **稳定版 (Stable)** | **UI 极致打磨** 发布，全面引入骨架屏 (SkeletonPlaceholder) 与状态交错动画。 |
-| `15` | **v1.2.2** | **稳定版 (Stable)** | **陀螺仪动效调优** 发布，引入自适应基准面算法，彻底解决 UI 偏移问题。 |
-| `16` | **v1.2.3** | **稳定版 (Stable)** | **全局组件大一统** 发布，重构计算器等二级页面，消灭僵硬色块，推行 Z 轴浮岛设计。 |
-| `17` | **v1.2.4** | **稳定版 (Stable)** | **人机交互重构** 发布，调整视线焦点与键盘布局，引入实时推演反馈。 |
-| `18` | **v1.2.5** | **稳定版 (Stable)** | **空间容器重塑** 发布，首页全面引入 Bento Box (便当盒) 仪表盘网格布局。 |
-| `19` | **v1.2.6** | **稳定版 (Stable)** | **Golden Flow 革命** 发布，彻底重构科学计算器，推行固定底部键盘与全局焦点路由。 |
-| `20` | **v1.2.7** | **稳定版 (Stable)** | **Obsidian Neon 进化** 发布，全量落地计算器双主题美学与物理级 Haptics 触觉反馈。 |
-| `21` | **v1.2.8** | **稳定版 (Stable)** | **Pro Toolchain & Gesture** 发布，实现专业数学工具链逻辑闭环，引入侧滑删除等高阶交互。 |
-| `22` | **v1.2.9** | **稳定版 (Stable)** | **Workspace Header 优化** 发布，修复计算器顶部信息卡片纵向排版导致的面板遮挡问题，提升空间利用率。 |
-| `23` | **v1.3.0** | **稳定版 (Stable)** | **Ultimate Calculator** 发布，引入 Swipe-on-Keys 全域交互、Undo/Redo 堆栈、Base-N 实时预览、智能括号补全与一键复制。 |
-| `24` | **v1.3.1** | **稳定版 (Stable)** | **Natural Math Engine** 发布，实现自然数学书写渲染 (WYSIWYG)，支持嵌套分数、根式与物理光标定位。 |
-| `25` | **v1.3.2** | **稳定版 (Stable)** | **Intelligence Awareness** 发布，引入实时函数图像预览 (Graphing Sparkline)、触觉光标刻度感。 |
-| `26` | **v1.3.3** | **稳定版 (Stable)** | **Unit-Aware Computation** 发布，支持带单位的物理混合运算（如 5km + 300m）与自动量纲推导。 |
-| `27` | **v1.3.5** | **稳定版 (Stable)** | **Architectural Stability** 发布，实施架构级递归深度监控与手势硬边界钳位。 |
-| `28` | **v1.3.6** | **稳定版 (Stable)** | **Rendering Pipeline Fix** 发布，修正 Compose 渲染管线中的非法 Composable 调用，下沉防御逻辑至解析层。 |
-| `29` | **v1.3.7** | **稳定版 (Stable)** | **History List Stabilization** 发布，引入 HistoryRecord 唯一标识符系统，解决历史记录长列表滑动时的键值冲突闪退。 |
-| `30` | **v1.3.8** | **稳定版 (Stable)** | **Natural Grid Input** 发布，重构矩阵与向量模块为可视化网格布局，支持物理单元格导航与嵌套渲染。 |
-| `当前` | **v1.3.8.3** | **稳定版 (Stable)** | **Architecture State Patch** 发布，修复了模块容器中 `focusTarget` 的 `val` 重赋值编译错误，统一了状态上报链路。 |
+| `13` | **v1.2.0** | **MAS & Liquid Glass 2.0** | 落地基于协程并行的专家智能体系统，UI 引入物理视差陀螺仪动效与风格无级自定义。 |
+| `14` | **v1.2.1** | **Skeleton & Fixes** | 全面引入骨架屏 (SkeletonPlaceholder) 过渡状态，修复多处编译时重声明与模型冲突。 |
+| `15` | **v1.2.2** | **Gyroscope Refinement** | 为陀螺仪视差引入 Leaky Integrator 自居中算法，解决初始姿态偏移与抖动问题。 |
+| `16` | **v1.2.3** | **Global Component Unity** | 将二级页面老旧 Surface 替换为 LiquidGlass，引入顶层 Z 轴悬浮岛 (Floating Header) 布局。 |
+| `17` | **v1.2.4** | **Ergonomics Overhaul** | 对重度输入模块进行视线焦点与按键网格重组，支持不等宽键盘与实时公式推演反馈。 |
+| `18` | **v1.2.5** | **Bento Box Layout** | 彻底重构首页模块加载引擎，全面引入 Bento Box (便当盒) 交错网格布局，提升空间利用率。 |
+| `19` | **v1.2.6** | **Golden Flow Revolution** | 彻底重构科学计算器，采用固定底部键盘布局，引入 `FocusTarget` 全局焦点路由系统。 |
+| `20` | **v1.2.7** | **Obsidian Neon Evolution** | 全量落地计算器双主题美学 (iOS-like / Obsidian)，为所有交互组件注入物理级 HapticFeedback。 |
+| `21` | **v1.2.8** | **Pro Toolchain & Gesture** | 重构方程、复数、向量等专业模块，支持极坐标运算；为历史记录引入侧滑删除高阶交互。 |
+| `22` | **v1.2.9** | **Workspace Header Fix** | 优化顶部信息卡片排版，将标题由纵向改为横向紧凑排列，解决面板遮挡问题。 |
+| `23` | **v1.3.0** | **Ultimate Calculator** | 引入 Swipe-on-Keys 全域交互、Undo/Redo 堆栈、Base-N 实时预览与智能括号补全。 |
+| `24` | **v1.3.1** | **Natural Math Engine** | 实现自然数学渲染 (WYSIWYG)，支持分式、根号递归排版，开发物理光标逻辑跳转系统。 |
+| `25` | **v1.3.2** | **Intelligence Awareness** | 引入实时函数图像预览 (`Graphing Sparkline`)，利用 `HapticFeedback` 实装物理光标刻度感。 |
+| `26` | **v1.3.3** | **Unit-Aware Computation** | 科学计算器正式支持物理单位感知计算，实现 `UnitDimension` 量纲代数系统。 |
+| `27` | **v1.3.5** | **Architectural Stability** | 实施递归深度监控 (上限 100 层) 与表达式长度限制，注入全局 `runCatching` 异常拦截器。 |
+| `28` | **v1.3.6** | **Rendering Pipeline Fix** | 修正 Compose 渲染管线中的非法 Composable 调用，下沉 UI 防御逻辑至解析层。 |
+| `29` | **v1.3.7** | **History Stabilization** | 引入 `HistoryRecord` 唯一标识符系统，解决 `LazyColumn` 在 `reverseLayout` 下的键值冲突闪退。 |
+| `30` | **v1.3.8** | **Natural Grid Input** | 重构矩阵与向量模块为可视化网格布局，支持物理单元格导航与嵌套渲染，实现类似 Excel 的跳转。 |
+| `当前` | **v1.3.8.3** | **Architecture State Patch** | 修复 `FixedKeypadModuleContainer` 中的 `val` 重赋值编译错误，统一状态提升 (State Hoisting) 链路。 |
 
 </details>
 
