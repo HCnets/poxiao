@@ -94,7 +94,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
@@ -575,22 +574,16 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
                                                             if (target.isY) {
-                                                                val list = rawY.split(",").toMutableList()
+                                                                val list = statsRawY.split(",").toMutableList()
                                                                 while (list.size <= target.index) list.add("")
                                                                 list[target.index] = if (list[target.index] == "0") mappedToken else list[target.index] + mappedToken
-                                                                onRawYChange(list.joinToString(","))
+                                                                statsRawY = list.joinToString(",")
                                                             } else {
-                                                                val list = rawX.split(",").toMutableList()
+                                                                val list = statsRawX.split(",").toMutableList()
                                                                 while (list.size <= target.index) list.add("")
                                                                 list[target.index] = if (list[target.index] == "0") mappedToken else list[target.index] + mappedToken
-                                                                onRawXChange(list.joinToString(","))
+                                                                statsRawX = list.joinToString(",")
                                                             }
-                                                        }
-                                                        is FocusTarget.StatisticsCell -> {
-                                                            var nextIndex = target.index + delta
-                                                            if (nextIndex >= 5) nextIndex = 0
-                                                            else if (nextIndex < 0) nextIndex = 4
-                                                            focusTarget = FocusTarget.StatisticsCell(nextIndex, target.isY)
                                                         }
                                                         is FocusTarget.BaseInput -> {
                                                             baseValue += mappedToken
@@ -631,16 +624,16 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
                                                             if (target.isY) {
-                                                                val list = rawY.split(",").toMutableList()
+                                                                val list = statsRawY.split(",").toMutableList()
                                                                 if (list.size > target.index) {
                                                                     list[target.index] = list[target.index].dropLast(1).ifEmpty { "0" }
-                                                                    onRawYChange(list.joinToString(","))
+                                                                    statsRawY = list.joinToString(",")
                                                                 }
                                                             } else {
-                                                                val list = rawX.split(",").toMutableList()
+                                                                val list = statsRawX.split(",").toMutableList()
                                                                 if (list.size > target.index) {
                                                                     list[target.index] = list[target.index].dropLast(1).ifEmpty { "0" }
-                                                                    onRawXChange(list.joinToString(","))
+                                                                    statsRawX = list.joinToString(",")
                                                                 }
                                                             }
                                                         }
@@ -681,16 +674,16 @@ fun ScientificCalculatorScreen(
                                                         }
                                                         is FocusTarget.StatisticsCell -> {
                                                             if (target.isY) {
-                                                                val list = rawY.split(",").toMutableList()
+                                                                val list = statsRawY.split(",").toMutableList()
                                                                 if (list.size > target.index) {
                                                                     list[target.index] = "0"
-                                                                    onRawYChange(list.joinToString(","))
+                                                                    statsRawY = list.joinToString(",")
                                                                 }
                                                             } else {
-                                                                val list = rawX.split(",").toMutableList()
+                                                                val list = statsRawX.split(",").toMutableList()
                                                                 if (list.size > target.index) {
                                                                     list[target.index] = "0"
-                                                                    onRawXChange(list.joinToString(","))
+                                                                    statsRawX = list.joinToString(",")
                                                                 }
                                                             }
                                                         }
@@ -739,7 +732,8 @@ fun ScientificCalculatorScreen(
                                                         }
                                                     }
                                                 },
-                                                onMoveCursor = { delta ->
+                                                onMoveCursor = { d ->
+                                                    val delta = d // 显式命名
                                                     when (val target = focusTarget) {
                                                         is FocusTarget.ComputeExpression -> safeCursorMove(computeCursorIndex + delta)
                                                         is FocusTarget.MatrixGridCell -> {
@@ -759,24 +753,27 @@ fun ScientificCalculatorScreen(
                                                             focusTarget = FocusTarget.MatrixGridCell(nextRow, nextCol, target.isMatrixB)
                                                         }
                                                         is FocusTarget.EquationGridCell -> {
-                                                            // 根据当前模式决定列数
-                                                            // 模式存储在 genericFields 或局部状态，这里由于是 lambda，我们可以从 routeState 判断或简化逻辑
-                                                            // 实际上 EquationGridCell 的导航逻辑取决于 UI 渲染时的 mode
-                                                            // 这里先实现一个通用的循环导航
                                                             var nextCol = target.col + delta
                                                             var nextRow = target.row
                                                             
-                                                            // 简单的 5 列兼容逻辑 (多项式最大 5 列，二元一次 3 列)
                                                             val maxCols = 5 
-                                                            if (nextCol >= maxCols) { nextCol = 0; nextRow = (nextRow + 1) % 2 }
-                                                            else if (nextCol < 0) { nextCol = maxCols - 1; nextRow = (nextRow - 1 + 2) % 2 }
+                                                            if (nextCol >= maxCols) { 
+                                                                nextCol = 0
+                                                                nextRow = (nextRow + 1) % 2 
+                                                            } else if (nextCol < 0) { 
+                                                                nextCol = maxCols - 1
+                                                                nextRow = (nextRow - 1 + 2) % 2 
+                                                            }
                                                             
                                                             focusTarget = FocusTarget.EquationGridCell(nextRow, nextCol, target.equationId)
                                                         }
                                                         is FocusTarget.ComplexGridCell -> {
                                                             var nextIndex = target.index + delta
-                                                            if (nextIndex >= 4) nextIndex = 0
-                                                            else if (nextIndex < 0) nextIndex = 3
+                                                            if (nextIndex >= 4) {
+                                                                nextIndex = 0
+                                                            } else if (nextIndex < 0) {
+                                                                nextIndex = 3
+                                                            }
                                                             focusTarget = FocusTarget.ComplexGridCell(nextIndex, target.isPolar)
                                                         }
                                                         else -> {}
@@ -3195,29 +3192,40 @@ private fun StatisticsModulePro(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CalcButton("执行分析", modifier = Modifier.weight(1f)) {
-                result = runCatching {
-                    val valuesX = listX.mapNotNull { it.toDoubleOrNull() }
-                    if (valuesX.isEmpty()) throw Exception("X 数据为空")
-                    
-                    if (mode == "单变量") {
-                        val mean = valuesX.average()
-                        val variance = valuesX.map { (it - mean).pow(2) }.average()
-                        "样本数: ${valuesX.size}\n均值: ${formatBySetting(mean, settings)}\n标准差: ${formatBySetting(sqrt(variance), settings)}\n方差: ${formatBySetting(variance, settings)}"
-                    } else {
-                        val valuesY = listY.mapNotNull { it.toDoubleOrNull() }
-                        if (valuesY.size < valuesX.size) throw Exception("Y 数据长度不足")
-                        "回归分析暂未实现..."
-                    }
-                }.getOrElse { it.message ?: "分析失败" }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CalcButton(
+                text = "执行分析", 
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    result = runCatching {
+                        val valuesX = listX.mapNotNull { it.toDoubleOrNull() }
+                        if (valuesX.isEmpty()) throw Exception("X 数据为空")
+                        
+                        if (mode == "单变量") {
+                            val mean = valuesX.average()
+                            val variance = valuesX.map { (it - mean).pow(2) }.average()
+                            "样本数: ${valuesX.size}\n均值: ${formatBySetting(mean, settings)}\n标准差: ${formatBySetting(sqrt(variance), settings)}\n方差: ${formatBySetting(variance, settings)}"
+                        } else {
+                            val valuesY = listY.mapNotNull { it.toDoubleOrNull() }
+                            if (valuesY.size < valuesX.size) throw Exception("Y 数据长度不足")
+                            "回归分析暂未实现..."
+                        }
+                    }.getOrElse { it.message ?: "分析失败" }
+                }
+            )
             
-            CalcButton("清空", modifier = Modifier.weight(0.4f)) {
-                onRawXChange("")
-                onRawYChange("")
-                result = "已清空数据"
-            }
+            CalcButton(
+                text = "清空", 
+                modifier = Modifier.weight(0.4f),
+                onClick = {
+                    onRawXChange("")
+                    onRawYChange("")
+                    result = "已清空数据"
+                }
+            )
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -3824,14 +3832,14 @@ private fun MatrixGridEditor(
 }
 
 @Composable
-private fun CalcButton(text: String, onClick: () -> Unit) {
+private fun CalcButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
     Button(
         onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
         shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(containerColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.2f) else ForestGreen),
-        modifier = Modifier.fillMaxWidth().height(52.dp),
+        modifier = modifier.fillMaxWidth().height(52.dp),
     ) {
         Text(text, color = if (isDarkMode) Color(0xFF66FFB2) else CloudWhite, style = MaterialTheme.typography.titleSmall)
     }

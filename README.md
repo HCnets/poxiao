@@ -89,10 +89,9 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.5.1** | **液态玻璃 2.0 深度优化 (Refined Glassmorphism)** | 进一步细化了 Liquid Glass 2.0 的渲染细节，包括卡片边框的呼吸灯效、头部区域的动态发光以及更流畅的按键反馈动画。 |
-| `历史补丁` | **v1.4.0** | **复数可视化与极坐标优化 (Complex WYSIWYG)** | 全面重构复数模块为 WYSIWYG 布局，支持代数式与极坐标式的自然数学渲染。 |
-| `历史补丁` | **v1.3.9.1** | **导航逻辑修正 (Navigation Patch)** | 修复了 `ScientificCalculatorScreen` 中 `onMoveCursor` 回调的状态引用错误。 |
-| `历史补丁` | **v1.3.8.3** | **架构状态补丁 (Architecture State Patch)** | 修复 `FixedKeypadModuleContainer` 中的 `val` 重赋值编译错误。统一状态提升 (State Hoisting) 链路，确保模块间通信逻辑闭合。 |链路，确保模块间通信逻辑闭合。 |
+| `当前` | **v1.5.1.1** | **编译稳定性补丁 (Compilation Stability Patch)** | 修复了 ScientificCalculator.kt 中的作用域引用错误 (statsRawX/Y)、CalcButton 参数识别异常以及 Int 比较时的操作符修饰符误报问题。 |
+| `历史版本` | **v1.5.1** | **液态玻璃 2.0 深度优化 (Refined Glassmorphism)** | 进一步细化了 Liquid Glass 2.0 的渲染细节，包括卡片边框的呼吸灯效、头部区域的动态发光以及更流畅的按键反馈动画。 |
+| `历史版本` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
 
 </details>
 
