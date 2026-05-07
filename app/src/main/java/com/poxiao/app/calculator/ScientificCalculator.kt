@@ -8,13 +8,16 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.horizontalScroll
@@ -4127,43 +4130,44 @@ private fun ProCalculatorDisplay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .pointerInput(Unit) {
-                        // 使用 awaitEachGesture 手动分发，确保不与内部 Scroll 冲突
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            var dragAccumulator = 0f
-                            
+                        awaitPointerEventScope {
                             while (true) {
-                                val event = awaitPointerEvent()
-                                val dragEvent = event.changes.firstOrNull() ?: break
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var dragAccumulator = 0f
                                 
-                                 if (dragEvent.pressed) {
-                                    val dragAmount = dragEvent.position.x - dragEvent.previousPosition.x
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val dragEvent = event.changes.firstOrNull() ?: break
                                     
-                                    // 分配给滑动删除或光标移动
-                                    if (cursorIndex == value.length && offsetX < 0) {
-                                        offsetX = (offsetX + dragAmount).coerceAtMost(0f).coerceAtLeast(-100f)
-                                        dragEvent.consume()
-                                    } else {
-                                        dragAccumulator += dragAmount
-                                        val threshold = 35f 
-                                        if (abs(dragAccumulator) > threshold) {
-                                            val direction = if (dragAccumulator > 0) 1 else -1
-                                            if ((direction == 1 && cursorIndex < value.length) || (direction == -1 && cursorIndex > 0)) {
-                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                onCursorMove(cursorIndex + direction)
-                                                dragEvent.consume()
+                                    if (dragEvent.pressed) {
+                                        val dragAmount = dragEvent.position.x - dragEvent.previousPosition.x
+                                        
+                                        // 分配给滑动删除或光标移动
+                                        if (cursorIndex == value.length && offsetX < 0) {
+                                            offsetX = (offsetX + dragAmount).coerceAtMost(0f).coerceAtLeast(-100f)
+                                            dragEvent.consume()
+                                        } else {
+                                            dragAccumulator += dragAmount
+                                            val threshold = 35f 
+                                            if (kotlin.math.abs(dragAccumulator) > threshold) {
+                                                val direction = if (dragAccumulator > 0) 1 else -1
+                                                if ((direction == 1 && cursorIndex < value.length) || (direction == -1 && cursorIndex > 0)) {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    onCursorMove(cursorIndex + direction)
+                                                    dragEvent.consume()
+                                                }
+                                                dragAccumulator = 0f
                                             }
-                                            dragAccumulator = 0f
                                         }
+                                    } else {
+                                        // 抬起手势
+                                        if (offsetX < -50f && value.isNotEmpty()) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onDelete?.invoke()
+                                        }
+                                        offsetX = 0f
+                                        break
                                     }
-                                } else {
-                                    // 抬起手势
-                                    if (offsetX < -50f && value.isNotEmpty()) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onDelete?.invoke()
-                                    }
-                                    offsetX = 0f
-                                    break
                                 }
                             }
                         }
