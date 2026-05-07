@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.consumePositionChange
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -4608,7 +4609,7 @@ private fun KeypadButton(
                     awaitPointerEventScope {
                         while (true) {
                             val down = awaitFirstDown()
-                            performVibration(25L) // 按下即震动，原生 API 确保触感
+                            performVibration(25L) // 按下即震动
                             val press = androidx.compose.foundation.interaction.PressInteraction.Press(down.position)
                             coroutineScope.launch { interactionSource.emit(press) }
                             
@@ -4620,71 +4621,74 @@ private fun KeypadButton(
                             // 启动长按计时
                             val longClickJob = if (onLongClick != null) {
                                 coroutineScope.launch {
-                                    withTimeoutOrNull(500L) {
-                                        // 等待直到被取消或超时
-                                        kotlinx.coroutines.delay(600L)
-                                    } ?: run {
-                                        // 超时且未取消，触发长按
-                                        if (!isDragTriggered && !hasExecuted) {
-                                            isLongClickTriggered = true
-                                            performVibration(40L)
-                                            onLongClick()
-                                        }
+                                    delay(600L)
+                                    if (!isDragTriggered && !hasExecuted) {
+                                        isLongClickTriggered = true
+                                        performVibration(40L)
+                                        onLongClick()
                                     }
                                 }
                             } else null
                             
-                            val dragResult = verticalDrag(down.id) { change ->
-                                longClickJob?.cancel() // 产生位移，取消长按
-                                val dragAmount = change.positionChange().y
-                                totalY += dragAmount
-                                change.consume()
+                            // 手动实现拖动手势循环，避免 RestrictedSuspension 错误
+                            var pointerId = down.id
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.find { it.id == pointerId } ?: break
                                 
-                                // 预览逻辑：基于累计位移而非单次增量
-                                if (kotlin.math.abs(totalY) > 30f) {
-                                    isDragTriggered = true
-                                    val newPreview = if (totalY > 30f) swipeDownText else if (totalY < -30f) swipeUpText else null
-                                    if (newPreview != swipePreviewText && newPreview != null) {
-                                        swipePreviewText = newPreview
-                                        performVibration(15L) // 预览切换震动
+                                if (change.pressed) {
+                                    val dragAmount = change.positionChange().y
+                                    if (dragAmount != 0f) {
+                                        longClickJob?.cancel()
+                                        totalY += dragAmount
+                                        change.consume()
+                                        
+                                        // 预览逻辑
+                                        if (kotlin.math.abs(totalY) > 30f) {
+                                            isDragTriggered = true
+                                            val newPreview = if (totalY > 30f) swipeDownText else if (totalY < -30f) swipeUpText else null
+                                            if (newPreview != swipePreviewText && newPreview != null) {
+                                                swipePreviewText = newPreview
+                                                performVibration(15L)
+                                            }
+                                        } else {
+                                            swipePreviewText = null
+                                        }
+
+                                        // 执行逻辑
+                                        if (!hasExecuted && !isLongClickTriggered) {
+                                            if (totalY > 120f && swipeDownText != null && onSwipeDown != null) {
+                                                performVibration(45L)
+                                                onSwipeDown()
+                                                hasExecuted = true
+                                                swipePreviewText = null
+                                            } else if (totalY < -120f && swipeUpText != null && onSwipeUp != null) {
+                                                performVibration(45L)
+                                                onSwipeUp()
+                                                hasExecuted = true
+                                                swipePreviewText = null
+                                            }
+                                        }
                                     }
                                 } else {
-                                    swipePreviewText = null
-                                }
-
-                                // 执行逻辑
-                                if (!hasExecuted && !isLongClickTriggered) {
-                                    if (totalY > 120f && swipeDownText != null && onSwipeDown != null) {
-                                        performVibration(45L) // 侧滑执行强震动
-                                        onSwipeDown()
-                                        hasExecuted = true
-                                        swipePreviewText = null
-                                    } else if (totalY < -120f && swipeUpText != null && onSwipeUp != null) {
-                                        performVibration(45L) // 侧滑执行强震动
-                                        onSwipeUp()
-                                        hasExecuted = true
-                                        swipePreviewText = null
+                                    // 抬起
+                                    longClickJob?.cancel()
+                                    if (!isDragTriggered && !isLongClickTriggered) {
+                                        val vibrationDuration = when {
+                                            text == "=" || containerColor != null -> 50L
+                                            text == "⌫" || text == "C" -> 40L
+                                            else -> 25L
+                                        }
+                                        performVibration(vibrationDuration)
+                                        onClick()
+                                        coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press)) }
+                                    } else if (isDragTriggered) {
+                                        coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press)) }
+                                    } else {
+                                        coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press)) }
                                     }
+                                    break
                                 }
-                            }
-
-                            longClickJob?.cancel()
-
-                            // 抬起处理
-                            if (dragResult || !isDragTriggered) {
-                                // 如果是点击
-                                if (!isDragTriggered && !isLongClickTriggered) {
-                                    val vibrationDuration = when {
-                                        text == "=" || containerColor != null -> 50L
-                                        text == "⌫" || text == "C" -> 40L
-                                        else -> 25L
-                                    }
-                                    performVibration(vibrationDuration)
-                                    onClick()
-                                }
-                                coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press)) }
-                            } else {
-                                coroutineScope.launch { interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press)) }
                             }
                             
                             swipePreviewText = null
