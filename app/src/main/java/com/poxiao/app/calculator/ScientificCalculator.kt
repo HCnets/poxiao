@@ -79,6 +79,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -439,6 +440,10 @@ fun ScientificCalculatorScreen(
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
+    // 灵动屏联动状态
+    var lastKeyPressTime by remember { mutableLongStateOf(0L) }
+    val triggerKeyPress = { lastKeyPressTime = System.currentTimeMillis() }
+
     CompositionLocalProvider(
         LocalLiquidGlassStylePreset provides if (isDarkMode) LiquidGlassStylePreset.Hyper else LiquidGlassStylePreset.IOS
     ) {
@@ -479,6 +484,7 @@ fun ScientificCalculatorScreen(
                             directoryOpen = showDirectory,
                             isDarkMode = isDarkMode,
                             onToggleTheme = { isDarkMode = !isDarkMode },
+                            lastKeyPressTime = lastKeyPressTime,
                             modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
                         )
                     }
@@ -557,6 +563,7 @@ fun ScientificCalculatorScreen(
                                         Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                                             ProKeypad(
                                                 onToken = { token ->
+                                                    triggerKeyPress()
                                                     val mappedToken = appendFormulaToken("", token)
                                                     when (val target = focusTarget) {
                                                         is FocusTarget.ComputeExpression -> {
@@ -606,6 +613,7 @@ fun ScientificCalculatorScreen(
                                                     }
                                                 },
                                                 onDelete = {
+                                                    triggerKeyPress()
                                                     when (val target = focusTarget) {
                                                         is FocusTarget.ComputeExpression -> {
                                                             if (computeCursorIndex > 0) {
@@ -658,6 +666,7 @@ fun ScientificCalculatorScreen(
                                                     }
                                                 },
                                                 onClear = {
+                                                    triggerKeyPress()
                                                     when (val target = focusTarget) {
                                                         is FocusTarget.ComputeExpression -> {
                                                             commitExpressionChange("")
@@ -705,6 +714,7 @@ fun ScientificCalculatorScreen(
                                                     }
                                                 },
                                                 onEqual = {
+                                                    triggerKeyPress()
                                                     if (focusTarget == FocusTarget.ComputeExpression && computeExpression.isNotBlank()) {
                                                         // 智能括号补全
                                                         val openBrackets = computeExpression.count { it == '(' }
@@ -780,6 +790,7 @@ fun ScientificCalculatorScreen(
                                                     }
                                                 },
                                                 onUndo = {
+                                                    triggerKeyPress()
                                                     if (undoStack.isNotEmpty()) {
                                                         redoStack.add(computeExpression)
                                                         computeExpression = undoStack.removeLast()
@@ -787,6 +798,7 @@ fun ScientificCalculatorScreen(
                                                     }
                                                 },
                                                 onRedo = {
+                                                    triggerKeyPress()
                                                     if (redoStack.isNotEmpty()) {
                                                         undoStack.add(computeExpression)
                                                         computeExpression = redoStack.removeLast()
@@ -1027,6 +1039,7 @@ private fun CalculatorWorkspaceHeader(
     directoryOpen: Boolean,
     isDarkMode: Boolean,
     onToggleTheme: () -> Unit,
+    lastKeyPressTime: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val palette = tilePalette(title)
@@ -1041,12 +1054,21 @@ private fun CalculatorWorkspaceHeader(
         label = "HeaderAlpha"
     )
 
+    // 灵动屏联动：按键反馈脉冲
+    val pulseAnim = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(lastKeyPressTime) {
+        if (lastKeyPressTime > 0) {
+            pulseAnim.snapTo(1f)
+            pulseAnim.animateTo(0f, animationSpec = tween(400))
+        }
+    }
+
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
-        tint = palette.primary.copy(alpha = glowAlpha),
-        borderColor = if (isDarkMode) palette.primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.4f),
-        blurRadius = 36.dp
+        tint = palette.primary.copy(alpha = (glowAlpha + pulseAnim.value * 0.2f).coerceIn(0f, 1f)),
+        borderColor = if (isDarkMode) palette.primary.copy(alpha = 0.3f + pulseAnim.value * 0.3f) else Color.White.copy(alpha = 0.4f + pulseAnim.value * 0.2f),
+        blurRadius = (36.dp + (pulseAnim.value * 12).dp)
     ) {
         Row(
             modifier = Modifier
@@ -4423,24 +4445,24 @@ private fun KeypadButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.90f else 1.0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
         label = "KeypadScale"
     )
 
     val baseColor = when {
         containerColor != null -> containerColor
-        accent -> if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.16f) else ForestGreen.copy(alpha = 0.12f)
-        else -> if (isDarkMode) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.44f)
+        accent -> if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.22f) else ForestGreen.copy(alpha = 0.16f)
+        else -> if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.48f)
     }
     
     // 按下时的背景色渐变反馈 (世界一流 App 级按压反馈)
     val animatedBgColor by animateColorAsState(
         targetValue = if (isPressed) {
-            if (accent || containerColor != null) baseColor.copy(alpha = baseColor.alpha * 1.5f)
-            else if (isDarkMode) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f)
+            if (accent || containerColor != null) baseColor.copy(alpha = (baseColor.alpha * 1.8f).coerceAtMost(1f))
+            else if (isDarkMode) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.72f)
         } else baseColor,
-        animationSpec = tween(durationMillis = if (isPressed) 50 else 300),
+        animationSpec = tween(durationMillis = if (isPressed) 60 else 350),
         label = "KeypadColor"
     )
     
@@ -4480,7 +4502,11 @@ private fun KeypadButton(
                         }
                     },
                     onTap = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val hapticType = when {
+                            text == "=" || accent || containerColor != null -> HapticFeedbackType.LongPress
+                            else -> HapticFeedbackType.TextHandleMove
+                        }
+                        haptic.performHapticFeedback(hapticType)
                         onClick()
                     }
                 )
