@@ -3091,16 +3091,20 @@ private fun ProCalculatorDisplay(
             
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 表达式输入行 (带模拟光标与侧滑删除)
+            // 表达式输入行 (带模拟光标与区域侧滑控制光标位置)
             var offsetX by remember { mutableStateOf(0f) }
             val animatedOffsetX by animateFloatAsState(targetValue = offsetX)
             val haptic = LocalHapticFeedback.current
+            
+            // 用于计算拖动灵敏度的累加器
+            var cursorDragAccumulator by remember { mutableStateOf(0f) }
             
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures(
+                            onDragStart = { cursorDragAccumulator = 0f },
                             onDragEnd = {
                                 if (offsetX < -50f && value.isNotEmpty()) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -3109,7 +3113,23 @@ private fun ProCalculatorDisplay(
                                 offsetX = 0f
                             },
                             onHorizontalDrag = { _, dragAmount ->
-                                offsetX = (offsetX + dragAmount).coerceAtMost(0f).coerceAtLeast(-100f)
+                                // 分配给滑动删除的阈值 (仅在末尾滑动时触发删除动画)
+                                if (cursorIndex == value.length && dragAmount < 0) {
+                                    offsetX = (offsetX + dragAmount).coerceAtMost(0f).coerceAtLeast(-100f)
+                                } else {
+                                    // 分配给光标移动
+                                    cursorDragAccumulator += dragAmount
+                                    val threshold = 40f // 每滑动 40px 移动一次光标
+                                    if (cursorDragAccumulator > threshold) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onCursorMove(cursorIndex + 1)
+                                        cursorDragAccumulator -= threshold
+                                    } else if (cursorDragAccumulator < -threshold) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        onCursorMove(cursorIndex - 1)
+                                        cursorDragAccumulator += threshold
+                                    }
+                                }
                             }
                         )
                     }
@@ -3136,7 +3156,7 @@ private fun ProCalculatorDisplay(
                         text = formatMathExpression(textBefore, textColor), 
                         style = MaterialTheme.typography.headlineMedium.copy(fontSize = expressionFontSize)
                     )
-                    // 模拟闪烁光标
+                    // 模拟闪烁光标 (适配上标下标的视觉升级)
                     val infiniteTransition = rememberInfiniteTransition()
                     val alpha by infiniteTransition.animateFloat(
                         initialValue = 0f,
@@ -3149,11 +3169,27 @@ private fun ProCalculatorDisplay(
                             repeatMode = RepeatMode.Reverse
                         )
                     )
+                    
+                    // 判断光标是否处于上标环境 (例如前面是一个数字后跟了 ^)
+                    val isSuperscriptEnv = textBefore.lastIndexOf('^') > textBefore.lastIndexOf('+') &&
+                                           textBefore.lastIndexOf('^') > textBefore.lastIndexOf('-') &&
+                                           textBefore.lastIndexOf('^') > textBefore.lastIndexOf('×') &&
+                                           textBefore.lastIndexOf('^') > textBefore.lastIndexOf('÷') &&
+                                           textBefore.lastIndexOf('^') > textBefore.lastIndexOf('(')
+                                           
+                    val cursorHeight = with(LocalDensity.current) { 
+                        if (isSuperscriptEnv) (expressionFontSize.toDp() * 0.7f) else (expressionFontSize.toDp() * 1.2f) 
+                    }
+                    val cursorOffset = with(LocalDensity.current) {
+                        if (isSuperscriptEnv) -(expressionFontSize.toDp() * 0.4f) else 0.dp
+                    }
+
                     Box(
                         modifier = Modifier
+                            .offset(y = cursorOffset)
                             .width(2.5.dp)
-                            .height(with(LocalDensity.current) { expressionFontSize.toDp() * 1.2f })
-                            .background((if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = alpha))
+                            .height(cursorHeight)
+                            .background((if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = alpha), RoundedCornerShape(1.dp))
                     )
                     Text(
                         text = formatMathExpression(textAfter, textColor), 
@@ -3165,7 +3201,7 @@ private fun ProCalculatorDisplay(
             Spacer(modifier = Modifier.height(12.dp))
             
             // 结果展示行 (带错误抖动效果)
-            val isError = result == "Error"
+            val isError = result.startsWith("语法错误") || result.startsWith("计算错误") || result.startsWith("Error")
             var shakeOffset by remember { mutableStateOf(0f) }
             
             LaunchedEffect(result) {
@@ -3205,11 +3241,11 @@ private fun ProCalculatorDisplay(
             val resultFontSize = androidx.compose.ui.unit.TextUnit(resultCalculatedSize, androidx.compose.ui.unit.TextUnitType.Sp)
             
             Text(
-                text = if (isError) "格式错误" else formattedResult,
-                style = MaterialTheme.typography.displayMedium.copy(fontSize = resultFontSize),
+                text = formattedResult,
+                style = MaterialTheme.typography.displayMedium.copy(fontSize = if (isError) MaterialTheme.typography.titleMedium.fontSize else resultFontSize),
                 color = if (isError) Color(0xFFFF5252) else if (isDarkMode) Color(0xFF66FFB2) else ForestGreen,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                maxLines = if (isError) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.offset { IntOffset(shakeOffset.roundToInt(), 0) }
             )
