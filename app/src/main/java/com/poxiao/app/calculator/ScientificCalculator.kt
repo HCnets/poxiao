@@ -3079,13 +3079,26 @@ private fun ProCell(
     modifier: Modifier = Modifier
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
+    
+    // 呼吸焦点动画
+    val infiniteTransition = rememberInfiniteTransition(label = "CellFocus")
+    val focusGlow by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes { durationMillis = 1500 },
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "FocusGlow"
+    )
+
     LiquidGlassSurface(
         modifier = modifier
             .height(58.dp)
             .clickable { onClick() },
         cornerRadius = 16.dp,
-        tint = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.12f) else ForestGreen.copy(alpha = 0.08f)) else (if (isDarkMode) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.28f)),
-        borderColor = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.4f) else ForestGreen.copy(alpha = 0.4f)) else (if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)),
+        tint = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.12f * focusGlow) else ForestGreen.copy(alpha = 0.08f * focusGlow)) else (if (isDarkMode) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.28f)),
+        borderColor = if (isFocused) (if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.3f + focusGlow * 0.2f) else ForestGreen.copy(alpha = 0.3f + focusGlow * 0.2f)) else (if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.2f)),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -3523,7 +3536,20 @@ private fun EquationGridCell(
     onClick: () -> Unit
 ) {
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
-    val focusColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.15f) else ForestGreen.copy(alpha = 0.1f)
+    
+    // 呼吸焦点动画
+    val infiniteTransition = rememberInfiniteTransition(label = "EqFocus")
+    val focusGlow by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = keyframes { durationMillis = 1800 },
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "EqFocusGlow"
+    )
+
+    val focusColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.15f * focusGlow) else ForestGreen.copy(alpha = 0.1f * focusGlow)
     val dotColor = if (isDarkMode) CloudWhite.copy(alpha = 0.1f) else PineInk.copy(alpha = 0.1f)
     
     Box(
@@ -3534,7 +3560,15 @@ private fun EquationGridCell(
                 RoundedCornerShape(8.dp)
             )
             .drawBehind {
-                if (!isFocused) {
+                if (isFocused) {
+                    val borderAlpha = 0.3f + focusGlow * 0.3f
+                    val color = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = borderAlpha) else ForestGreen.copy(alpha = borderAlpha)
+                    drawRoundRect(
+                        color = color,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                } else {
                     drawCircle(color = dotColor, radius = 1.5.dp.toPx(), center = center)
                 }
             }
@@ -4475,92 +4509,150 @@ private fun KeypadButton(
     val finalModifier = if (fillHeight) modifier.fillMaxHeight() else modifier.height(if (isSmall) 42.dp else 62.dp)
     
     var isSwiping by remember { mutableStateOf(false) }
+    var swipePreviewText by remember { mutableStateOf<String?>(null) }
+    var swipePreviewOffset by remember { mutableLongStateOf(0L) } // 用于触发动画的 key
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
-    Surface(
-        modifier = finalModifier
-            .graphicsLayer { 
-                scaleX = scale
-                scaleY = scale 
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = { offset ->
-                        val press = androidx.compose.foundation.interaction.PressInteraction.Press(offset)
-                        coroutineScope.launch {
-                            interactionSource.emit(press)
-                        }
-                        try {
-                            awaitRelease()
+    Box(modifier = finalModifier) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { 
+                    scaleX = scale
+                    scaleY = scale 
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = { offset ->
+                            val press = androidx.compose.foundation.interaction.PressInteraction.Press(offset)
                             coroutineScope.launch {
-                                interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press))
+                                interactionSource.emit(press)
                             }
-                        } catch (c: androidx.compose.foundation.gestures.GestureCancellationException) {
-                            coroutineScope.launch {
-                                interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press))
+                            try {
+                                awaitRelease()
+                                coroutineScope.launch {
+                                    interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press))
+                                }
+                            } catch (c: androidx.compose.foundation.gestures.GestureCancellationException) {
+                                coroutineScope.launch {
+                                    interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Cancel(press))
+                                }
+                            }
+                        },
+                        onTap = {
+                            val hapticType = when {
+                                text == "=" || containerColor != null -> HapticFeedbackType.LongPress
+                                text == "⌫" || text == "C" -> HapticFeedbackType.LongPress // 警告/确认类按键
+                                accent -> HapticFeedbackType.TextHandleMove // 运算符类按键
+                                else -> HapticFeedbackType.TextHandleMove // 数字键
+                            }
+                            // 为删除和清空键提供二次震动增强（如果支持，这里模拟两次震动）
+                            if (text == "⌫" || text == "C") {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            }
+                            haptic.performHapticFeedback(hapticType)
+                            onClick()
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { isSwiping = true },
+                        onDragEnd = { 
+                            isSwiping = false
+                            swipePreviewText = null
+                        },
+                        onDragCancel = { 
+                            isSwiping = false
+                            swipePreviewText = null
+                        },
+                        onDrag = { change, dragAmount ->
+                            if (!isSwiping) return@detectDragGestures
+                            
+                            // 动态预览气泡逻辑
+                            if (dragAmount.y > 15f && swipeDownText != null) {
+                                if (swipePreviewText != swipeDownText) {
+                                    swipePreviewText = swipeDownText
+                                    swipePreviewOffset = System.currentTimeMillis()
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            } else if (dragAmount.y < -15f && swipeUpText != null) {
+                                if (swipePreviewText != swipeUpText) {
+                                    swipePreviewText = swipeUpText
+                                    swipePreviewOffset = System.currentTimeMillis()
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                            } else if (kotlin.math.abs(dragAmount.y) < 5f) {
+                                swipePreviewText = null
+                            }
+
+                            if (dragAmount.y > 45f && swipeDownText != null && onSwipeDown != null) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSwipeDown()
+                                isSwiping = false
+                                swipePreviewText = null
+                            } else if (dragAmount.y < -45f && swipeUpText != null && onSwipeUp != null) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSwipeUp()
+                                isSwiping = false
+                                swipePreviewText = null
                             }
                         }
-                    },
-                    onTap = {
-                        val hapticType = when {
-                            text == "=" || accent || containerColor != null -> HapticFeedbackType.LongPress
-                            else -> HapticFeedbackType.TextHandleMove
-                        }
-                        haptic.performHapticFeedback(hapticType)
-                        onClick()
-                    }
-                )
+                    )
+                },
+            shape = RoundedCornerShape(if (isSmall) 18.dp else 22.dp),
+            color = animatedBgColor,
+            shadowElevation = 0.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f)
+            )
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
+                if (swipeUpText != null) {
+                    Text(
+                        text = swipeUpText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = textColor.copy(alpha = 0.6f),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp)
+                    )
+                }
+                if (swipeDownText != null) {
+                    Text(
+                        text = swipeDownText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = textColor.copy(alpha = 0.6f),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+                    )
+                }
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Text(
+                        text = text,
+                        style = if (isSmall) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium,
+                        color = textColor,
+                        fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
             }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { isSwiping = true },
-                    onDragEnd = { isSwiping = false },
-                    onDragCancel = { isSwiping = false },
-                    onDrag = { change, dragAmount ->
-                        if (!isSwiping) return@detectDragGestures
-                        if (dragAmount.y > 20f && swipeDownText != null && onSwipeDown != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSwipeDown()
-                            isSwiping = false
-                        } else if (dragAmount.y < -20f && swipeUpText != null && onSwipeUp != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSwipeUp()
-                            isSwiping = false
-                        }
-                    }
-                )
-            },
-        shape = RoundedCornerShape(if (isSmall) 18.dp else 22.dp),
-        color = animatedBgColor,
-        shadowElevation = 0.dp, // 彻底关闭所有按键的阴影，避免 Compose 渲染层在透明/彩色背景下产生奇怪的矩形轮廓
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = if (isDarkMode) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.2f)
-        )
-    ) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Transparent)) {
-            if (swipeUpText != null) {
+        }
+
+        // 滑动预览气泡 (Swipe Ghosting Preview)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = swipePreviewText != null,
+            enter = fadeIn() + androidx.compose.animation.expandVertically(),
+            exit = fadeOut() + androidx.compose.animation.shrinkVertically(),
+            modifier = Modifier.align(Alignment.TopCenter).offset(y = (-50).dp)
+        ) {
+            LiquidGlassSurface(
+                cornerRadius = 14.dp,
+                tint = (if (isDarkMode) Color(0xFF66FFB2) else ForestGreen).copy(alpha = 0.85f),
+                borderColor = Color.White.copy(alpha = 0.3f),
+            ) {
                 Text(
-                    text = swipeUpText,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = textColor.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp)
-                )
-            }
-            if (swipeDownText != null) {
-                Text(
-                    text = swipeDownText,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = textColor.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
-                )
-            }
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Text(
-                    text = text,
-                    style = if (isSmall) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium,
-                    color = textColor,
-                    fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium
+                    text = swipePreviewText ?: "",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = CloudWhite
                 )
             }
         }
