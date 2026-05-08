@@ -96,6 +96,12 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
@@ -1462,25 +1468,23 @@ private fun SyntaxHighlightText(
     isDarkMode: Boolean,
     cursorAlpha: Float
 ) {
-    val annotated = remember(expression) {
+    val annotated = remember(expression, isDarkMode) {
         buildAnnotatedString {
             var i = 0
             while (i < expression.length) {
-                val remaining = expression.length - i
-                
                 // 检查是否是数字
                 if (expression[i].isDigit()) {
                     val start = i
                     while (i < expression.length && (expression[i].isDigit() || expression[i] == '.')) i++
                     val token = expression.substring(start, i)
-                    pushStyle(
-                        androidx.compose.ui.text.SpanStyle(
+                    withStyle(
+                        SpanStyle(
                             color = if (isDarkMode) CloudWhite else PineInk,
                             fontWeight = FontWeight.Medium
                         )
-                    )
-                    append(token)
-                    pop()
+                    ) {
+                        append(token)
+                    }
                     continue
                 }
                 
@@ -1490,9 +1494,9 @@ private fun SyntaxHighlightText(
                     if (word in setOf("diff", "int(", "solv")) {
                         val len = if (word == "solv") 5 else 4
                         val actualWord = expression.substring(i, i + len)
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFFE74C3C) else Color(0xFFC0392B), fontWeight = FontWeight.Bold))
-                        append(actualWord)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) Color(0xFFE74C3C) else Color(0xFFC0392B), fontWeight = FontWeight.Bold)) {
+                            append(actualWord)
+                        }
                         i += len
                         continue
                     }
@@ -1505,21 +1509,21 @@ private fun SyntaxHighlightText(
                     val token = expression.substring(start, i)
                     
                     if (token in MATH_FUNCTIONS) {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFF9B59B6) else Color(0xFF8E44AD), fontWeight = FontWeight.Bold))
-                        append(token)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) Color(0xFF9B59B6) else Color(0xFF8E44AD), fontWeight = FontWeight.Bold)) {
+                            append(token)
+                        }
                     } else if (token in PHYSICAL_UNITS || token.firstOrNull()?.isUpperCase() == true) {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFF2ECC71) else Color(0xFF27AE60), fontWeight = FontWeight.Bold))
-                        append(token)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) Color(0xFF2ECC71) else Color(0xFF27AE60), fontWeight = FontWeight.Bold)) {
+                            append(token)
+                        }
                     } else if (token == "x" || token == "y") {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), fontWeight = FontWeight.Bold))
-                        append(token)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), fontWeight = FontWeight.Bold)) {
+                            append(token)
+                        }
                     } else {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Medium))
-                        append(token)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Medium)) {
+                            append(token)
+                        }
                     }
                     continue
                 }
@@ -1529,29 +1533,29 @@ private fun SyntaxHighlightText(
                 val opColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
                 when (char) {
                     '+', '-', '*', '/', '×', '÷', '=', '%', '!', '^' -> {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor, fontWeight = FontWeight.Bold))
-                        append(char)
-                        pop()
+                        withStyle(SpanStyle(color = opColor, fontWeight = FontWeight.Bold)) {
+                            append(char)
+                        }
                     }
                     '(' -> {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light))
-                        append(char)
-                        pop()
+                        withStyle(SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light)) {
+                            append(char)
+                        }
                     }
                     ')' -> {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light))
-                        append(char)
-                        pop()
+                        withStyle(SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light)) {
+                            append(char)
+                        }
                     }
                     ',' -> {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.5f), fontWeight = FontWeight.Normal))
-                        append(char)
-                        pop()
+                        withStyle(SpanStyle(color = opColor.copy(alpha = 0.5f), fontWeight = FontWeight.Normal)) {
+                            append(char)
+                        }
                     }
                     else -> {
-                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Normal))
-                        append(char)
-                        pop()
+                        withStyle(SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Normal)) {
+                            append(char)
+                        }
                     }
                 }
                 i++
@@ -1687,6 +1691,18 @@ private fun RenderMathNode(
         is MathNode.Sequence -> {
             node.nodes.forEach { child ->
                 RenderMathNode(child, cursorIndex, fontSize, color, isDarkMode, cursorAlpha)
+            }
+        }
+        
+        is MathNode.Function -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = node.name,
+                    fontSize = fontSize * 0.9f,
+                    color = getSyntaxColor(node.name, isDarkMode),
+                    fontWeight = FontWeight.Bold
+                )
+                RenderMathNode(node.argument, cursorIndex, fontSize, color, isDarkMode, cursorAlpha)
             }
         }
     }
@@ -1850,6 +1866,10 @@ private class MathNodeParser(private val input: String, private val depth: Int =
                 startIndex = node.startIndex + offset
             )
             is MathNode.Sequence -> node.copy(nodes = node.nodes.map { offsetNodeIndices(it, offset) })
+            is MathNode.Function -> node.copy(
+                argument = offsetNodeIndices(node.argument, offset),
+                startIndex = node.startIndex + offset
+            )
         }
     }
 }
