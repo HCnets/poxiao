@@ -89,7 +89,8 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.6.1.1** | **手势引擎作用域修复 (Gesture Scope Patch)** | 修复了 `awaitPointerEventScope` 内非法调用挂起函数的 RestrictedSuspension 错误；优化了长按与滑动共存的手势识别算法。 |
+| `当前` | **v1.7.0** | **极致数学工作区 (Ultimate Math Workspace)** | 引入动态配色系统 (Dynamic Palette)；实装物理常数库 (Constants Library)；CAS 引擎支持符号积分 (int) 与方程求解 (solve)；新增灵动功能快捷条。 |
+| `历史版本` | **v1.6.1.1** | **手势引擎作用域修复 (Gesture Scope Patch)** | 修复了 `awaitPointerEventScope` 内非法调用挂起函数的 RestrictedSuspension 错误；优化了长按与滑动共存的手势识别算法。 |
 | `历史版本` | **v1.6.1** | **液态单位选择器 (Liquid Unit Picker)** | 在 `.` 键引入长按唤起单位条功能，支持 15+ 种专业物理单位 (m, kg, N, J 等) 的快捷输入；优化量纲计算链路，彻底消灭功能空壳。 |
 | `历史版本` | **v1.5.1.1** | **编译稳定性补丁 (Compilation Stability Patch)** | 修复了 ScientificCalculator.kt 中的作用域引用错误 (statsRawX/Y)、CalcButton 参数识别异常以及 Int 比较时的操作符修饰符误报问题。 |
 | `历史版本` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |

@@ -453,6 +453,20 @@ fun ScientificCalculatorScreen(
     // 灵动屏联动状态
     var lastKeyPressTime by remember { mutableLongStateOf(0L) }
     val triggerKeyPress = { lastKeyPressTime = System.currentTimeMillis() }
+    
+    // 极致 UI 动态配色系统 (Ultimate Palette)
+    val modeColor by animateColorAsState(
+        targetValue = when {
+            routeState.app == CalculatorApp.Matrix -> Color(0xFF3498DB) // 矩阵-蓝色
+            routeState.app == CalculatorApp.Equation -> Color(0xFFE67E22) // 方程-橙色
+            routeState.app == CalculatorApp.Statistics -> Color(0xFF9B59B6) // 统计-紫色
+            computeExpression.contains("diff(") || computeExpression.contains("int(") || computeExpression.contains("solve(") -> Color(0xFFE74C3C) // CAS-红色
+            computeExpression.contains("m") || computeExpression.contains("kg") || computeExpression.contains("s") -> Color(0xFF2ECC71) // 单位-绿色
+            else -> if (isDarkMode) Color(0xFF66FFB2) else ForestGreen // 常规
+        },
+        animationSpec = tween(600),
+        label = "ModeColor"
+    )
 
     CompositionLocalProvider(
         LocalLiquidGlassStylePreset provides if (isDarkMode) LiquidGlassStylePreset.Hyper else LiquidGlassStylePreset.IOS
@@ -477,26 +491,27 @@ fun ScientificCalculatorScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 14.dp)
                     ) {
-                        CalculatorWorkspaceHeader(
-                            title = routeTitle,
-                            subtitle = routeSubtitle,
-                            icon = routeIcon,
-                            actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
-                            actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
-                            onAction = {
-                                if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
-                                    backToCalculator()
-                                } else {
-                                    onBack()
-                                }
-                            },
-                            onOpenDirectory = { showDirectory = true },
-                            directoryOpen = showDirectory,
-                            isDarkMode = isDarkMode,
-                            onToggleTheme = { isDarkMode = !isDarkMode },
-                            lastKeyPressTime = lastKeyPressTime,
-                            modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
-                        )
+                            CalculatorWorkspaceHeader(
+                                title = routeTitle,
+                                subtitle = routeSubtitle,
+                                icon = routeIcon,
+                                actionText = if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) "计算器" else "返回",
+                                actionColor = if (showDirectory) Color(0xFF5C8FB8) else ForestGreen,
+                                onAction = {
+                                    if (showDirectory || currentRoute != CalculatorRoute.App(CalculatorApp.Compute)) {
+                                        backToCalculator()
+                                    } else {
+                                        onBack()
+                                    }
+                                },
+                                onOpenDirectory = { showDirectory = true },
+                                directoryOpen = showDirectory,
+                                isDarkMode = isDarkMode,
+                                onToggleTheme = { isDarkMode = !isDarkMode },
+                                lastKeyPressTime = lastKeyPressTime,
+                                accentColor = modeColor,
+                                modifier = Modifier.graphicsLayer { shadowElevation = 8.dp.toPx() } 
+                            )
                     }
 
                     // 下方区域根据状态切换
@@ -737,8 +752,9 @@ fun ScientificCalculatorScreen(
                                                         
                                                         val finalRes = runCatching {
                                                             // 判断是否需要进行符号计算 (CAS)
-                                                            // 启发式判断：包含 diff 或 包含未定义的变量 (x, y) 且没有给出数值
                                                             val isSymbolic = safeExpression.contains("diff(") || 
+                                                                           safeExpression.contains("int(") || 
+                                                                           safeExpression.contains("solve(") || 
                                                                            (safeExpression.contains("x") || safeExpression.contains("y"))
                                                             
                                                             if (isSymbolic) {
@@ -1059,9 +1075,11 @@ private fun CalculatorWorkspaceHeader(
     isDarkMode: Boolean,
     onToggleTheme: () -> Unit,
     lastKeyPressTime: Long = 0L,
+    accentColor: Color? = null,
     modifier: Modifier = Modifier
 ) {
     val palette = tilePalette(title)
+    val baseAccent = accentColor ?: palette.primary
     val infiniteTransition = rememberInfiniteTransition(label = "HeaderGlow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.12f,
@@ -1085,8 +1103,8 @@ private fun CalculatorWorkspaceHeader(
     LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
-        tint = palette.primary.copy(alpha = (glowAlpha + pulseAnim.value * 0.2f).coerceIn(0f, 1f)),
-        borderColor = if (isDarkMode) palette.primary.copy(alpha = 0.3f + pulseAnim.value * 0.3f) else Color.White.copy(alpha = 0.4f + pulseAnim.value * 0.2f),
+        tint = baseAccent.copy(alpha = (glowAlpha + pulseAnim.value * 0.2f).coerceIn(0f, 1f)),
+        borderColor = if (isDarkMode) baseAccent.copy(alpha = 0.3f + pulseAnim.value * 0.3f) else Color.White.copy(alpha = 0.4f + pulseAnim.value * 0.2f),
         blurRadius = (36.dp + (pulseAnim.value * 12).dp)
     ) {
         Row(
@@ -4331,17 +4349,15 @@ private fun ProKeypad(
 
     // 单位选择器状态
     var showUnitPicker by remember { mutableStateOf(false) }
-    val units = listOf(
-        "m", "km", "cm", "mm", "in", "ft", // 长度
-        "kg", "g", "t",                    // 质量
-        "s", "min", "h",                  // 时间
-        "N", "J", "W"                     // 力/能/功率
-    )
+    var showConstantPicker by remember { mutableStateOf(false) }
+    
+    val units = UnitRegistry.getAllUnits()
+    val constants = UnitRegistry.getAllConstants()
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // 单位选择器浮层
+        // 单位/常数选择器浮层
         androidx.compose.animation.AnimatedVisibility(
-            visible = showUnitPicker,
+            visible = showUnitPicker || showConstantPicker,
             enter = fadeIn() + androidx.compose.animation.expandVertically(),
             exit = fadeOut() + androidx.compose.animation.shrinkVertically()
         ) {
@@ -4355,27 +4371,70 @@ private fun ProKeypad(
                     modifier = Modifier.horizontalScroll(rememberScrollState()).padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    units.forEach { unit ->
+                    val list = if (showUnitPicker) units else constants
+                    list.forEach { item ->
                         Surface(
                             onClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
                                 }
-                                onToken(unit)
+                                onToken(item)
                                 showUnitPicker = false
+                                showConstantPicker = false
                             },
                             shape = RoundedCornerShape(12.dp),
                             color = if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.6f),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
                         ) {
                             Text(
-                                text = unit,
+                                text = item,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = if (isDarkMode) CloudWhite else PineInk,
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+                }
+            }
+        }
+        
+        // 极致灵动功能条 (Floating Quick-Action Bar)
+        if (settings != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val actions = listOf(
+                    "simplify" to "化简",
+                    "diff" to "求导",
+                    "int" to "积分",
+                    "solve" to "求解"
+                )
+                actions.forEach { (cmd, label) ->
+                    Surface(
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator.vibrate(VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE))
+                            }
+                            if (cmd == "simplify") {
+                                // 执行原地化简
+                                // 这里需要一个回调来修改表达式，或者发送特定 token
+                                onToken("simplify") 
+                            } else {
+                                onToken("$cmd(")
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.Transparent,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkMode) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.05f))
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = (if (isDarkMode) Color.White else Color.Black).copy(alpha = 0.6f)
+                        )
                     }
                 }
             }
@@ -4482,7 +4541,7 @@ private fun ProKeypad(
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     KeypadButton("0", { onToken("0") }, Modifier.weight(1.5f), swipeDownText = "(", onSwipeDown = { onToken("(") }, swipeUpText = ")", onSwipeUp = { onToken(")") })
-                    KeypadButton("x", { onToken("x") }, Modifier.weight(0.8f), accent = true, contentColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), swipeDownText = "y", onSwipeDown = { onToken("y") })
+                    KeypadButton("x", { onToken("x") }, Modifier.weight(0.8f), accent = true, contentColor = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), swipeDownText = "y", onSwipeDown = { onToken("y") }, onLongClick = { showConstantPicker = !showConstantPicker })
                     KeypadButton(".", { onToken(".") }, Modifier.weight(0.8f), swipeDownText = ",", onSwipeDown = { onToken(",") }, swipeUpText = "d/dx", onSwipeUp = { onToken("diff(") }, onLongClick = { showUnitPicker = !showUnitPicker })
                 }
             }
@@ -6761,9 +6820,24 @@ private object UnitRegistry {
         "N" to Quantity(1.0, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 1, BaseUnit.Time to -2))),
         "J" to Quantity(1.0, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 2, BaseUnit.Time to -2))),
         "W" to Quantity(1.0, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 2, BaseUnit.Time to -3))),
+        "Pa" to Quantity(1.0, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to -1, BaseUnit.Time to -2))),
+        "Hz" to Quantity(1.0, UnitDimension(mapOf(BaseUnit.Time to -1))),
     )
     
-    fun get(symbol: String): Quantity? = registry[symbol]
+    // 物理常数库
+    private val constants = mapOf(
+        "c" to Quantity(299792458.0, UnitDimension(mapOf(BaseUnit.Length to 1, BaseUnit.Time to -1))), // 光速
+        "G" to Quantity(6.67430e-11, UnitDimension(mapOf(BaseUnit.Mass to -1, BaseUnit.Length to 3, BaseUnit.Time to -2))), // 引力常数
+        "h" to Quantity(6.62607015e-34, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 2, BaseUnit.Time to -1))), // 普朗克常数
+        "k" to Quantity(1.380649e-23, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 2, BaseUnit.Time to -2, BaseUnit.Temperature to -1))), // 玻尔兹曼常数
+        "NA" to Quantity(6.02214076e23, UnitDimension(mapOf(BaseUnit.Amount to -1))), // 阿伏伽德罗常数
+        "R" to Quantity(8.314462618, UnitDimension(mapOf(BaseUnit.Mass to 1, BaseUnit.Length to 2, BaseUnit.Time to -2, BaseUnit.Temperature to -1, BaseUnit.Amount to -1))), // 理想气体常数
+        "me" to Quantity(9.1093837e-31, UnitDimension(mapOf(BaseUnit.Mass to 1))), // 电子质量
+    )
+    
+    fun get(symbol: String): Quantity? = registry[symbol] ?: constants[symbol]
+    fun getAllUnits() = registry.keys.toList()
+    fun getAllConstants() = constants.keys.toList()
 }
 
 private object ExpressionEngine {
@@ -6792,17 +6866,23 @@ private object ExpressionEngine {
     sealed class SymbolicNode {
         abstract fun simplify(): SymbolicNode
         abstract fun derivative(variable: String): SymbolicNode
+        abstract fun integral(variable: String): SymbolicNode
+        abstract fun evaluate(variables: Map<String, Double>): Double
         abstract fun toString(settings: CalculatorSettings): String
 
         data class Constant(val value: Double) : SymbolicNode() {
             override fun simplify() = this
             override fun derivative(variable: String) = Constant(0.0)
+            override fun integral(variable: String) = Mul(this, Variable(variable)).simplify()
+            override fun evaluate(variables: Map<String, Double>) = value
             override fun toString(settings: CalculatorSettings) = formatBySetting(value, settings)
         }
 
         data class Variable(val name: String) : SymbolicNode() {
             override fun simplify() = this
             override fun derivative(variable: String) = if (name == variable) Constant(1.0) else Constant(0.0)
+            override fun integral(variable: String) = if (name == variable) Div(Pow(this, Constant(2.0)), Constant(2.0)).simplify() else Mul(this, Variable(variable)).simplify()
+            override fun evaluate(variables: Map<String, Double>) = variables[name] ?: 0.0
             override fun toString(settings: CalculatorSettings) = name
         }
 
@@ -6819,6 +6899,8 @@ private object ExpressionEngine {
                 }
             }
             override fun derivative(variable: String) = Add(left.derivative(variable), right.derivative(variable))
+            override fun integral(variable: String) = Add(left.integral(variable), right.integral(variable)).simplify()
+            override fun evaluate(variables: Map<String, Double>) = left.evaluate(variables) + right.evaluate(variables)
             override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} + ${right.toString(settings)})"
         }
 
@@ -6834,6 +6916,8 @@ private object ExpressionEngine {
                 }
             }
             override fun derivative(variable: String) = Sub(left.derivative(variable), right.derivative(variable))
+            override fun integral(variable: String) = Sub(left.integral(variable), right.integral(variable)).simplify()
+            override fun evaluate(variables: Map<String, Double>) = left.evaluate(variables) - right.evaluate(variables)
             override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} - ${right.toString(settings)})"
         }
 
@@ -6851,6 +6935,15 @@ private object ExpressionEngine {
                 }
             }
             override fun derivative(variable: String) = Add(Mul(left.derivative(variable), right), Mul(left, right.derivative(variable)))
+            override fun integral(variable: String): SymbolicNode {
+                // 仅支持常数乘以函数的积分
+                return when {
+                    left is Constant -> Mul(left, right.integral(variable)).simplify()
+                    right is Constant -> Mul(right, left.integral(variable)).simplify()
+                    else -> throw UnsupportedOperationException("暂不支持复杂乘积的符号积分")
+                }
+            }
+            override fun evaluate(variables: Map<String, Double>) = left.evaluate(variables) * right.evaluate(variables)
             override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} * ${right.toString(settings)})"
         }
 
@@ -6867,6 +6960,11 @@ private object ExpressionEngine {
                 }
             }
             override fun derivative(variable: String) = Div(Sub(Mul(left.derivative(variable), right), Mul(left, right.derivative(variable))), Pow(right, Constant(2.0)))
+            override fun integral(variable: String): SymbolicNode {
+                if (right is Constant) return Div(left.integral(variable), right).simplify()
+                throw UnsupportedOperationException("暂不支持复杂商的符号积分")
+            }
+            override fun evaluate(variables: Map<String, Double>) = left.evaluate(variables) / right.evaluate(variables)
             override fun toString(settings: CalculatorSettings) = "(${left.toString(settings)} / ${right.toString(settings)})"
         }
 
@@ -6884,26 +6982,25 @@ private object ExpressionEngine {
                 }
             }
             override fun derivative(variable: String): SymbolicNode {
-                // 简化版的幂法则：d/dx (u^n) = n * u^(n-1) * u' (仅支持指数为常数的情况，CAS 扩展需支持 u^v)
                 return if (exponent is Constant) {
                     Mul(Mul(exponent, Pow(base, Constant(exponent.value - 1))), base.derivative(variable))
                 } else {
-                    // 通用公式: d/dx(u^v) = u^v * (v' ln u + v u' / u)
                     Mul(this, Add(Mul(exponent.derivative(variable), Function("ln", base)), Div(Mul(exponent, base.derivative(variable)), base)))
                 }
             }
+            override fun integral(variable: String): SymbolicNode {
+                if (base is Variable && exponent is Constant) {
+                    if (exponent.value == -1.0) return Function("ln", base)
+                    return Div(Pow(base, Constant(exponent.value + 1)), Constant(exponent.value + 1)).simplify()
+                }
+                throw UnsupportedOperationException("暂不支持复杂幂函数的符号积分")
+            }
+            override fun evaluate(variables: Map<String, Double>) = base.evaluate(variables).pow(exponent.evaluate(variables))
             override fun toString(settings: CalculatorSettings) = "(${base.toString(settings)}^${exponent.toString(settings)})"
         }
 
         data class Function(val name: String, val argument: SymbolicNode) : SymbolicNode() {
-            override fun simplify(): SymbolicNode {
-                val arg = argument.simplify()
-                if (arg is Constant) {
-                    // 这里可以调用原有的 applyFunction 进行数值折叠
-                    // 但为了保持符号完整性，暂不折叠
-                }
-                return Function(name, arg)
-            }
+            override fun simplify(): SymbolicNode = Function(name, argument.simplify())
             override fun derivative(variable: String): SymbolicNode {
                 val argDeriv = argument.derivative(variable)
                 val funcDeriv = when (name.lowercase()) {
@@ -6917,6 +7014,29 @@ private object ExpressionEngine {
                 }
                 return Mul(funcDeriv, argDeriv)
             }
+            override fun integral(variable: String): SymbolicNode {
+                if (argument is Variable && argument.name == variable) {
+                    return when (name.lowercase()) {
+                        "sin" -> Mul(Constant(-1.0), Function("cos", argument))
+                        "cos" -> Function("sin", argument)
+                        "exp" -> Function("exp", argument)
+                        else -> throw UnsupportedOperationException("暂不支持函数 $name 的符号积分")
+                    }
+                }
+                throw UnsupportedOperationException("仅支持简单变量参数的符号积分")
+            }
+            override fun evaluate(variables: Map<String, Double>): Double {
+                val arg = argument.evaluate(variables)
+                return when (name.lowercase()) {
+                    "sin" -> sin(arg)
+                    "cos" -> cos(arg)
+                    "tan" -> tan(arg)
+                    "ln" -> ln(arg)
+                    "exp" -> exp(arg)
+                    "sqrt" -> sqrt(arg)
+                    else -> 0.0
+                }
+            }
             override fun toString(settings: CalculatorSettings) = "$name(${argument.toString(settings)})"
         }
     }
@@ -6926,10 +7046,13 @@ private object ExpressionEngine {
             val parser = SymbolicParser(expression)
             var node = parser.parse()
             
-            // 如果包含 diff(...)，执行求导
-            if (expression.contains("diff(")) {
-                // 简单的求导指令识别，例如 diff(sin(x))
-                // 这里的逻辑可以更精细化
+            // 指令识别
+            if (expression.startsWith("diff(")) {
+                // 已经在 SymbolicParser.parsePrimary 中处理了
+            } else if (expression.startsWith("int(")) {
+                // 已经在 SymbolicParser.parsePrimary 中处理了
+            } else if (expression.startsWith("solve(")) {
+                return numericSolve(node, "x", settings)
             }
             
             node.simplify().toString(settings)
@@ -6938,6 +7061,20 @@ private object ExpressionEngine {
                 .replace(" * 1.0", "")
                 .replace("1.0 * ", "")
         }.getOrElse { it.message ?: "符号运算错误" }
+    }
+    
+    private fun numericSolve(node: SymbolicNode, variable: String, settings: CalculatorSettings): String {
+        // 牛顿迭代法求解 node = 0
+        var x = 1.0 // 初始猜测
+        val deriv = node.derivative(variable)
+        repeat(20) {
+            val fx = node.evaluate(mapOf(variable to x))
+            val dfx = deriv.evaluate(mapOf(variable to x))
+            if (kotlin.math.abs(dfx) < 1e-10) return@repeat
+            x -= fx / dfx
+            if (kotlin.math.abs(fx) < 1e-12) return@repeat
+        }
+        return "x ≈ ${formatBySetting(x, settings)}"
     }
 
     private class SymbolicParser(private val source: String) {
@@ -7005,7 +7142,18 @@ private object ExpressionEngine {
                 if (name == "diff" && match('(')) {
                     val node = parseExpression()
                     match(')')
-                    return node.derivative("x") // 默认对 x 求导
+                    return node.derivative("x")
+                }
+                if (name == "int" && match('(')) {
+                    val node = parseExpression()
+                    match(')')
+                    return node.integral("x")
+                }
+                if (name == "solve" && match('(')) {
+                    val node = parseExpression()
+                    // 这里由于 SymbolicNode 不支持方程，我们假设输入是 expr = 0，即求解 expr 的根
+                    match(')')
+                    return node // 实际上在 symbolicEvaluate 中特殊处理 solve
                 }
                 if (match('(')) {
                     val arg = parseExpression()
