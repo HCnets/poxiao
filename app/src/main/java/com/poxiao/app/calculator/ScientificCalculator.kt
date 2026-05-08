@@ -1409,6 +1409,7 @@ private sealed class MathNode {
     data class Radical(val content: MathNode, val startIndex: Int, val length: Int) : MathNode()
     data class Power(val base: MathNode, val exponent: MathNode, val startIndex: Int, val length: Int) : MathNode()
     data class Sequence(val nodes: List<MathNode>) : MathNode()
+    data class Function(val name: String, val argument: MathNode, val startIndex: Int, val length: Int) : MathNode()
 }
 
 @Composable
@@ -1442,7 +1443,150 @@ private fun NaturalMathRenderer(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.horizontalScroll(rememberScrollState())
         ) {
-            RenderMathNode(node, cursorIndex, fontSize, color, isDarkMode, alpha)
+            SyntaxHighlightText(
+                expression = expression,
+                cursorIndex = cursorIndex,
+                fontSize = fontSize,
+                isDarkMode = isDarkMode,
+                cursorAlpha = alpha
+            )
+        }
+    }
+}
+
+@Composable
+private fun SyntaxHighlightText(
+    expression: String,
+    cursorIndex: Int,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    isDarkMode: Boolean,
+    cursorAlpha: Float
+) {
+    val annotated = remember(expression) {
+        buildAnnotatedString {
+            var i = 0
+            while (i < expression.length) {
+                val remaining = expression.length - i
+                
+                // 检查是否是数字
+                if (expression[i].isDigit()) {
+                    val start = i
+                    while (i < expression.length && (expression[i].isDigit() || expression[i] == '.')) i++
+                    val token = expression.substring(start, i)
+                    pushStyle(
+                        androidx.compose.ui.text.SpanStyle(
+                            color = if (isDarkMode) CloudWhite else PineInk,
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                    append(token)
+                    pop()
+                    continue
+                }
+                
+                // 检查是否是 CAS 关键字 (diff, int, solve)
+                if (i + 4 <= expression.length) {
+                    val word = expression.substring(i, i + 4).lowercase()
+                    if (word in setOf("diff", "int(", "solv")) {
+                        val len = if (word == "solv") 5 else 4
+                        val actualWord = expression.substring(i, i + len)
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFFE74C3C) else Color(0xFFC0392B), fontWeight = FontWeight.Bold))
+                        append(actualWord)
+                        pop()
+                        i += len
+                        continue
+                    }
+                }
+                
+                // 检查是否是函数名 (sin, cos, tan, sqrt, ln, log, exp)
+                if (expression[i].isLetter()) {
+                    val start = i
+                    while (i < expression.length && expression[i].isLetter()) i++
+                    val token = expression.substring(start, i)
+                    
+                    if (token in MATH_FUNCTIONS) {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFF9B59B6) else Color(0xFF8E44AD), fontWeight = FontWeight.Bold))
+                        append(token)
+                        pop()
+                    } else if (token in PHYSICAL_UNITS || token.firstOrNull()?.isUpperCase() == true) {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFF2ECC71) else Color(0xFF27AE60), fontWeight = FontWeight.Bold))
+                        append(token)
+                        pop()
+                    } else if (token == "x" || token == "y") {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400), fontWeight = FontWeight.Bold))
+                        append(token)
+                        pop()
+                    } else {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Medium))
+                        append(token)
+                        pop()
+                    }
+                    continue
+                }
+                
+                // 检查是否是运算符或括号
+                val char = expression[i]
+                val opColor = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+                when (char) {
+                    '+', '-', '*', '/', '×', '÷', '=', '%', '!', '^' -> {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor, fontWeight = FontWeight.Bold))
+                        append(char)
+                        pop()
+                    }
+                    '(' -> {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light))
+                        append(char)
+                        pop()
+                    }
+                    ')' -> {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.7f), fontWeight = FontWeight.Light))
+                        append(char)
+                        pop()
+                    }
+                    ',' -> {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = opColor.copy(alpha = 0.5f), fontWeight = FontWeight.Normal))
+                        append(char)
+                        pop()
+                    }
+                    else -> {
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = if (isDarkMode) CloudWhite else PineInk, fontWeight = FontWeight.Normal))
+                        append(char)
+                        pop()
+                    }
+                }
+                i++
+            }
+        }
+    }
+    
+    // 手动定位光标位置并渲染
+    val cursorOffset = remember(cursorIndex, expression) {
+        var offset = 0
+        var i = 0
+        while (i < cursorIndex && i < expression.length) {
+            offset++
+            i++
+        }
+        offset
+    }
+    
+    // 渲染带光标的文本
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = annotated,
+            style = MaterialTheme.typography.headlineMedium.copy(fontSize = fontSize),
+            modifier = Modifier.padding(horizontal = 0.5.dp)
+        )
+        if (cursorIndex >= 0 && cursorIndex <= expression.length) {
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(fontSize.value.dp * 1.2f)
+                    .background(
+                        if (isDarkMode) Color(0xFF66FFB2).copy(alpha = cursorAlpha) 
+                        else ForestGreen.copy(alpha = cursorAlpha)
+                    )
+            )
         }
     }
 }
@@ -1558,12 +1702,26 @@ private fun CursorBar(fontSize: androidx.compose.ui.unit.TextUnit, alpha: Float,
     )
 }
 
+private val MATH_FUNCTIONS = setOf("sin", "cos", "tan", "asin", "acos", "atan", "sqrt", "ln", "log", "exp", "diff", "int", "solve", "simplify")
+private val PHYSICAL_UNITS = setOf("m", "km", "cm", "mm", "in", "ft", "s", "min", "h", "kg", "g", "t", "N", "J", "W", "Pa", "Hz", "c", "G", "h", "k", "NA", "R", "me")
+private val CAS_KEYWORDS = setOf("diff", "int", "solve", "simplify")
+
 private fun getMathCharColor(char: Char, defaultColor: Color, isDarkMode: Boolean): Color {
     return when {
         char.isDigit() || char == '.' -> defaultColor
         char in listOf('+', '-', '*', '/', '×', '÷', '=', '%', '!', '√') -> if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
         char.isLetter() -> if (isDarkMode) Color(0xFFFFB266) else Color(0xFFD35400)
         else -> defaultColor.copy(alpha = 0.5f)
+    }
+}
+
+private fun getSyntaxColor(token: String, isDarkMode: Boolean): Color {
+    return when {
+        token in CAS_KEYWORDS -> if (isDarkMode) Color(0xFFE74C3C) else Color(0xFFC0392B) // CAS keywords - 红色
+        token in PHYSICAL_UNITS -> if (isDarkMode) Color(0xFF2ECC71) else Color(0xFF27AE60) // Units - 绿色
+        token in MATH_FUNCTIONS -> if (isDarkMode) Color(0xFF9B59B6) else Color(0xFF8E44AD) // Functions - 紫色
+        token.firstOrNull()?.isUpperCase() == true -> if (isDarkMode) Color(0xFF3498DB) else Color(0xFF2980B9) // Constants (e, pi, NA) - 蓝色
+        else -> if (isDarkMode) CloudWhite else PineInk
     }
 }
 
