@@ -457,9 +457,9 @@ fun ScientificCalculatorScreen(
     // 极致 UI 动态配色系统 (Ultimate Palette)
     val modeColor by animateColorAsState(
         targetValue = when {
-            routeState.app == CalculatorApp.Matrix -> Color(0xFF3498DB) // 矩阵-蓝色
-            routeState.app == CalculatorApp.Equation -> Color(0xFFE67E22) // 方程-橙色
-            routeState.app == CalculatorApp.Statistics -> Color(0xFF9B59B6) // 统计-紫色
+            routeState is CalculatorRoute.App && routeState.app == CalculatorApp.Matrix -> Color(0xFF3498DB) // 矩阵-蓝色
+            routeState is CalculatorRoute.App && routeState.app == CalculatorApp.Equation -> Color(0xFFE67E22) // 方程-橙色
+            routeState is CalculatorRoute.App && routeState.app == CalculatorApp.Statistics -> Color(0xFF9B59B6) // 统计-紫色
             computeExpression.contains("diff(") || computeExpression.contains("int(") || computeExpression.contains("solve(") -> Color(0xFFE74C3C) // CAS-红色
             computeExpression.contains("m") || computeExpression.contains("kg") || computeExpression.contains("s") -> Color(0xFF2ECC71) // 单位-绿色
             else -> if (isDarkMode) Color(0xFF66FFB2) else ForestGreen // 常规
