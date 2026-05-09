@@ -43,9 +43,7 @@ import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
-import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
-import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
@@ -337,14 +335,14 @@ internal fun PomodoroScreen(active: Boolean) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     presets.forEach { item ->
-                        ActionPill(item.title, if (item == preset) ForestGreen else MossGreen) {
+                        ActionPill(item.title, if (item == preset) ForestGreen else ForestDeep) {
                             preset = item
                             leftSeconds = item.seconds
                             running = false
                         }
                     }
                     if (recommendedFocusSeconds > 0) {
-                        ActionPill("推荐 ${recommendedFocusSeconds / 60} 分钟", TeaGreen) {
+                        ActionPill("推荐 ${recommendedFocusSeconds / 60} 分钟", Ginkgo) {
                             preset = PomodoroPreset("目标推荐", recommendedFocusSeconds)
                             leftSeconds = recommendedFocusSeconds
                             running = false
@@ -514,8 +512,8 @@ internal fun PomodoroScreen(active: Boolean) {
                     Text("完成几轮专注后，这里会自动生成分析结果。", style = MaterialTheme.typography.bodyLarge, color = ForestDeep.copy(alpha = 0.68f))
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        MetricCard("目标达成率", goalAttainmentRate, TeaGreen)
-                        MetricCard("已达成目标", reachedGoalCount.toString(), MossGreen)
+                        MetricCard("目标达成率", goalAttainmentRate, ForestGreen)
+                        MetricCard("已达成目标", reachedGoalCount.toString(), Ginkgo)
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                     Text("近 7 天", style = MaterialTheme.typography.titleMedium, color = PineInk)

@@ -52,7 +52,7 @@ internal fun TodoTaskCard(
     val hapticManager = rememberHapticManager()
 
     GlassCard(modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onEdit)) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.fillMaxWidth(0.72f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
