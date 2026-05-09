@@ -29,6 +29,7 @@ import com.poxiao.app.ui.theme.BambooStroke
 import com.poxiao.app.ui.theme.CloudWhite
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
@@ -67,6 +68,7 @@ internal fun HomeAssistantModuleCard(
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
 ) {
+    val palette = PoxiaoThemeState.palette
     GlassCard(modifier = modifier) {
         val activeSize = if (paired) HomeModuleSize.Compact else moduleSize
         val visibleMessages = activeConversation.messages.takeLast(
