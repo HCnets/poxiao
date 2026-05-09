@@ -336,36 +336,85 @@ internal fun WheelPicker(
 ) {
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
-    val glassStrength = LocalGlassStrengthPreset.current
-    Surface(
-        shape = RoundedCornerShape(22.dp * densityPreset.scale),
-        color = palette.card.copy(alpha = palette.card.alpha * glassStrength.cardAlpha),
-        border = androidx.compose.foundation.BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.72f)),
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 12.dp * densityPreset.scale),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp * densityPreset.scale),
+    val staticGlass = LocalStaticGlassMode.current
+    if (staticGlass) {
+        Surface(
+            shape = RoundedCornerShape(22.dp * densityPreset.scale),
+            color = palette.card.copy(alpha = 0.42f),
+            border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.2f)),
+            modifier = modifier,
         ) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = palette.softText)
-            LazyColumn(
-                modifier = Modifier
-                    .height(172.dp * densityPreset.scale)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 18.dp * densityPreset.scale),
-                verticalArrangement = Arrangement.spacedBy(8.dp * densityPreset.scale),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                items(values) { value ->
-                    val active = value == selected
-                    val hapticManager = rememberHapticManager()
+            WheelPickerContent(
+                title = title,
+                values = values,
+                selected = selected,
+                label = label,
+                onSelect = onSelect,
+                densityPreset = densityPreset,
+                palette = palette,
+            )
+        }
+    } else {
+        LiquidGlassSurface(
+            modifier = modifier,
+            cornerRadius = 22.dp * densityPreset.scale,
+            contentPadding = PaddingValues(0.dp),
+            tint = palette.card.copy(alpha = 0.22f),
+            borderColor = palette.cardBorder.copy(alpha = 0.16f),
+            glowColor = Color.Transparent,
+            blurRadius = 4.dp,
+            refractionHeight = 4.dp,
+            refractionAmount = 5.dp,
+            highlightAlpha = 0.12f,
+        ) {
+            WheelPickerContent(
+                title = title,
+                values = values,
+                selected = selected,
+                label = label,
+                onSelect = onSelect,
+                densityPreset = densityPreset,
+                palette = palette,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WheelPickerContent(
+    title: String,
+    values: List<Int>,
+    selected: Int,
+    label: (Int) -> String,
+    onSelect: (Int) -> Unit,
+    densityPreset: UiDensityPreset,
+    palette: PoxiaoPalette,
+) {
+    val staticGlass = LocalStaticGlassMode.current
+    Column(
+        modifier = Modifier.padding(vertical = 12.dp * densityPreset.scale),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp * densityPreset.scale),
+    ) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = palette.softText)
+        LazyColumn(
+            modifier = Modifier
+                .height(172.dp * densityPreset.scale)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 18.dp * densityPreset.scale),
+            verticalArrangement = Arrangement.spacedBy(8.dp * densityPreset.scale),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            items(values) { value ->
+                val active = value == selected
+                val hapticManager = rememberHapticManager()
+                if (staticGlass) {
                     Surface(
-                        shape = RoundedCornerShape(18.dp * densityPreset.scale),
-                        color = if (active) palette.primary else palette.card.copy(alpha = 0.72f),
+                        shape = RoundedCornerShape(16.dp * densityPreset.scale),
+                        color = if (active) palette.primary.copy(alpha = 0.16f) else palette.card.copy(alpha = 0.48f),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (active) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.5f),
+                            0.5.dp,
+                            if (active) palette.primary.copy(alpha = 0.3f) else palette.cardBorder.copy(alpha = 0.18f),
                         ),
                         modifier = Modifier
                             .padding(horizontal = 12.dp * densityPreset.scale)
@@ -379,10 +428,32 @@ internal fun WheelPicker(
                         ) {
                             Text(
                                 text = label(value),
-                                style = if (active) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                                color = if (active) palette.pillOn else palette.ink,
+                                style = if (active) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                                color = if (active) palette.primary else palette.ink.copy(alpha = 0.82f),
                             )
                         }
+                    }
+                } else {
+                    LiquidGlassSurface(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp * densityPreset.scale)
+                            .bouncyClick(hapticManager = hapticManager) { onSelect(value) },
+                        cornerRadius = 16.dp * densityPreset.scale,
+                        contentPadding = PaddingValues(horizontal = 10.dp * densityPreset.scale, vertical = 10.dp * densityPreset.scale),
+                        tint = if (active) palette.primary.copy(alpha = 0.14f) else palette.card.copy(alpha = 0.24f),
+                        borderColor = if (active) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.16f),
+                        glowColor = if (active) palette.primary.copy(alpha = 0.06f) else Color.Transparent,
+                        blurRadius = 4.dp,
+                        refractionHeight = 4.dp,
+                        refractionAmount = 5.dp,
+                        highlightAlpha = 0.14f,
+                    ) {
+                        Text(
+                            text = label(value),
+                            style = if (active) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                            color = if (active) palette.primary else palette.ink.copy(alpha = 0.82f),
+                            modifier = Modifier.align(Alignment.Center),
+                        )
                     }
                 }
             }
