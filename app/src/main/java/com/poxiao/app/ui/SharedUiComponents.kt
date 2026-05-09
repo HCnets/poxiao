@@ -41,6 +41,7 @@ import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.interactions.bouncyClick
 import com.poxiao.app.ui.interactions.rememberHapticManager
 import com.poxiao.app.ui.theme.PoxiaoThemeState
+import com.poxiao.app.ui.theme.PoxiaoPalette
 
 @Composable
 internal fun ScreenColumn(
