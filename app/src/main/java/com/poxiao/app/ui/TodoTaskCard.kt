@@ -29,6 +29,7 @@ import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.theme.WarmMist
 
 @Composable
@@ -50,6 +51,7 @@ internal fun TodoTaskCard(
     val focusProgressLabel = if (task.focusGoal > 0) "专注 ${task.focusCount}/${task.focusGoal} 轮" else "专注 ${task.focusCount} 轮"
     val focusGoalReached = task.focusGoal > 0 && task.focusCount >= task.focusGoal
     val hapticManager = rememberHapticManager()
+    val palette = PoxiaoThemeState.palette
 
     GlassCard(modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onEdit)) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -129,7 +131,7 @@ internal fun TodoTaskCard(
             if (task.subtasks.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     task.subtasks.forEachIndexed { index, subtask ->
-                        Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.34f)) {
+                        Surface(shape = RoundedCornerShape(16.dp), color = palette.card.copy(alpha = 0.42f), border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.14f))) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,

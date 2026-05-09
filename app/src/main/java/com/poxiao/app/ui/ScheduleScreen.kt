@@ -41,10 +41,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -208,15 +205,13 @@ internal fun ScheduleScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Button(
+                PrimaryActionButton(
+                    text = if (uiState.loading) "正在刷新..." else "立即刷新课表",
                     onClick = { scope.launch { repository.refresh() } },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MossGreen),
+                    accent = MossGreen,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = uiState.loggedIn && !uiState.loading,
-                ) {
-                    Text(if (uiState.loading) "正在刷新..." else "立即刷新课表")
-                }
+                )
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -552,13 +547,13 @@ private fun ScheduleDisabledPlaceholder(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
+            PrimaryActionButton(
+                text = "返回主页",
                 onClick = onBack,
-                colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("返回主页", color = Color.White)
-            }
+                accent = ForestGreen,
+                modifier = Modifier.fillMaxWidth(0.5f),
+                height = 44.dp,
+            )
         }
     }
 }
@@ -833,7 +828,8 @@ private fun DayScheduleCard(
         Spacer(modifier = Modifier.height(10.dp))
         OutlinedTextField(value = draftNote, onValueChange = { draftNote = it }, label = { Text("说明") }, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(10.dp))
-        Button(
+        PrimaryActionButton(
+            text = if (editingEvent == null) "加入当天时间线" else "保存修改",
             onClick = {
                 eventHint = submitScheduleEventDraft(
                     selectedDate = selectedDate,
@@ -855,15 +851,13 @@ private fun DayScheduleCard(
                     )
                 }
             },
-            shape = RoundedCornerShape(22.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
+            accent = ForestGreen,
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (editingEvent == null) "加入当天时间线" else "保存修改")
-        }
+        )
         if (editingEvent != null) {
             Spacer(modifier = Modifier.height(10.dp))
-            OutlinedButton(
+            SecondaryActionButton(
+                text = "删除事件",
                 onClick = {
                     eventHint = deleteScheduleEventDraft(
                         editingEvent = editingEvent,
@@ -877,11 +871,9 @@ private fun DayScheduleCard(
                         onDraftNoteChange = { draftNote = it },
                     )
                 },
-                shape = RoundedCornerShape(22.dp),
+                accent = PineInk,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("删除事件")
-            }
+            )
         }
         if (eventHint.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))

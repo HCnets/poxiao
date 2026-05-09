@@ -5,7 +5,7 @@
 > **“将大学生活里那些零碎、跳跃、失焦的时刻，重新组织成一个连贯的个人界面。”**
 
 <p>
-  <img src="https://img.shields.io/badge/Version-1.9.0_UI_De--noise-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.9.0" />
+  <img src="https://img.shields.io/badge/Version-1.9.1_UI_Refinement-FFD700?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.9.1" />
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Language-Kotlin_2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Language Kotlin" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="UI Jetpack Compose" />
@@ -89,7 +89,8 @@
 | `31` | **v1.3.9** | **方程可视化革命 (Equation WYSIWYG)** | 彻底重构方程模块为所见即所得 (WYSIWYG) 布局，支持系数网格的物理焦点导航。 |
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
-| `当前` | **v1.9.0** | **UI品质大重构 (De-noise & Systematize)** | 字体SansSerif化、LiquidGlass参数收敛至克制、全局卡片切换为纯色Surface、语义色体系精简为中性灰阶，彻底消除"花哨廉价"感。 |
+| `34` | **v1.9.0** | **UI品质大重构 (De-noise & Systematize)** | 字体SansSerif化、LiquidGlass参数收敛至克制、全局卡片切换为纯色Surface、语义色体系精简为中性灰阶，彻底消除"花哨廉价"感。 |
+| `当前` | **v1.9.1** | **按钮统一与去噪打磨 (Button Unification & Polish)** | 统一 ActionPill 轻玻璃胶囊按钮体系；新增 PrimaryActionButton / SecondaryActionButton 主次操作键；CalcButton 切换为 LiquidGlassSurface；消除全局硬编码 Surface 颜色为 palette 语义色；替换 LearningDashboard / ExportCenter / NotificationPreferences / More / TodoTaskCard / HomeSearch / HomeAssistant 等页面原生 Button/OutlinedButton 为统一组件；更新版本脚注。 |
 | `历史版本` | **v1.8.3** | **UI重叠与陀螺仪性能修复 (UI & Gyroscope Fixes)** | 移除实验性 `SharedTransitionLayout` 以修复计算器与更多界面的重叠问题；将 LiquidGlass 陀螺仪动效由 `animateTo` 切换为 `snapTo`，消除计算延迟与卡顿，恢复极速响应；恢复稳定纯净的视觉参数。 |
 | `历史版本` | **v1.8.2** | **手势冲突修复与体验闭环 (Gesture & UX Finalization)** | 彻底解决拖拽手势与 LazyColumn 滚动的冲突问题，构建基于 `awaitPointerEventScope` 的状态机；清理白皮书相关的破坏性 UI 实验。 |
 | `历史版本` | **v1.8.1** | **深度数学渲染与矩阵演算 (Deep Math & Matrix CAS)** | 修复 `NaturalMathRenderer` 对 `y` 变量等单一字符的识别漏洞，彻底重构 `MatrixModulePro` 引入完整的 Cramer 法则行列式、伴随矩阵求逆以及点乘乘法，替换所有占位符，实现真实的计算能力 。 |

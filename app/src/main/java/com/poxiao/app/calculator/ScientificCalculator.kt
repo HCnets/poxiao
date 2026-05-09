@@ -4243,13 +4243,31 @@ private fun MatrixGridEditor(
 private fun CalcButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     val isDarkMode = LocalLiquidGlassStylePreset.current == LiquidGlassStylePreset.Hyper
-    Button(
-        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
-        shape = RoundedCornerShape(22.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = if (isDarkMode) Color(0xFF66FFB2).copy(alpha = 0.2f) else ForestGreen),
-        modifier = modifier.fillMaxWidth().height(52.dp),
+    val accent = if (isDarkMode) Color(0xFF66FFB2) else ForestGreen
+    LiquidGlassSurface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            },
+        cornerRadius = 22.dp,
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        tint = accent.copy(alpha = if (isDarkMode) 0.16f else 0.18f),
+        borderColor = accent.copy(alpha = if (isDarkMode) 0.24f else 0.16f),
+        glowColor = accent.copy(alpha = if (isDarkMode) 0.12f else 0.06f),
+        blurRadius = 5.dp,
+        refractionHeight = 5.dp,
+        refractionAmount = 6.dp,
+        highlightAlpha = 0.2f,
     ) {
-        Text(text, color = if (isDarkMode) Color(0xFF66FFB2) else CloudWhite, style = MaterialTheme.typography.titleSmall)
+        Text(
+            text = text,
+            color = accent.copy(alpha = 0.96f),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.align(Alignment.Center),
+        )
     }
 }
 

@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.poxiao.app.ui.ActionPill
+import com.poxiao.app.ui.PrimaryActionButton
 import com.poxiao.app.ui.refreshLocalReminderSchedule
 import com.poxiao.app.ui.sendAppNotification
 import com.poxiao.app.ui.theme.PoxiaoThemeState
@@ -150,38 +152,28 @@ fun NotificationPreferencesScreen(
                         Text("通知偏好", style = MaterialTheme.typography.headlineMedium, color = palette.ink)
                         Text("统一管理待办、课前、考试周和番茄钟完成提醒。", style = MaterialTheme.typography.bodyLarge, color = palette.softText)
                     }
-                    Button(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WarmMist, contentColor = palette.ink),
-                    ) {
-                        Text("返回")
-                    }
+                    ActionPill("返回", palette.secondary, onClick = onBack)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(status, style = MaterialTheme.typography.bodyMedium, color = palette.softText)
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
+                    ActionPill(
+                        text = "立即重排",
+                        background = palette.primary,
                         onClick = {
                             refreshLocalReminderSchedule(context)
                             status = buildReminderStatusText(context, "已立即重排提醒计划。")
                         },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-                    ) {
-                        Text("立即重排")
-                    }
-                    Button(
+                    )
+                    ActionPill(
+                        text = "测试通知",
+                        background = palette.secondary,
                         onClick = {
                             sendAppNotification(context, "测试通知", "本地提醒链路正常，可继续测试系统通知。")
                             status = buildReminderStatusText(context, "已发送测试通知。")
                         },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f), contentColor = palette.ink),
-                    ) {
-                        Text("测试通知")
-                    }
+                    )
                 }
             }
         }

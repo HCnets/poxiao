@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.notes.CourseNoteStore
 import com.poxiao.app.review.ReviewPlannerStore
+import com.poxiao.app.ui.ActionPill
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.MossGreen
@@ -150,20 +151,8 @@ fun LearningDashboardScreen(
                         Text("学习数据", style = MaterialTheme.typography.headlineMedium, color = palette.ink)
                         Text("汇总课表密度、待办推进、成绩缓存、课程笔记和专注记录。", style = MaterialTheme.typography.bodyLarge, color = palette.softText)
                     }
-                    Button(
-                        onClick = onOpenExportCenter,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = ForestGreen.copy(alpha = 0.88f), contentColor = Color.White),
-                    ) {
-                        Text("导出")
-                    }
-                    Button(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WarmMist, contentColor = palette.ink),
-                    ) {
-                        Text("返回")
-                    }
+                    ActionPill("导出", ForestGreen, onClick = onOpenExportCenter)
+                    ActionPill("返回", palette.secondary, onClick = onBack)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 DashboardScopeRow(

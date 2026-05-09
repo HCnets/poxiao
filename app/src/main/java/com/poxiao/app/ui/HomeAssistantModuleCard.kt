@@ -304,15 +304,13 @@ internal fun HomeAssistantModuleCard(
                 Text("智能体正在整理回复...", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.68f))
             }
             Spacer(modifier = Modifier.height(homeSecondarySpacing(activeSize) + 2.dp))
-            Button(
+            PrimaryActionButton(
+                text = "发送",
                 onClick = onSend,
+                accent = ForestGreen,
                 enabled = prompt.isNotBlank() && !assistantBusy,
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("发送")
-            }
+            )
         }
     }
 }

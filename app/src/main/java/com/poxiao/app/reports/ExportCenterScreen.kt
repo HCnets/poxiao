@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.poxiao.app.notes.CourseNoteStore
+import com.poxiao.app.ui.ActionPill
 import com.poxiao.app.ui.EditionCapabilities
 import com.poxiao.app.ui.LiquidGlassCard
 import com.poxiao.app.ui.LocalEditionCapabilities
@@ -315,14 +316,7 @@ fun ExportCenterScreen(
                             color = palette.softText,
                         )
                     }
-                    Button(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WarmMist,
-                            contentColor = palette.ink,
-                        ),
-                    ) { Text("返回") }
+                    ActionPill("返回", palette.secondary, onClick = onBack)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(statusText, style = MaterialTheme.typography.bodyMedium, color = palette.softText)

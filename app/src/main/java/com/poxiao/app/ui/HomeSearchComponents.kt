@@ -22,12 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.poxiao.app.ui.theme.BambooStroke
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.theme.TeaGreen
 
 @Composable
@@ -42,13 +42,14 @@ internal fun SearchResultRow(
         HomeSearchCategory.Grade -> MossGreen
         HomeSearchCategory.Building -> TeaGreen
     }
+    val palette = PoxiaoThemeState.palette
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.48f),
-        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.32f)),
+        color = palette.card.copy(alpha = 0.64f),
+        border = BorderStroke(0.75.dp, palette.cardBorder.copy(alpha = 0.26f)),
     ) {
         Row(
             modifier = Modifier

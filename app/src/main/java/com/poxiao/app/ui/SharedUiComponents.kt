@@ -32,7 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.PineInk
@@ -173,22 +175,25 @@ internal fun ActionPill(
     val densityPreset = LocalUiDensityPreset.current
     val hapticManager = rememberHapticManager()
     val staticGlass = LocalStaticGlassMode.current
-    val textColor = if (background.red * 0.299f + background.green * 0.587f + background.blue * 0.114f > 0.62f) {
-        palette.ink
-    } else {
-        palette.pillOn
-    }
+    val isLightAccent = background.luminance() > 0.72f
+    val textColor = if (isLightAccent) palette.ink.copy(alpha = 0.84f) else background.copy(alpha = 0.96f)
+    val staticTint = if (isLightAccent) Color.White.copy(alpha = 0.54f) else background.copy(alpha = 0.12f)
+    val staticBorder = if (isLightAccent) palette.cardBorder.copy(alpha = 0.18f) else background.copy(alpha = 0.24f)
+    val glassTint = if (isLightAccent) Color.White.copy(alpha = 0.22f) else background.copy(alpha = 0.14f)
+    val glassBorder = if (isLightAccent) palette.cardBorder.copy(alpha = 0.26f) else background.copy(alpha = 0.18f)
+    val glassGlow = if (isLightAccent) Color.Transparent else background.copy(alpha = 0.08f)
     if (staticGlass) {
         Surface(
             shape = RoundedCornerShape(22.dp * densityPreset.scale),
-            color = background.copy(alpha = 0.22f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, background.copy(alpha = 0.28f)),
+            color = staticTint,
+            border = androidx.compose.foundation.BorderStroke(0.75.dp, staticBorder),
+            shadowElevation = 1.dp,
             modifier = modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
         ) {
             Box(
                 modifier = Modifier.padding(
                     horizontal = 14.dp * densityPreset.scale,
-                    vertical = 10.dp * densityPreset.scale,
+                    vertical = 8.dp * densityPreset.scale,
                 ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -206,14 +211,15 @@ internal fun ActionPill(
             cornerRadius = 22.dp * densityPreset.scale,
             contentPadding = PaddingValues(
                 horizontal = 14.dp * densityPreset.scale,
-                vertical = 10.dp * densityPreset.scale,
+                vertical = 8.dp * densityPreset.scale,
             ),
-            tint = background.copy(alpha = 0.3f),
-            borderColor = background.copy(alpha = 0.36f),
-            glowColor = background.copy(alpha = 0.28f),
-            blurRadius = 8.dp,
-            refractionHeight = 8.dp,
-            refractionAmount = 12.dp,
+            tint = glassTint,
+            borderColor = glassBorder,
+            glowColor = glassGlow,
+            blurRadius = 5.dp,
+            refractionHeight = 5.dp,
+            refractionAmount = 6.dp,
+            highlightAlpha = 0.22f,
         ) {
             Text(
                 text,
@@ -222,6 +228,99 @@ internal fun ActionPill(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.Center),
             )
+        }
+    }
+}
+
+@Composable
+internal fun PrimaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accent: Color = PoxiaoThemeState.palette.primary,
+    height: Dp = 52.dp,
+) {
+    val densityPreset = LocalUiDensityPreset.current
+    val hapticManager = rememberHapticManager()
+    val staticGlass = LocalStaticGlassMode.current
+    val shape = RoundedCornerShape(22.dp * densityPreset.scale)
+    val contentModifier = modifier
+        .fillMaxWidth()
+        .height(height * densityPreset.scale)
+    val textColor = if (enabled) accent.copy(alpha = 0.98f) else accent.copy(alpha = 0.42f)
+    val tint = if (enabled) accent.copy(alpha = 0.16f) else accent.copy(alpha = 0.08f)
+    val borderColor = if (enabled) accent.copy(alpha = 0.18f) else accent.copy(alpha = 0.1f)
+    val glowColor = if (enabled) accent.copy(alpha = 0.08f) else Color.Transparent
+
+    if (staticGlass) {
+        Surface(
+            shape = shape,
+            color = tint,
+            border = androidx.compose.foundation.BorderStroke(0.9.dp, borderColor),
+            modifier = contentModifier.then(
+                if (enabled) Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick) else Modifier
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(text = text, style = MaterialTheme.typography.labelLarge, color = textColor)
+            }
+        }
+    } else {
+        LiquidGlassSurface(
+            modifier = contentModifier.then(
+                if (enabled) Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick) else Modifier
+            ),
+            cornerRadius = 22.dp * densityPreset.scale,
+            tint = tint,
+            borderColor = borderColor,
+            glowColor = glowColor,
+            blurRadius = 5.dp,
+            refractionHeight = 5.dp,
+            refractionAmount = 6.dp,
+            highlightAlpha = 0.22f,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SecondaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accent: Color = PoxiaoThemeState.palette.ink,
+    height: Dp = 52.dp,
+) {
+    val palette = PoxiaoThemeState.palette
+    val densityPreset = LocalUiDensityPreset.current
+    val hapticManager = rememberHapticManager()
+    val staticGlass = LocalStaticGlassMode.current
+    val shape = RoundedCornerShape(22.dp * densityPreset.scale)
+    val contentModifier = modifier
+        .fillMaxWidth()
+        .height(height * densityPreset.scale)
+    val textColor = if (enabled) accent.copy(alpha = 0.8f) else accent.copy(alpha = 0.36f)
+    val tint = if (enabled) palette.card.copy(alpha = 0.42f) else palette.card.copy(alpha = 0.24f)
+    val borderColor = if (enabled) palette.cardBorder.copy(alpha = 0.38f) else palette.cardBorder.copy(alpha = 0.18f)
+
+    Surface(
+        shape = shape,
+        color = tint,
+        border = androidx.compose.foundation.BorderStroke(0.9.dp, borderColor),
+        modifier = contentModifier.then(
+            if (enabled) Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick) else Modifier
+        ),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text = text, style = MaterialTheme.typography.labelLarge, color = textColor)
         }
     }
 }
@@ -297,7 +396,8 @@ internal fun ToggleLine(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
-    Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.56f)) {
+    val palette = PoxiaoThemeState.palette
+    Surface(shape = RoundedCornerShape(18.dp), color = palette.card.copy(alpha = 0.56f), border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

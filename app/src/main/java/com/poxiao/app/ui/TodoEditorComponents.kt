@@ -2,7 +2,9 @@ package com.poxiao.app.ui
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,10 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -168,19 +167,20 @@ internal fun TodoEditorCard(
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
-                onClick = onSubmit,
-                shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ForestGreen),
-            ) {
-                Text(if (editingTask == null) "加入待办" else "保存修改")
+            EditorActionButton(weight = 1f) {
+                PrimaryActionButton(
+                    text = if (editingTask == null) "加入待办" else "保存修改",
+                    onClick = onSubmit,
+                    accent = ForestGreen,
+                )
             }
             if (editingTask != null) {
-                OutlinedButton(
-                    onClick = onDelete,
-                    shape = RoundedCornerShape(24.dp),
-                ) {
-                    Text("删除任务")
+                EditorActionButton(weight = 1f) {
+                    SecondaryActionButton(
+                        text = "删除任务",
+                        onClick = onDelete,
+                        accent = PineInk,
+                    )
                 }
             }
         }
@@ -188,5 +188,15 @@ internal fun TodoEditorCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(todoHint, style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.76f))
         }
+    }
+}
+
+@Composable
+private fun RowScope.EditorActionButton(
+    weight: Float,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = Modifier.weight(weight)) {
+        content()
     }
 }
