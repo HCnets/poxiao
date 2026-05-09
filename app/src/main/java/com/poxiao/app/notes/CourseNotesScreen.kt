@@ -928,8 +928,8 @@ private fun SummaryPill(title: String, value: String) {
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = Color.White.copy(alpha = 0.2f),
-        border = BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.8f)),
+        color = palette.card.copy(alpha = 0.40f),
+        border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.24f)),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -950,7 +950,7 @@ private fun CourseFilterChip(
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = if (selected) palette.primary.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.18f),
+        color = if (selected) palette.primary.copy(alpha = 0.92f) else palette.card.copy(alpha = 0.36f),
         border = BorderStroke(1.dp, if (selected) palette.primary.copy(alpha = 0.2f) else palette.cardBorder),
         modifier = Modifier.clickable(onClick = onClick),
     ) {
@@ -974,8 +974,8 @@ private fun CourseNoteCard(
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = Color.White.copy(alpha = 0.2f),
-        border = BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.86f)),
+        color = palette.card.copy(alpha = 0.40f),
+        border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.24f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1026,7 +1026,7 @@ private fun CourseNoteCard(
                         Box(
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.18f))
+                                .background(palette.card.copy(alpha = 0.32f))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                         ) {
                             Text(tag, style = MaterialTheme.typography.labelMedium, color = palette.softText)
@@ -1072,7 +1072,7 @@ private fun CourseNoteAttachmentRow(
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.16f),
+        color = palette.card.copy(alpha = 0.36f),
         border = BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.8f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -1121,7 +1121,7 @@ private fun AttachmentChip(
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = Color.White.copy(alpha = 0.18f),
+        color = palette.card.copy(alpha = 0.40f),
         border = BorderStroke(1.dp, palette.cardBorder.copy(alpha = 0.82f)),
         modifier = Modifier.clickable(onClick = onClick),
     ) {

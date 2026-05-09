@@ -174,8 +174,8 @@ fun LearningDashboardScreen(
                     metrics.forEach { metric ->
                         Surface(
                             shape = RoundedCornerShape(22.dp),
-                            color = Color.White.copy(alpha = 0.22f),
-                            border = BorderStroke(1.dp, palette.cardBorder),
+                            color = palette.card.copy(alpha = 0.42f),
+                            border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.2f)),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
@@ -202,7 +202,7 @@ fun LearningDashboardScreen(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         highlights.forEach { line ->
-                            Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.2f)) {
+                            Surface(shape = RoundedCornerShape(22.dp), color = palette.card.copy(alpha = 0.40f), border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(line.title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
                                     Text(line.body, style = MaterialTheme.typography.bodyLarge, color = palette.softText)
@@ -221,8 +221,8 @@ fun LearningDashboardScreen(
                     trends.forEach { trend ->
                         Surface(
                             shape = RoundedCornerShape(22.dp),
-                            color = Color.White.copy(alpha = 0.2f),
-                            border = BorderStroke(1.dp, palette.cardBorder),
+                            color = palette.card.copy(alpha = 0.40f),
+                            border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.2f)),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
@@ -249,7 +249,7 @@ fun LearningDashboardScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     breakdowns.forEach { block ->
-                        Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.2f)) {
+                        Surface(shape = RoundedCornerShape(22.dp), color = palette.card.copy(alpha = 0.40f), border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
                             Column(
                                 modifier = Modifier.fillMaxWidth().padding(14.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -272,8 +272,8 @@ fun LearningDashboardScreen(
                     risks.forEach { risk ->
                         Surface(
                             shape = RoundedCornerShape(22.dp),
-                            color = Color.White.copy(alpha = 0.2f),
-                            border = BorderStroke(1.dp, risk.accent.copy(alpha = 0.3f)),
+                            color = palette.card.copy(alpha = 0.40f),
+                            border = BorderStroke(0.5.dp, risk.accent.copy(alpha = 0.24f)),
                         ) {
                             Column(
                                 modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -302,7 +302,7 @@ private fun DashboardCard(content: @Composable ColumnScope.() -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.08f))))
+                .background(Brush.verticalGradient(listOf(palette.card.copy(alpha = 0.32f), palette.card.copy(alpha = 0.16f))))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
             content = content,
@@ -323,7 +323,7 @@ private fun DashboardScopeRow(
         DashboardScope.entries.forEach { scope ->
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = if (scope == selected) palette.primary.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.22f),
+                color = if (scope == selected) palette.primary.copy(alpha = 0.92f) else palette.card.copy(alpha = 0.42f),
                 border = BorderStroke(1.dp, if (scope == selected) palette.primary.copy(alpha = 0.28f) else palette.cardBorder),
                 modifier = Modifier.clickable { onSelect(scope) },
             ) {

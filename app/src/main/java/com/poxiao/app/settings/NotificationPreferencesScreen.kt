@@ -248,7 +248,7 @@ private fun PreferenceCard(content: @Composable ColumnScope.() -> Unit) {
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.08f)),
+                        listOf(palette.card.copy(alpha = 0.32f), palette.card.copy(alpha = 0.16f)),
                     ),
                 )
                 .padding(18.dp),
@@ -266,7 +266,7 @@ private fun PreferenceToggle(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val palette = PoxiaoThemeState.palette
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.22f)) {
+    Surface(shape = RoundedCornerShape(22.dp), color = palette.card.copy(alpha = 0.40f), border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -291,7 +291,7 @@ private fun PreferenceChip(
     val palette = PoxiaoThemeState.palette
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = if (selected) palette.primary.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.18f),
+        color = if (selected) palette.primary.copy(alpha = 0.92f) else palette.card.copy(alpha = 0.36f),
         border = BorderStroke(1.dp, if (selected) palette.primary.copy(alpha = 0.16f) else palette.cardBorder),
         modifier = Modifier.clickable(onClick = onClick),
     ) {

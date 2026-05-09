@@ -138,8 +138,8 @@ internal fun HomeAssistantModuleCard(
                 assistantSummaries.take(if (activeSize == HomeModuleSize.Hero) 4 else 3).forEachIndexed { index, summary ->
                     Surface(
                         shape = RoundedCornerShape(18.dp),
-                        color = Color.White.copy(alpha = 0.42f),
-                        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.22f)),
+                        color = palette.card.copy(alpha = 0.48f),
+                        border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.22f)),
                     ) {
                         Column(
                             modifier = Modifier
@@ -161,8 +161,8 @@ internal fun HomeAssistantModuleCard(
             reviewExecutionSummary?.let { execution ->
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = Color.White.copy(alpha = 0.38f),
-                    border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.18f)),
+                    color = palette.card.copy(alpha = 0.44f),
+                    border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.20f)),
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -209,8 +209,8 @@ internal fun HomeAssistantModuleCard(
                 reviewExecutionHistory.take(3).forEachIndexed { index, execution ->
                     Surface(
                         shape = RoundedCornerShape(18.dp),
-                        color = Color.White.copy(alpha = 0.3f),
-                        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f)),
+                        color = palette.card.copy(alpha = 0.40f),
+                        border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f)),
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -254,7 +254,7 @@ internal fun HomeAssistantModuleCard(
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = when (message.role) {
-                        "assistant" -> Color.White.copy(alpha = 0.58f)
+                        "assistant" -> palette.card.copy(alpha = 0.52f)
                         "system" -> TeaGreen.copy(alpha = 0.24f)
                         else -> Color(0x2A2F7553)
                     },
@@ -275,8 +275,8 @@ internal fun HomeAssistantModuleCard(
                 activeConversation.toolCalls.takeLast(3).reversed().forEachIndexed { index, toolCall ->
                     Surface(
                         shape = RoundedCornerShape(18.dp),
-                        color = Color.White.copy(alpha = 0.36f),
-                        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.18f)),
+                        color = palette.card.copy(alpha = 0.42f),
+                        border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.20f)),
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
