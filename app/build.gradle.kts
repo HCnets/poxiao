@@ -24,8 +24,8 @@ android {
         applicationId = "com.poxiao.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.9.2"
+        versionCode = 14
+        versionName = "1.9.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

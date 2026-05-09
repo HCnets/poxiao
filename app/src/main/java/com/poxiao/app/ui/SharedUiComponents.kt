@@ -420,24 +420,48 @@ internal fun SelectionChip(
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
     val hapticManager = rememberHapticManager()
-    Surface(
-        shape = RoundedCornerShape(16.dp * densityPreset.scale),
-        color = if (chosen) palette.primary else palette.card.copy(alpha = 0.6f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (chosen) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.54f),
-        ),
-        modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 10.dp * densityPreset.scale, vertical = 6.dp * densityPreset.scale),
-            contentAlignment = Alignment.Center,
+    val staticGlass = LocalStaticGlassMode.current
+    if (staticGlass) {
+        Surface(
+            shape = RoundedCornerShape(16.dp * densityPreset.scale),
+            color = if (chosen) palette.primary.copy(alpha = 0.16f) else palette.card.copy(alpha = 0.54f),
+            border = androidx.compose.foundation.BorderStroke(
+                0.5.dp,
+                if (chosen) palette.primary.copy(alpha = 0.3f) else palette.cardBorder.copy(alpha = 0.22f),
+            ),
+            modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
+        ) {
+            Box(
+                modifier = Modifier.padding(horizontal = 10.dp * densityPreset.scale, vertical = 6.dp * densityPreset.scale),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text,
+                    style = if (chosen) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                    color = if (chosen) palette.primary else palette.ink.copy(alpha = 0.84f),
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    } else {
+        LiquidGlassSurface(
+            modifier = Modifier.bouncyClick(hapticManager = hapticManager, onClick = onClick),
+            cornerRadius = 16.dp * densityPreset.scale,
+            contentPadding = PaddingValues(horizontal = 10.dp * densityPreset.scale, vertical = 6.dp * densityPreset.scale),
+            tint = if (chosen) palette.primary.copy(alpha = 0.14f) else palette.card.copy(alpha = 0.24f),
+            borderColor = if (chosen) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.16f),
+            glowColor = if (chosen) palette.primary.copy(alpha = 0.06f) else Color.Transparent,
+            blurRadius = 4.dp,
+            refractionHeight = 4.dp,
+            refractionAmount = 5.dp,
+            highlightAlpha = 0.14f,
         ) {
             Text(
                 text,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (chosen) palette.pillOn else palette.ink,
+                style = if (chosen) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                color = if (chosen) palette.primary else palette.ink.copy(alpha = 0.82f),
                 textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center),
             )
         }
     }
@@ -452,29 +476,53 @@ internal fun <T> SelectionRow(
 ) {
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
+    val staticGlass = LocalStaticGlassMode.current
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp * densityPreset.scale),
     ) {
         options.forEach { item ->
             val chosen = item == selected
-            Surface(
-                shape = RoundedCornerShape(18.dp * densityPreset.scale),
-                color = if (chosen) palette.primary else palette.card.copy(alpha = 0.86f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (chosen) palette.primary.copy(alpha = 0.26f) else palette.cardBorder.copy(alpha = 0.58f),
-                ),
-                modifier = Modifier.clickable { onSelect(item) },
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 12.dp * densityPreset.scale, vertical = 9.dp * densityPreset.scale),
-                    contentAlignment = Alignment.Center,
+            val hapticManager = rememberHapticManager()
+            if (staticGlass) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp * densityPreset.scale),
+                    color = if (chosen) palette.primary.copy(alpha = 0.16f) else palette.card.copy(alpha = 0.54f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        0.5.dp,
+                        if (chosen) palette.primary.copy(alpha = 0.3f) else palette.cardBorder.copy(alpha = 0.22f),
+                    ),
+                    modifier = Modifier.bouncyClick(hapticManager = hapticManager) { onSelect(item) },
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 12.dp * densityPreset.scale, vertical = 9.dp * densityPreset.scale),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            label(item),
+                            style = if (chosen) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                            color = if (chosen) palette.primary else palette.ink.copy(alpha = 0.84f),
+                        )
+                    }
+                }
+            } else {
+                LiquidGlassSurface(
+                    modifier = Modifier.bouncyClick(hapticManager = hapticManager) { onSelect(item) },
+                    cornerRadius = 18.dp * densityPreset.scale,
+                    contentPadding = PaddingValues(horizontal = 12.dp * densityPreset.scale, vertical = 9.dp * densityPreset.scale),
+                    tint = if (chosen) palette.primary.copy(alpha = 0.14f) else palette.card.copy(alpha = 0.24f),
+                    borderColor = if (chosen) palette.primary.copy(alpha = 0.24f) else palette.cardBorder.copy(alpha = 0.16f),
+                    glowColor = if (chosen) palette.primary.copy(alpha = 0.06f) else Color.Transparent,
+                    blurRadius = 4.dp,
+                    refractionHeight = 4.dp,
+                    refractionAmount = 5.dp,
+                    highlightAlpha = 0.14f,
                 ) {
                     Text(
                         label(item),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (chosen) palette.pillOn else palette.ink,
+                        style = if (chosen) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium,
+                        color = if (chosen) palette.primary else palette.ink.copy(alpha = 0.82f),
+                        modifier = Modifier.align(Alignment.Center),
                     )
                 }
             }
