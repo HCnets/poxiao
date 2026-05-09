@@ -355,38 +355,34 @@ fun LiquidGlassSurface(
                         this.drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.White.copy(alpha = 0.12f),
-                                    Color.White.copy(alpha = 0.06f),
+                                    Color.White.copy(alpha = 0.14f),
+                                    Color.White.copy(alpha = 0.04f),
                                     Color.Transparent,
                                 ),
                             ),
                         )
                     }
-
                     LiquidGlassStylePreset.IOS -> {
                         this.drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.White.copy(alpha = 0.008f),
-                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.01f),
                                     Color.Transparent,
                                 ),
                             ),
                             blendMode = BlendMode.Screen,
                         )
                     }
-
                     LiquidGlassStylePreset.Hyper -> {
                         this.drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(
-                                    styledTint.copy(alpha = (styledTint.alpha * 0.44f).coerceAtMost(1f)),
-                                    palette.primary.copy(alpha = 0.08f),
-                                    palette.secondary.copy(alpha = 0.1f),
-                                    styledGlow.copy(alpha = (styledGlow.alpha * 0.4f).coerceAtMost(1f)),
+                                    palette.primary.copy(alpha = 0.06f),
+                                    palette.secondary.copy(alpha = 0.04f),
+                                    Color.Transparent,
                                 ),
-                                start = Offset(size.width * 0.08f, size.height * 0.08f),
-                                end = Offset(size.width * 0.92f, size.height),
+                                start = Offset(size.width * 0.1f, size.height * 0.1f),
+                                end = Offset(size.width * 0.9f, size.height * 0.8f),
                             ),
                         )
                     }
@@ -394,28 +390,13 @@ fun LiquidGlassSurface(
             },
             onDrawFront = {
                 this.drawRect(
-                    brush = Brush.verticalGradient(
+                    brush = Brush.linearGradient(
                         colors = listOf(
-                            Color.White.copy(
-                                alpha = when (stylePreset) {
-                                    LiquidGlassStylePreset.IOS -> 0.008f
-                                    else -> (0.08f * stylePreset.whiteSheenScale).coerceAtMost(0.12f)
-                                },
-                            ),
-                            Color.White.copy(
-                                alpha = when (stylePreset) {
-                                    LiquidGlassStylePreset.IOS -> 0.002f
-                                    else -> (0.04f * stylePreset.whiteSheenScale).coerceAtMost(0.06f)
-                                },
-                            ),
+                            Color.White.copy(alpha = 0.08f),
                             Color.Transparent,
-                            styledGlow.copy(
-                                alpha = when (stylePreset) {
-                                    LiquidGlassStylePreset.IOS -> (styledGlow.alpha * 0.01f).coerceAtMost(1f)
-                                    else -> (styledGlow.alpha * 0.12f).coerceAtMost(1f)
-                                },
-                            ),
                         ),
+                        start = Offset(size.width * 0.1f, size.height * 0.04f),
+                        end = Offset(size.width * 0.5f, size.height * 0.3f),
                     ),
                     blendMode = BlendMode.Screen,
                 )

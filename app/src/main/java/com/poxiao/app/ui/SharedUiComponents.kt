@@ -65,20 +65,19 @@ internal fun GlassCard(
 ) {
     val palette = PoxiaoThemeState.palette
     val densityPreset = LocalUiDensityPreset.current
-    Surface(
-        shape = RoundedCornerShape(24.dp * densityPreset.scale),
-        color = palette.card.copy(alpha = 0.92f),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f)),
-        shadowElevation = 1.dp,
+    LiquidGlassCard(
         modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp * densityPreset.scale),
-            content = content,
-        )
-    }
+        cornerRadius = 24.dp * densityPreset.scale,
+        contentPadding = PaddingValues(24.dp * densityPreset.scale),
+        tint = palette.card,
+        borderColor = palette.cardBorder,
+        glowColor = palette.cardGlow,
+        blurRadius = 6.dp,
+        refractionHeight = 6.dp,
+        refractionAmount = 8.dp,
+        highlightAlpha = 0.5f,
+        content = content,
+    )
 }
 
 @Composable
