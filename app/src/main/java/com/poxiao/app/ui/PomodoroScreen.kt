@@ -45,12 +45,14 @@ import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.WarmMist
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import java.time.LocalDateTime
 import kotlinx.coroutines.delay
 
 @Composable
 internal fun PomodoroScreen(active: Boolean) {
     val context = LocalContext.current
+    val palette = PoxiaoThemeState.palette
     val focusPrefs = remember { context.getSharedPreferences("focus_bridge", android.content.Context.MODE_PRIVATE) }
     val todoPrefs = remember { context.getSharedPreferences("todo_board", android.content.Context.MODE_PRIVATE) }
     val focusRecordPrefs = remember { context.getSharedPreferences("focus_records", android.content.Context.MODE_PRIVATE) }
@@ -290,8 +292,8 @@ internal fun PomodoroScreen(active: Boolean) {
                 LiquidGlassSurface(
                     modifier = Modifier.fillMaxWidth(),
                     cornerRadius = 32.dp,
-                    tint = if (running) ForestGreen.copy(alpha = 0.08f + 0.05f * glowPhase) else Color.White.copy(alpha = 0.28f),
-                    borderColor = if (running) ForestGreen.copy(alpha = 0.3f + 0.2f * glowPhase) else Color.White.copy(alpha = 0.36f),
+                    tint = if (running) ForestGreen.copy(alpha = 0.08f + 0.05f * glowPhase) else palette.card.copy(alpha = 0.34f),
+                    borderColor = if (running) ForestGreen.copy(alpha = 0.3f + 0.2f * glowPhase) else palette.cardBorder.copy(alpha = 0.24f),
                     blurRadius = if (running) (48 + 16 * glowPhase).dp else 24.dp,
                 ) {
                     Column(
@@ -432,8 +434,8 @@ internal fun PomodoroScreen(active: Boolean) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
-                    color = Color.White.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                    color = palette.card.copy(alpha = 0.26f),
+                    border = BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f)),
                 ) {
                     Text(
                         text = sound,
@@ -534,7 +536,7 @@ internal fun PomodoroScreen(active: Boolean) {
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.18f)),
+                                    .background(palette.card.copy(alpha = 0.32f)),
                             ) {
                                 Box(
                                     modifier = Modifier
@@ -551,7 +553,7 @@ internal fun PomodoroScreen(active: Boolean) {
                     Text("任务排行", style = MaterialTheme.typography.titleMedium, color = PineInk)
                     Spacer(modifier = Modifier.height(10.dp))
                     focusTaskStats.take(5).forEachIndexed { index, stat ->
-                        Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.26f)) {
+                        Surface(shape = RoundedCornerShape(18.dp), color = palette.card.copy(alpha = 0.42f), border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -593,7 +595,7 @@ internal fun PomodoroScreen(active: Boolean) {
                     Text("还没有完成的专注记录。", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.7f))
                 } else {
                     focusRecords.take(12).forEachIndexed { index, record ->
-                        Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.36f)) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = palette.card.copy(alpha = 0.48f), border = androidx.compose.foundation.BorderStroke(0.5.dp, palette.cardBorder.copy(alpha = 0.18f))) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(record.taskTitle, style = MaterialTheme.typography.titleMedium, color = PineInk)
                                 Text("${record.modeTitle} · ${formatSeconds(record.seconds)}", style = MaterialTheme.typography.bodyMedium, color = ForestDeep.copy(alpha = 0.74f))

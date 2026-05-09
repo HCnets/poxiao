@@ -32,6 +32,7 @@ import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import kotlin.math.roundToInt
 
 @Composable
@@ -48,6 +49,7 @@ internal fun HomeWorkbenchEditorCard(
     onDragMove: (HomeModule, Float) -> Unit,
     onSelectModuleSize: (HomeModule, HomeModuleSize) -> Unit,
 ) {
+    val palette = PoxiaoThemeState.palette
     GlassCard {
         Text("工作台编排", style = MaterialTheme.typography.titleLarge, color = PineInk)
         Spacer(modifier = Modifier.height(10.dp))
@@ -85,8 +87,8 @@ internal fun HomeWorkbenchEditorCard(
                             )
                         },
                     cornerRadius = 18.dp,
-                    tint = if (isDragging) TeaGreen.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.24f),
-                    borderColor = if (isDragging) ForestGreen.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.18f),
+                    tint = if (isDragging) TeaGreen.copy(alpha = 0.28f) else palette.card.copy(alpha = 0.44f),
+                    borderColor = if (isDragging) ForestGreen.copy(alpha = 0.22f) else palette.cardBorder.copy(alpha = 0.22f),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),

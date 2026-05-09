@@ -29,6 +29,7 @@ import com.poxiao.app.ui.theme.ForestGreen
 import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.MossGreen
 import com.poxiao.app.ui.theme.PineInk
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
 
@@ -46,12 +47,13 @@ internal fun HomeMetricsModuleCard(
     onOpenTodoPending: (TodoFilter) -> Unit,
     onOpenPomodoro: () -> Unit,
 ) {
+    val palette = PoxiaoThemeState.palette
     if (paired) {
         LiquidGlassCard(
             modifier = modifier.clickable(onClick = onOpenScheduleDay),
             cornerRadius = 24.dp,
-            tint = Color.White.copy(alpha = 0.36f),
-            borderColor = Color.White.copy(alpha = 0.22f),
+            tint = palette.card,
+            borderColor = palette.cardBorder,
         ) {
             Text("核心指标", style = homeSectionTitleStyle(moduleSize), color = PineInk)
             Spacer(modifier = Modifier.height(homeSectionSpacing(moduleSize)))
@@ -84,11 +86,12 @@ internal fun HomeRhythmModuleCard(
     onOpenPomodoro: () -> Unit,
     onOpenReviewPlanner: () -> Unit,
 ) {
+    val palette = PoxiaoThemeState.palette
     LiquidGlassCard(
         modifier = modifier,
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.36f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        tint = palette.card,
+        borderColor = palette.cardBorder,
     ) {
         HomeModuleHeader(
             title = "今天的节奏",
@@ -151,11 +154,12 @@ internal fun HomeLearningModuleCard(
     onBindGoalTodoFocus: (TodoTask) -> Unit,
 ) {
     if (pendingExamItems.isEmpty() && topFocusTask == null && pendingReviewItems.isEmpty()) return
+    val palette = PoxiaoThemeState.palette
     LiquidGlassCard(
         modifier = modifier,
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.36f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        tint = palette.card,
+        borderColor = palette.cardBorder,
     ) {
         val visibleExamItems = when {
             paired -> pendingExamItems.take(1)
@@ -193,7 +197,7 @@ internal fun HomeLearningModuleCard(
                 Surface(
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenReviewPlanner),
                     shape = RoundedCornerShape(24.dp),
-                    color = Color.White.copy(alpha = 0.34f),
+                    color = palette.card.copy(alpha = 0.44f),
                     border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.3f)),
                 ) {
                     Column(
@@ -311,12 +315,13 @@ internal fun HomeQuickPointsModuleCard(
     onOpenMap: () -> Unit,
 ) {
     if (favoritePoints.isEmpty()) return
+    val palette = PoxiaoThemeState.palette
     val activeSize = if (paired) HomeModuleSize.Compact else moduleSize
     LiquidGlassCard(
         modifier = modifier.clickable(onClick = onOpenMap),
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.36f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        tint = palette.card,
+        borderColor = palette.cardBorder,
     ) {
         Text("首页快捷点位", style = homeSectionTitleStyle(activeSize), color = PineInk)
         Spacer(modifier = Modifier.height(homeSectionSpacing(activeSize) - 2.dp))
@@ -343,12 +348,13 @@ internal fun HomeRecentPointsModuleCard(
     onOpenMap: () -> Unit,
 ) {
     if (recentPoints.isEmpty()) return
+    val palette = PoxiaoThemeState.palette
     val activeSize = if (paired) HomeModuleSize.Compact else moduleSize
     LiquidGlassCard(
         modifier = modifier.clickable(onClick = onOpenMap),
         cornerRadius = 24.dp,
-        tint = Color.White.copy(alpha = 0.36f),
-        borderColor = Color.White.copy(alpha = 0.22f),
+        tint = palette.card,
+        borderColor = palette.cardBorder,
     ) {
         Text("最近访问", style = homeSectionTitleStyle(activeSize), color = PineInk)
         Spacer(modifier = Modifier.height(homeSectionSpacing(activeSize) - 2.dp))
