@@ -1,0 +1,33 @@
+.gradle/
+.kotlin/
+.idea/
+build/
+*/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+Thumbs.db
+.DS_Store
+
+# Android local outputs
+app/release/
+app/debug/
+*.apk
+*.aab
+*.ap_
+
+# Exclude non-Android large historical assets
+system/
+zysjzs/
+作业收集助手/
+
+# Local logs / temp
+*.log
+*.tmp
+*.bak
+
+# Signing files / secrets
+*.jks
+*.keystore
