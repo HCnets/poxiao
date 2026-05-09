@@ -175,7 +175,7 @@ private fun VersionFooter(
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = ForestGreen.copy(alpha = 0.1f),
-                border = BorderStroke(1.dp, ForestGreen.copy(alpha = 0.2f))
+                border = BorderStroke(0.5.dp, ForestGreen.copy(alpha = 0.2f))
             ) {
                 Text(
                     text = "参赛主版本",
