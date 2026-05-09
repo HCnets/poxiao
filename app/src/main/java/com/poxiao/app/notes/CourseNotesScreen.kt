@@ -1,4 +1,4 @@
-﻿package com.poxiao.app.notes
+package com.poxiao.app.notes
 
 import android.content.Context
 import android.content.Intent
@@ -28,10 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.poxiao.app.ui.ActionPill
 import com.poxiao.app.ui.LiquidGlassCard
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.PoxiaoThemeState
@@ -628,16 +626,7 @@ fun CourseNotesScreen(
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Button(
-                        onClick = onBack,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = palette.secondary,
-                            contentColor = palette.pillOn,
-                        ),
-                    ) {
-                        Text("返回")
-                    }
+                    ActionPill("返回", palette.secondary, onClick = onBack)
                 }
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -750,9 +739,8 @@ fun CourseNotesScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text("资料附件", style = MaterialTheme.typography.labelLarge, color = palette.softText)
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        attachmentPicker.launch(
+                ActionPill("选择附件", palette.secondary, onClick = {
+                    attachmentPicker.launch(
                             arrayOf(
                                 "image/*",
                                 "application/pdf",
@@ -761,14 +749,7 @@ fun CourseNotesScreen(
                             ),
                         )
                     },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = palette.secondary,
-                        contentColor = palette.pillOn,
-                    ),
-                ) {
-                    Text("插入图片 / PPT / PDF")
-                }
+                )
                 if (draftAttachments.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -848,23 +829,14 @@ fun CourseNotesScreen(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(
+                    ActionPill(
+                        text = if (editingNoteId == null) "保存笔记" else "保存修改",
+                        background = palette.primary,
                         onClick = ::saveDraft,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = palette.primary,
-                            contentColor = palette.pillOn,
-                        ),
-                    ) {
-                        Text(if (editingNoteId == null) "保存笔记" else "保存修改")
-                    }
-                    OutlinedButton(onClick = { clearDraft(keepCourse = true) }, shape = RoundedCornerShape(18.dp)) {
-                        Text("清空表单")
-                    }
+                    )
+                    ActionPill("清空表单", palette.secondary, onClick = { clearDraft(keepCourse = true) })
                     if (editingNoteId != null) {
-                        OutlinedButton(onClick = ::deleteEditing, shape = RoundedCornerShape(18.dp)) {
-                            Text("删除笔记")
-                        }
+                        ActionPill("删除笔记", palette.secondary, onClick = ::deleteEditing)
                     }
                 }
             }
@@ -1024,9 +996,7 @@ private fun CourseNoteCard(
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                OutlinedButton(onClick = onEdit, shape = RoundedCornerShape(18.dp)) {
-                    Text("编辑")
-                }
+                ActionPill("编辑", palette.secondary, onClick = onEdit)
             }
             Text(
                 note.content,
@@ -1135,15 +1105,9 @@ private fun CourseNoteAttachmentRow(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onOpen, enabled = available, shape = RoundedCornerShape(16.dp)) {
-                    Text("打开")
-                }
-                OutlinedButton(onClick = onShare, enabled = available, shape = RoundedCornerShape(16.dp)) {
-                    Text("分享")
-                }
-                OutlinedButton(onClick = onRemove, shape = RoundedCornerShape(16.dp)) {
-                    Text("移除")
-                }
+                ActionPill("打开", palette.secondary, onClick = onOpen)
+                ActionPill("分享", palette.secondary, onClick = onShare)
+                ActionPill("移除", palette.secondary, onClick = onRemove)
             }
         }
     }

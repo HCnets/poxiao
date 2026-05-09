@@ -23,10 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,6 +51,7 @@ import com.poxiao.app.todo.TodoPriority
 import com.poxiao.app.todo.TodoQuadrant
 import com.poxiao.app.todo.TodoSubtask
 import com.poxiao.app.todo.TodoTask
+import com.poxiao.app.ui.ActionPill
 import com.poxiao.app.ui.LiquidGlassCard
 import com.poxiao.app.ui.theme.PoxiaoPalette
 import com.poxiao.app.ui.theme.PoxiaoThemeState
@@ -625,13 +623,14 @@ fun ReviewPlannerScreen(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Button(
+                        ActionPill(
+                            text = "同步课程笔记",
+                            background = palette.primary,
                             onClick = { syncFromNotes(showHint = true) },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-                        ) {
-                            Text("同步课程笔记")
-                        }
-                        Button(
+                        )
+                        ActionPill(
+                            text = "批量加入今日计划",
+                            background = palette.secondary,
                             onClick = {
                                 val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                 scopedItems.take(6).forEach { item ->
@@ -645,22 +644,20 @@ fun ReviewPlannerScreen(
                                 saveReviewTodoTasks(todoPrefs, tasks)
                                 statusText = "已把今日复习中的 ${scopedItems.take(6).size} 项加入待办，方便统一推进。"
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.secondary, contentColor = palette.ink),
-                        ) {
-                            Text("批量加入今日计划")
-                        }
-                        Button(
+                        )
+                        ActionPill(
+                            text = "整组绑定专注",
+                            background = palette.cardGlow.copy(alpha = 0.9f),
                             onClick = {
                                 val title = urgentItem?.let { "复习：${it.courseName} 今日计划" } ?: "复习：今日计划"
                                 SecurePrefs.putString(focusPrefs, "bound_task_title_secure", title)
                                 SecurePrefs.putString(focusPrefs, "bound_task_list_secure", "复习计划")
                                 statusText = "已把今日复习批量绑定到番茄钟，可按建议时长开始推进。"
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.cardGlow.copy(alpha = 0.9f), contentColor = palette.ink),
-                        ) {
-                            Text("整组绑定专注")
-                        }
-                        Button(
+                        )
+                        ActionPill(
+                            text = "智能重排",
+                            background = palette.primary.copy(alpha = 0.82f),
                             onClick = {
                                 filter = ReviewFilter.Today
                                 selectedCourse = "全部课程"
@@ -671,22 +668,9 @@ fun ReviewPlannerScreen(
                                     "已按遗忘风险、考试周临近度和课表空档重排今日复习顺序。当前建议先处理：$it"
                                 } ?: "当前没有可重排的复习项。"
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.primary.copy(alpha = 0.82f), contentColor = palette.pillOn),
-                        ) {
-                            Text("智能重排")
-                        }
-                        OutlinedButton(
-                            onClick = onOpenExportCenter,
-                            border = BorderStroke(1.dp, palette.cardBorder),
-                        ) {
-                            Text("导出复习", color = palette.ink)
-                        }
-                        OutlinedButton(
-                            onClick = onBack,
-                            border = BorderStroke(1.dp, palette.cardBorder),
-                        ) {
-                            Text("返回", color = palette.ink)
-                        }
+                        )
+                        ActionPill("导出复习", palette.secondary, onClick = onOpenExportCenter)
+                        ActionPill("返回", palette.secondary, onClick = onBack)
                     }
                 }
             }
@@ -912,18 +896,19 @@ fun ReviewPlannerScreen(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Button(
+                            ActionPill(
+                                text = "开启回炉专注",
+                                background = Color(0xFFD45B4A),
                                 onClick = {
                                     val focusTitle = errorFocusItems.firstOrNull()?.let { "错题回炉：${it.noteTitle}" } ?: "错题回炉模式"
                                     SecurePrefs.putString(focusPrefs, "bound_task_title_secure", focusTitle)
                                     SecurePrefs.putString(focusPrefs, "bound_task_list_secure", "错题回炉")
                                     statusText = "已开启错题回炉专注模式，番茄钟将优先绑定最紧急的错题知识点。"
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD45B4A), contentColor = Color.White),
-                            ) {
-                                Text("开启回炉专注")
-                            }
-                            OutlinedButton(
+                            )
+                            ActionPill(
+                                text = "生成回炉计划",
+                                background = palette.secondary,
                                 onClick = {
                                     val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                     errorFocusItems.forEach { item ->
@@ -943,10 +928,7 @@ fun ReviewPlannerScreen(
                                     saveReviewTodoTasks(todoPrefs, tasks)
                                     statusText = "已生成 ${errorFocusItems.size} 条错题回炉待办，可直接按专项模式集中清理。"
                                 },
-                                border = BorderStroke(1.dp, palette.cardBorder),
-                            ) {
-                                Text("生成回炉计划", color = palette.ink)
-                            }
+                            )
                         }
                     }
                 }
@@ -1063,7 +1045,9 @@ fun ReviewPlannerScreen(
                             value = "已重排",
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        Button(
+                        ActionPill(
+                            text = "应用建议到待办",
+                            background = palette.secondary,
                             onClick = {
                                 val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                 topRecommendedItems.forEach { item ->
@@ -1082,12 +1066,11 @@ fun ReviewPlannerScreen(
                                 saveReviewTodoTasks(todoPrefs, tasks)
                                 statusText = "已将智能重排建议中的 ${topRecommendedItems.size} 项写入待办，方便后续统一推进。"
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.secondary, contentColor = palette.ink),
-                        ) {
-                            Text("应用建议到待办")
-                        }
+                        )
                         Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedButton(
+                        ActionPill(
+                            text = "提交到智能入口",
+                            background = palette.secondary,
                             onClick = {
                                 saveReviewAssistantBridge(
                                     context = context,
@@ -1096,10 +1079,7 @@ fun ReviewPlannerScreen(
                                 )
                                 statusText = "已把当前智能重排结果写入智能入口桥接区，后续接大模型时可直接接管这组复习计划。"
                             },
-                            border = BorderStroke(1.dp, palette.cardBorder),
-                        ) {
-                            Text("提交到智能入口", color = palette.ink)
-                        }
+                        )
                     }
                 }
             }
@@ -1244,7 +1224,9 @@ fun ReviewPlannerScreen(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Button(
+                            ActionPill(
+                                text = "生成今日冲刺",
+                                background = palette.primary,
                                 onClick = {
                                     val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                     todaySprintItems.forEach { item ->
@@ -1263,11 +1245,10 @@ fun ReviewPlannerScreen(
                                     saveReviewTodoTasks(todoPrefs, tasks)
                                     statusText = "已按当前冲刺筛选生成 ${todaySprintItems.size} 项今日冲刺计划。"
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-                            ) {
-                                Text("生成今日冲刺")
-                            }
-                            Button(
+                            )
+                            ActionPill(
+                                text = "转考试周待办",
+                                background = palette.secondary,
                                 onClick = {
                                     val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                     filteredExamLinkedItems.forEach { item ->
@@ -1286,11 +1267,10 @@ fun ReviewPlannerScreen(
                                     saveReviewTodoTasks(todoPrefs, tasks)
                                     statusText = "已将当前筛选下的 ${filteredExamLinkedItems.size} 项复习知识点批量转成高优先待办。"
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = palette.secondary, contentColor = palette.ink),
-                            ) {
-                                Text("转考试周待办")
-                            }
-                            Button(
+                            )
+                            ActionPill(
+                                text = "绑定冲刺专注",
+                                background = palette.cardGlow.copy(alpha = 0.9f),
                                 onClick = {
                                     urgentExamLinkedItem?.first?.let { item ->
                                         SecurePrefs.putString(focusPrefs, "bound_task_title_secure", "复习：${item.noteTitle}")
@@ -1298,11 +1278,10 @@ fun ReviewPlannerScreen(
                                         statusText = "已把《${item.noteTitle}》设为考试周复习冲刺的首项专注任务。"
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = palette.cardGlow.copy(alpha = 0.9f), contentColor = palette.ink),
-                            ) {
-                                Text("绑定冲刺专注")
-                            }
-                            OutlinedButton(
+                            )
+                            ActionPill(
+                                text = "提交冲刺上下文",
+                                background = palette.secondary,
                                 onClick = {
                                     saveReviewAssistantBridge(
                                         context = context,
@@ -1317,10 +1296,7 @@ fun ReviewPlannerScreen(
                                     )
                                     statusText = "已把考试周复习冲刺队列提交到智能入口，后续可直接让智能体优先接管这部分计划。"
                                 },
-                                border = BorderStroke(1.dp, palette.cardBorder),
-                            ) {
-                                Text("提交冲刺上下文", color = palette.ink)
-                            }
+                            )
                         }
                     }
                 }
@@ -1443,7 +1419,9 @@ fun ReviewPlannerScreen(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Button(
+                            ActionPill(
+                                text = "应用到当前筛选",
+                                background = palette.primary,
                                 onClick = {
                                     val tag = batchTagText.trim()
                                     if (tag.isBlank()) {
@@ -1456,11 +1434,10 @@ fun ReviewPlannerScreen(
                                         statusText = "已把标签“$tag”应用到当前筛选下的 ${targetIds.size} 条复习项。"
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-                            ) {
-                                Text("应用到当前筛选")
-                            }
-                            OutlinedButton(
+                            )
+                            ActionPill(
+                                text = "应用到今日计划",
+                                background = palette.secondary,
                                 onClick = {
                                     val tag = batchTagText.trim()
                                     if (tag.isBlank()) {
@@ -1473,11 +1450,10 @@ fun ReviewPlannerScreen(
                                         statusText = "已把标签“$tag”应用到今日应复习的 ${targetIds.size} 条复习项。"
                                     }
                                 },
-                                border = BorderStroke(1.dp, palette.cardBorder),
-                            ) {
-                                Text("应用到今日计划", color = palette.ink)
-                            }
-                            OutlinedButton(
+                            )
+                            ActionPill(
+                                text = "从当前筛选移除",
+                                background = palette.secondary,
                                 onClick = {
                                     val tag = batchTagText.trim()
                                     if (tag.isBlank()) {
@@ -1490,10 +1466,7 @@ fun ReviewPlannerScreen(
                                         statusText = "已从当前筛选下的 ${targetIds.size} 条复习项中移除标签“$tag”。"
                                     }
                                 },
-                                border = BorderStroke(1.dp, palette.cardBorder),
-                            ) {
-                                Text("从当前筛选移除", color = palette.ink)
-                            }
+                            )
                         }
                     }
                 }
@@ -1503,7 +1476,9 @@ fun ReviewPlannerScreen(
                     ReviewGlassCard {
                         Text("课表空档推荐", style = MaterialTheme.typography.titleLarge, color = palette.ink, fontWeight = FontWeight.SemiBold)
                         Spacer(modifier = Modifier.height(10.dp))
-                        Button(
+                        ActionPill(
+                            text = "按空档生成当天安排",
+                            background = palette.secondary,
                             onClick = {
                                 val tasks = loadReviewTodoTasks(todoPrefs).toMutableList()
                                 val planItems = todayReviewItems.take(freeSlots.size.coerceAtLeast(1))
@@ -1527,10 +1502,7 @@ fun ReviewPlannerScreen(
                                 saveReviewTodoTasks(todoPrefs, tasks)
                                 statusText = "已根据课表空档生成 ${planItems.size} 项当天复习安排，可去待办统一推进。"
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = palette.secondary, contentColor = palette.ink),
-                        ) {
-                            Text("按空档生成当天安排")
-                        }
+                        )
                         Spacer(modifier = Modifier.height(10.dp))
                         freeSlots.forEachIndexed { index, slot ->
                             ReviewInsightCard(
@@ -2114,12 +2086,7 @@ private fun CourseRetrospectiveCard(
                     body = "${item.noteTitle} · ${item.importance.label} · ${masteryLabel(effectiveMastery(item))}",
                     value = dueLabel(item.nextReviewAt),
                 )
-                OutlinedButton(
-                    onClick = onOpenNote,
-                    border = BorderStroke(1.dp, palette.cardBorder),
-                ) {
-                    Text("回到原笔记", color = palette.ink)
-                }
+                ActionPill("回到原笔记", palette.secondary, onClick = onOpenNote)
             }
             Text(
                 "平均记忆 ${masteryLabel(retrospective.averageMastery)}，适合把错题和核心知识点优先清掉，再推进常规复习。",
@@ -2173,12 +2140,7 @@ private fun ErrorReviewTraceCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            OutlinedButton(
-                onClick = onOpenNote,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("回到原笔记", color = palette.ink)
-            }
+            ActionPill("回到原笔记", palette.secondary, onClick = onOpenNote)
         }
     }
 }
@@ -2232,24 +2194,13 @@ private fun CourseSectionHeader(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Button(
+            ActionPill(
+                text = if (expanded) "收起明细" else "展开明细",
+                background = palette.primary,
                 onClick = onToggleExpand,
-                colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-            ) {
-                Text(if (expanded) "收起明细" else "展开明细")
-            }
-            OutlinedButton(
-                onClick = onBatchComplete,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("整组完成", color = palette.ink)
-            }
-            OutlinedButton(
-                onClick = onBatchPostpone,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("整组顺延", color = palette.ink)
-            }
+            )
+            ActionPill("整组完成", palette.secondary, onClick = onBatchComplete)
+            ActionPill("整组顺延", palette.secondary, onClick = onBatchPostpone)
         }
     }
 }
@@ -2342,30 +2293,14 @@ private fun ReviewTaskCard(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedButton(
-                onClick = onCycleImportance,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("切换重要度", color = palette.ink)
-            }
-            OutlinedButton(
+            ActionPill("切换重要度", palette.secondary, onClick = onCycleImportance)
+            ActionPill(
+                text = if (item.errorProne) "取消错题" else "标记错题",
+                background = palette.secondary,
                 onClick = onToggleErrorProne,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text(if (item.errorProne) "取消错题" else "标记错题", color = palette.ink)
-            }
-            OutlinedButton(
-                onClick = { onCalibrateMastery(-0.1f) },
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("下调掌握度", color = palette.ink)
-            }
-            OutlinedButton(
-                onClick = { onCalibrateMastery(0.1f) },
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("上调掌握度", color = palette.ink)
-            }
+            )
+            ActionPill("下调掌握度", palette.secondary, onClick = { onCalibrateMastery(-0.1f) })
+            ActionPill("上调掌握度", palette.secondary, onClick = { onCalibrateMastery(0.1f) })
         }
         if (examSignal != null) {
             Spacer(modifier = Modifier.height(12.dp))
@@ -2405,32 +2340,12 @@ private fun ReviewTaskCard(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            OutlinedButton(
-                onClick = onPostpone,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("顺延安排", color = palette.ink)
-            }
-            OutlinedButton(
-                onClick = onAddTodo,
-                border = BorderStroke(1.dp, palette.cardBorder),
-            ) {
-                Text("加入待办", color = palette.ink)
-            }
+            ActionPill("顺延安排", palette.secondary, onClick = onPostpone)
+            ActionPill("加入待办", palette.secondary, onClick = onAddTodo)
             historyHint?.let { hint ->
-                OutlinedButton(
-                    onClick = { onOpenAssistantHistory(hint.executedAt) },
-                    border = BorderStroke(1.dp, palette.cardBorder),
-                ) {
-                    Text("查看接管历史", color = palette.ink)
-                }
+                ActionPill("查看接管历史", palette.secondary, onClick = { onOpenAssistantHistory(hint.executedAt) })
             }
-            Button(
-                onClick = onBindFocus,
-                colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = palette.pillOn),
-            ) {
-                Text("绑定专注")
-            }
+            ActionPill("绑定专注", palette.primary, onClick = onBindFocus)
         }
     }
 }

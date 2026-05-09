@@ -166,7 +166,7 @@ private fun VersionFooter(
             color = palette.ink.copy(alpha = 0.7f)
         )
         Text(
-            text = "Version 1.9.0 (Liquid Refinement)",
+            text = "Version 1.9.2 (Button Unity)",
             style = MaterialTheme.typography.labelMedium,
             color = palette.softText.copy(alpha = 0.6f)
         )
