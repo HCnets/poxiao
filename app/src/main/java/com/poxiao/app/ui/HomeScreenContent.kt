@@ -125,11 +125,21 @@ internal fun HomeScreenContent(
                 onSelectModuleSize = onSelectModuleSize,
             )
         }
-        item {
-            HomeModuleRowsSection(
-                moduleRows = moduleRows,
-                renderHomeModule = renderHomeModule,
+        
+        // 性能优化：将单个 item 包裹所有模块改为 items 遍历，实现 LazyColumn 的按需渲染和节点复用
+        items(
+            count = moduleRows.size,
+            key = { index -> moduleRows[index].joinToString { it.name } }
+        ) { index ->
+            val rowModules = moduleRows[index]
+            HomeModuleRow(
+                rowModules = rowModules,
+                globalIndex = index,
+                renderHomeModule = renderHomeModule
             )
+        }
+        
+        item {
             Spacer(modifier = Modifier.height(24.dp)) // 为底部留出呼吸空间
         }
     }

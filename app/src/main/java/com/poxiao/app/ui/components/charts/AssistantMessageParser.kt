@@ -2,6 +2,12 @@ package com.poxiao.app.ui.components.charts
 
 import org.json.JSONObject
 
+data class ParsedChart(
+    val type: String,
+    val rawJson: String,
+    val data: Map<String, Float>,
+)
+
 data class ParsedAction(
     val type: String,
     val rawJson: String,
@@ -78,7 +84,14 @@ object AssistantMessageParser {
 
     private fun parseRadarChart(jsonStr: String): ParsedChart? {
         return runCatching {
-            val cleanJsonStr = jsonStr.replace(Regex("```json\\s*"), "").replace("```", "").trim()
+            // 清理可能被大模型错误嵌套的 Markdown json 标签
+            val cleanJsonStr = jsonStr.replace(Regex("```json\\s*"), "")
+                .replace("```", "")
+                .trim()
+                
+            // 如果清理后为空或者是 null 字符串，直接返回 null
+            if (cleanJsonStr.isBlank() || cleanJsonStr.lowercase() == "null") return null
+            
             val root = JSONObject(cleanJsonStr)
             val data = mutableMapOf<String, Float>()
             root.keys().forEach { key ->
@@ -99,7 +112,13 @@ object AssistantMessageParser {
 
     private fun parseAction(type: String, jsonStr: String): ParsedAction? {
         return runCatching {
-            val cleanJsonStr = jsonStr.replace(Regex("```json\\s*"), "").replace("```", "").trim()
+            val cleanJsonStr = jsonStr.replace(Regex("```json\\s*"), "")
+                .replace("```", "")
+                .trim()
+                
+            // 防止 null 穿透
+            if (cleanJsonStr.isBlank() || cleanJsonStr.lowercase() == "null") return null
+            
             val root = JSONObject(cleanJsonStr)
             ParsedAction(type = type, rawJson = cleanJsonStr, payload = root)
         }.getOrNull()

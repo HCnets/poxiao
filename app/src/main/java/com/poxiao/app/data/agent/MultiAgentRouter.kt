@@ -45,9 +45,15 @@ class MultiAgentRouter(
             augmentedMessages = injectSystemPrompt(augmentedMessages, ACTION_SYSTEM_PROMPT)
         }
 
-        val result = when (target) {
-            AssistantProviderType.DEEPSEEK -> deepSeekClient.chat(augmentedMessages, onChunk)
-            else -> sparkClient.chat(augmentedMessages, onChunk)
+        val result = try {
+            when (target) {
+                AssistantProviderType.DEEPSEEK -> deepSeekClient.chat(augmentedMessages, onChunk)
+                else -> sparkClient.chat(augmentedMessages, onChunk)
+            }
+        } catch (e: Exception) {
+            // 弱网容灾：抛出异常时也调用回调返回提示，而不是完全卡死
+            onChunk("\n\n[离线模式/网络异常] 当前无法连接到大模型核心，请检查网络后重试。本地教务、待办与专注功能仍可正常使用。")
+            Result.failure(e)
         }
 
         return RouteResult(
@@ -143,17 +149,17 @@ class MultiAgentRouter(
 你可以输出一个雷达图（Radar Chart）来可视化数据。
 请结合【当前本地上下文】中提供的成绩或专注意据进行分析。如果找不到数据，请根据当前日程或待办给出合理的预测。
 
-雷达图输出格式（必须严格遵循以下 Markdown 结构，不要嵌套其他代码块，不要输出 null）：
+雷达图输出格式（必须严格遵循以下 Markdown 结构，不要嵌套其他代码块，绝对不要输出 null）：
 ```chart:radar
 {"维度1": 0.8, "维度2": 0.5, "维度3": 0.9}
 ```
 
 格式要求：
 - 第一行必须是 ```chart:radar
-- 第二行是一个合法的 JSON 对象，键为维度名称（如"数学"、"英语"等），值为 0.0 到 1.0 之间的浮点数。不允许使用 null！
+- 第二行是一个合法的 JSON 对象，键为维度名称（如"数学"、"英语"等），值为 0.0 到 1.0 之间的浮点数。
 - 最后一行必须是 ```
+- 绝对不要输出 null！如果你不知道写什么，就编造一些合理的数据（如 0.6）。
 - JSON 必须在一行或多行内闭合，且不能包含 markdown 的嵌套如 ```json
-- 数值越大表示掌握程度越高（例如成绩 91 分可以映射为 0.91）
 
 示例：
 根据你的最近数据，以下是各学科掌握度分析：

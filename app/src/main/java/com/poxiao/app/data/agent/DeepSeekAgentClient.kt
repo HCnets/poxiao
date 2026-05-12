@@ -95,10 +95,24 @@ class DeepSeekAgentClient(
                             for (i in 0 until choices.length()) {
                                 val choice = choices.optJSONObject(i) ?: continue
                                 val delta = choice.optJSONObject("delta") ?: continue
-                                val content = delta.optString("content", "")
-                                if (content.isNotBlank()) {
-                                    fullContent.append(content)
-                                    onChunk(content)
+                                
+                                // 关键修复：防止 JSONObject 把 JSON 中的 null 解析为字符串 "null"
+                                if (!delta.isNull("content")) {
+                                    val content = delta.optString("content", "")
+                                    if (content.isNotEmpty() && content != "null") {
+                                        fullContent.append(content)
+                                        onChunk(content)
+                                    }
+                                }
+                                
+                                // 处理 DeepSeek R1/V4 可能返回的推理内容 (reasoning_content)
+                                if (!delta.isNull("reasoning_content")) {
+                                    val reasoningContent = delta.optString("reasoning_content", "")
+                                    if (reasoningContent.isNotEmpty() && reasoningContent != "null") {
+                                        // 暂时将推理内容作为普通内容输出，或者后续可以单独在 UI 显示
+                                        fullContent.append(reasoningContent)
+                                        onChunk(reasoningContent)
+                                    }
                                 }
                             }
 

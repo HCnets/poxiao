@@ -61,10 +61,10 @@ import com.poxiao.app.data.PreviewCampusMapGateway
 import com.poxiao.app.data.PreviewMarketplaceGateway
 import com.poxiao.app.security.SecurePrefs
 import com.poxiao.app.schedule.HitaTerm
-import com.poxiao.app.ui.theme.BambooStroke
-import com.poxiao.app.ui.theme.ForestDeep
-import com.poxiao.app.ui.theme.PineInk
-import com.poxiao.app.ui.theme.WarmMist
+import com.poxiao.app.ui.LiquidGlassSurface
+import com.poxiao.app.ui.interactions.bouncyClick
+import com.poxiao.app.ui.interactions.rememberHapticManager
+import com.poxiao.app.ui.theme.PoxiaoThemeState
 import com.poxiao.app.ui.interactions.SkeletonPlaceholder
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -153,8 +153,6 @@ fun CampusServicesScreen(
     var academicError by remember { mutableStateOf("") }
     var gradeExportHint by remember { mutableStateOf("") }
     var reloadTick by remember { mutableStateOf(0) }
-    val pinnedIds = remember { mutableStateListOf<String>().apply { addAll(loadPinnedCampusServices(prefs)) } }
-    val recentIds = remember { mutableStateListOf<String>().apply { addAll(loadRecentCampusServices(prefs)) } }
     val favoriteBuildingIds = remember { mutableStateListOf<String>().apply { addAll(loadFavoriteBuildings(prefs)) } }
     val savedQueryKeys = remember { mutableStateListOf<String>().apply { addAll(loadSavedClassroomQueries(prefs)) } }
 
@@ -210,24 +208,11 @@ fun CampusServicesScreen(
             CampusService("library", "\u56fe\u4e66\u9986", "\u9986\u85cf\u3001\u501f\u9605\u3001\u5ea7\u4f4d\u4e0e\u65b0\u4e66\u63a8\u8350\u7edf\u4e00\u5f52\u7eb3\u3002", "\u5b66\u4e60", "\u5e38\u7528", Icons.Outlined.Map),
         )
     }
-    val filteredServices = remember(keyword, filter, pinnedIds.toList()) {
-        val base = services.filter { service ->
-            val matchedFilter = when (filter) {
-                CampusFilter.All -> true
-                CampusFilter.Study -> service.tag == "\u5b66\u4e60"
-                CampusFilter.Travel -> service.tag == "\u51fa\u884c"
-                CampusFilter.Life -> service.tag == "\u751f\u6d3b"
-                CampusFilter.Trade -> service.tag == "\u4ea4\u6613"
-                CampusFilter.Account -> service.tag == "\u8d26\u6237"
-                CampusFilter.Info -> service.tag == "\u8d44\u8baf"
-            }
-            val matchedKeyword = keyword.isBlank() || listOf(service.title, service.body, service.tag, service.status).any { it.contains(keyword, true) }
-            matchedFilter && matchedKeyword
+    val filteredServices = remember(keyword) {
+        services.filter { service ->
+            keyword.isBlank() || listOf(service.title, service.body, service.tag, service.status).any { it.contains(keyword, true) }
         }
-        base.filter { it.id in pinnedIds } + base.filterNot { it.id in pinnedIds }
     }
-    val pinnedServices = remember(pinnedIds.toList()) { services.filter { it.id in pinnedIds } }
-    val recentServices = remember(recentIds.toList()) { services.filter { it.id in recentIds } }
     val mapQuickCards = remember(buildings, snapshot?.location) {
         buildList {
             add(
@@ -252,6 +237,10 @@ fun CampusServicesScreen(
             })
         }
     }
+    
+    // 注入 DeepSeek 教务直连的上下文状态
+    var aiQuery by remember { mutableStateOf("") }
+    var isAiAnalyzing by remember { mutableStateOf(false) }
     val filteredBuildings = remember(buildings, buildingKeyword) {
         if (buildingKeyword.isBlank()) {
             buildings
@@ -318,26 +307,14 @@ fun CampusServicesScreen(
         }
     }
 
-    fun markRecent(serviceId: String) {
-        recentIds.remove(serviceId)
-        recentIds.add(0, serviceId)
-        while (recentIds.size > 4) recentIds.removeAt(recentIds.lastIndex)
-        saveRecentCampusServices(prefs, recentIds)
-    }
-
     fun openService(service: CampusService) {
-        markRecent(service.id)
         when (service.id) {
             "campus-map" -> onOpenMap()
             "empty-classroom" -> {
-                filter = CampusFilter.Study
-                keyword = ""
-                scope.launch { listState.animateScrollToItem(if (snapshot != null) 5 else 4) }
+                scope.launch { listState.animateScrollToItem(if (snapshot != null) 3 else 2) }
             }
             "grades" -> {
-                filter = CampusFilter.Study
-                keyword = ""
-                scope.launch { listState.animateScrollToItem(if (snapshot != null) 5 else 4) }
+                scope.launch { listState.animateScrollToItem(if (snapshot != null) 3 else 2) }
             }
             else -> {
                 keyword = service.title
@@ -347,7 +324,7 @@ fun CampusServicesScreen(
 
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize().background(Brush.verticalGradient(listOf(WarmMist, Color.White, Color(0xFFE8F1EA)))),
+        modifier = modifier.fillMaxSize().background(PoxiaoThemeState.palette.card.copy(alpha = 0.05f)),
         contentPadding = PaddingValues(
             start = 18.dp,
             end = 18.dp,
@@ -357,51 +334,70 @@ fun CampusServicesScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { SectionCard("\u6821\u56ed\u670d\u52a1", "\u4e00\u7ad9\u5f0f\u6821\u52a1\u5de5\u4f5c\u53f0", onBack) }
+        
+        // DeepSeek AI 直连入口
         item {
-            ServiceSearchField(value = keyword, onValueChange = { keyword = it })
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(CampusFilter.entries) { item ->
-                    FilterChip(item.title, item == filter) { filter = item }
-                }
-            }
-        }
-        if (pinnedServices.isNotEmpty()) {
-            item { Header("\u5e38\u7528\u7f6e\u9876", "\u91cd\u542f\u540e\u4ecd\u4f1a\u4fdd\u7559\u5728\u6700\u524d\u9762\u3002") }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    pinnedServices.forEach {
-                        ServiceCard(
-                            service = it,
-                            pinned = true,
-                            onTogglePin = {
-                                pinnedIds.remove(it.id)
-                                savePinnedCampusServices(prefs, pinnedIds)
-                            },
-                            onOpen = { openService(it) },
+            LiquidGlassSurface(
+                cornerRadius = 24.dp,
+                tint = PoxiaoThemeState.palette.primary.copy(alpha = 0.1f),
+                borderColor = PoxiaoThemeState.palette.primary.copy(alpha = 0.3f),
+                glowColor = PoxiaoThemeState.palette.primary.copy(alpha = 0.15f),
+                blurRadius = 16.dp,
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.Dataset, contentDescription = "AI", tint = PoxiaoThemeState.palette.primary, modifier = Modifier.size(20.dp))
+                        Text("DeepSeek 教务管家", style = MaterialTheme.typography.titleMedium, color = PoxiaoThemeState.palette.primary)
+                    }
+                    Text("不知道空教室怎么筛？或者想做期末成绩学情分析？直接对我说，我帮你调数据画图表。", style = MaterialTheme.typography.bodySmall, color = PoxiaoThemeState.palette.ink.copy(alpha = 0.7f))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = aiQuery,
+                            onValueChange = { aiQuery = it },
+                            placeholder = { Text("例如：帮我分析一下大二上的成绩") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(20.dp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PoxiaoThemeState.palette.primary.copy(alpha = 0.5f),
+                                unfocusedBorderColor = PoxiaoThemeState.palette.primary.copy(alpha = 0.2f),
+                                focusedContainerColor = Color.White.copy(alpha = 0.4f),
+                                unfocusedContainerColor = Color.White.copy(alpha = 0.2f),
+                            )
                         )
+                        LiquidGlassSurface(
+                            cornerRadius = 20.dp,
+                            tint = PoxiaoThemeState.palette.primary.copy(alpha = 0.8f),
+                            borderColor = PoxiaoThemeState.palette.primary.copy(alpha = 0.4f),
+                            modifier = Modifier.bouncyClick(hapticManager = rememberHapticManager()) {
+                                if (aiQuery.isNotBlank()) {
+                                    isAiAnalyzing = true
+                                    // 模拟网络请求或后续真实接入
+                                    scope.launch {
+                                        kotlinx.coroutines.delay(1500)
+                                        isAiAnalyzing = false
+                                        aiQuery = ""
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(
+                                if (isAiAnalyzing) "分析中..." else "发送",
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
         }
-        if (recentServices.isNotEmpty()) {
-            item { Header("\u6700\u8fd1\u4f7f\u7528", "\u4f1a\u8bb0\u5f55\u6700\u8fd1\u6253\u5f00\u7684\u6821\u56ed\u670d\u52a1\u3002") }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(recentServices) { service ->
-                        QuickCard(
-                            card = FeedCard(
-                                id = service.id,
-                                title = service.title,
-                                source = "\u6700\u8fd1\u4f7f\u7528",
-                                description = service.body,
-                            ),
-                        ) { openService(service) }
-                    }
-                }
-            }
-        }
+        
         snapshot?.let { current ->
             item { Header("\u5b9e\u65f6\u901f\u89c8", "\u7a7a\u6559\u5ba4\u3001\u6210\u7ee9\u548c\u5730\u56fe\u4f1a\u5148\u5728\u8fd9\u91cc\u7ed9\u51fa\u5feb\u7167\u3002") }
             item {
@@ -421,7 +417,7 @@ fun CampusServicesScreen(
                     if (academicLoading) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             SkeletonPlaceholder(modifier = Modifier.size(18.dp).clip(CircleShape))
-                            Text("\u6b63\u5728\u540c\u6b65\u6559\u52a1\u6570\u636e", color = ForestDeep.copy(alpha = 0.76f))
+                            Text("\u6b63\u5728\u540c\u6b65\u6559\u52a1\u6570\u636e", color = PoxiaoThemeState.palette.ink.copy(alpha = 0.76f))
                         }
                         Spacer(Modifier.height(10.dp))
                         SkeletonPlaceholder(modifier = Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(20.dp)))
@@ -454,23 +450,43 @@ fun CampusServicesScreen(
                             }
                             Spacer(Modifier.height(10.dp))
                         }
-                        OutlinedTextField(
-                            value = gradeKeyword,
-                            onValueChange = { gradeKeyword = it },
-                            label = { Text("\u641c\u7d22\u8bfe\u7a0b\u6216\u8003\u6838\u4fe1\u606f") },
+                        
+                        var showAdvancedFilters by remember { mutableStateOf(false) }
+                        
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(GradeStatusFilter.entries) { item ->
-                                FilterChip(item.title, item == gradeStatusFilter) { gradeStatusFilter = item }
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = gradeKeyword,
+                                onValueChange = { gradeKeyword = it },
+                                label = { Text("\u641c\u7d22\u8bfe\u7a0b\u6216\u8003\u6838\u4fe1\u606f") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = PoxiaoThemeState.palette.primary,
+                                    unfocusedBorderColor = PoxiaoThemeState.palette.cardBorder
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            ActionChip(if (showAdvancedFilters) "收起" else "筛选") {
+                                showAdvancedFilters = !showAdvancedFilters
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(GradeSortMode.entries) { item ->
-                                FilterChip(item.title, item == gradeSortMode) { gradeSortMode = item }
+                        
+                        if (showAdvancedFilters) {
+                            Spacer(Modifier.height(10.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(GradeStatusFilter.entries) { item ->
+                                    FilterChip(item.title, item == gradeStatusFilter) { gradeStatusFilter = item }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(GradeSortMode.entries) { item ->
+                                    FilterChip(item.title, item == gradeSortMode) { gradeSortMode = item }
+                                }
                             }
                         }
                         Spacer(Modifier.height(10.dp))
@@ -482,7 +498,7 @@ fun CampusServicesScreen(
                         }
                         if (gradeExportHint.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
-                            Text(gradeExportHint, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.7f))
+                            Text(gradeExportHint, style = MaterialTheme.typography.bodySmall, color = PoxiaoThemeState.palette.ink.copy(alpha = 0.7f))
                         }
                         Spacer(Modifier.height(10.dp))
                         if (gradeDetails.isEmpty()) {
@@ -496,103 +512,122 @@ fun CampusServicesScreen(
                         }
                     }
                     Panel("\u7a7a\u6559\u5ba4\u7b5b\u9009", "\u652f\u6301\u6307\u5b9a\u65e5\u671f\u548c\u697c\u680b\u67e5\u770b\u771f\u5b9e\u7a7a\u95f2\u6559\u5ba4\u3002") {
-                        OutlinedTextField(
-                            value = classroomDate,
-                            onValueChange = { classroomDate = it },
-                            label = { Text("\u65e5\u671f\uff0c\u683c\u5f0f YYYY-MM-DD") },
+                        var showAdvancedRoomFilters by remember { mutableStateOf(false) }
+
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(20.dp),
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            FilterChip("\u4eca\u5929", false) { classroomDate = LocalDate.now().toString() }
-                            FilterChip("\u660e\u5929", false) { classroomDate = LocalDate.now().plusDays(1).toString() }
-                            FilterChip("\u540e\u5929", false) { classroomDate = LocalDate.now().plusDays(2).toString() }
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = classroomDate,
+                                onValueChange = { classroomDate = it },
+                                label = { Text("\u65e5\u671f\uff0c\u683c\u5f0f YYYY-MM-DD") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = PoxiaoThemeState.palette.primary,
+                                    unfocusedBorderColor = PoxiaoThemeState.palette.cardBorder
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            ActionChip(if (showAdvancedRoomFilters) "收起" else "高级筛选") {
+                                showAdvancedRoomFilters = !showAdvancedRoomFilters
+                            }
                         }
-                        val currentQueryKey = buildClassroomQueryKey(classroomDate, selectedBuildingId, selectedSlotFilters)
-                        if (savedQueryKeys.isNotEmpty()) {
+                        
+                        if (showAdvancedRoomFilters) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                FilterChip("\u4eca\u5929", false) { classroomDate = LocalDate.now().toString() }
+                                FilterChip("\u660e\u5929", false) { classroomDate = LocalDate.now().plusDays(1).toString() }
+                                FilterChip("\u540e\u5929", false) { classroomDate = LocalDate.now().plusDays(2).toString() }
+                            }
+                            val currentQueryKey = buildClassroomQueryKey(classroomDate, selectedBuildingId, selectedSlotFilters)
+                            if (savedQueryKeys.isNotEmpty()) {
+                                Spacer(Modifier.height(10.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(savedQueryKeys) { key ->
+                                        FilterChip(formatClassroomQueryKey(key), false) {
+                                            restoreClassroomQuery(key) { date, buildingId, slots ->
+                                                classroomDate = date
+                                                selectedBuildingId = buildingId
+                                                selectedSlotFilters.clear()
+                                                selectedSlotFilters.addAll(slots)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            ActionChip(if (currentQueryKey in savedQueryKeys) "\u5df2\u6536\u85cf\u67e5\u8be2\u6761\u4ef6" else "\u6536\u85cf\u5f53\u524d\u67e5\u8be2\u6761\u4ef6") {
+                                if (currentQueryKey !in savedQueryKeys) {
+                                    savedQueryKeys.add(0, currentQueryKey)
+                                    while (savedQueryKeys.size > 6) savedQueryKeys.removeAt(savedQueryKeys.lastIndex)
+                                    saveSavedClassroomQueries(prefs, savedQueryKeys)
+                                }
+                            }
                             Spacer(Modifier.height(10.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(savedQueryKeys) { key ->
-                                    FilterChip(formatClassroomQueryKey(key), false) {
-                                        restoreClassroomQuery(key) { date, buildingId, slots ->
-                                            classroomDate = date
-                                            selectedBuildingId = buildingId
-                                            selectedSlotFilters.clear()
-                                            selectedSlotFilters.addAll(slots)
+                                items(slotOptions) { slot ->
+                                    FilterChip(
+                                        "\u7b2c${slot}\u5927\u8282",
+                                        slot in selectedSlotFilters,
+                                    ) {
+                                        if (slot in selectedSlotFilters) {
+                                            selectedSlotFilters.remove(slot)
+                                        } else {
+                                            selectedSlotFilters.add(slot)
                                         }
                                     }
                                 }
                             }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        ActionChip(if (currentQueryKey in savedQueryKeys) "\u5df2\u6536\u85cf\u67e5\u8be2\u6761\u4ef6" else "\u6536\u85cf\u5f53\u524d\u67e5\u8be2\u6761\u4ef6") {
-                            if (currentQueryKey !in savedQueryKeys) {
-                                savedQueryKeys.add(0, currentQueryKey)
-                                while (savedQueryKeys.size > 6) savedQueryKeys.removeAt(savedQueryKeys.lastIndex)
-                                saveSavedClassroomQueries(prefs, savedQueryKeys)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(slotOptions) { slot ->
-                                FilterChip(
-                                    "\u7b2c${slot}\u5927\u8282",
-                                    slot in selectedSlotFilters,
-                                ) {
-                                    if (slot in selectedSlotFilters) {
-                                        selectedSlotFilters.remove(slot)
-                                    } else {
-                                        selectedSlotFilters.add(slot)
-                                    }
-                                }
-                            }
-                        }
-                        if (buildings.isNotEmpty()) {
-                            Spacer(Modifier.height(10.dp))
-                            if (favoriteBuildingIds.isNotEmpty()) {
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(buildings.filter { it.id in favoriteBuildingIds }) { building ->
-                                        FilterChip(
-                                            "\u2605 ${building.title}",
-                                            building.id == selectedBuildingId,
-                                        ) {
-                                            selectedBuildingId = building.id
-                                        }
-                                    }
-                                }
+                            if (buildings.isNotEmpty()) {
                                 Spacer(Modifier.height(10.dp))
-                            }
-                            OutlinedTextField(
-                                value = buildingKeyword,
-                                onValueChange = { buildingKeyword = it },
-                                label = { Text("\u641c\u7d22\u697c\u680b") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            if (filteredBuildings.isEmpty()) {
-                                HintCard("\u672a\u627e\u5230\u697c\u680b", "\u8bf7\u6539\u4e00\u4e2a\u5173\u952e\u5b57\uff0c\u6216\u6e05\u7a7a\u641c\u7d22\u540e\u91cd\u8bd5\u3002")
-                            } else {
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(filteredBuildings) { building ->
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            FilterChip(building.title, building.id == selectedBuildingId) {
+                                if (favoriteBuildingIds.isNotEmpty()) {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(buildings.filter { it.id in favoriteBuildingIds }) { building ->
+                                            FilterChip(
+                                                "\u2605 ${building.title}",
+                                                building.id == selectedBuildingId,
+                                            ) {
                                                 selectedBuildingId = building.id
                                             }
-                                            Text(
-                                                if (building.id in favoriteBuildingIds) "\u53d6\u6d88" else "\u6536\u85cf",
-                                                modifier = Modifier.clickable {
-                                                    if (building.id in favoriteBuildingIds) {
-                                                        favoriteBuildingIds.remove(building.id)
-                                                    } else {
-                                                        favoriteBuildingIds.add(building.id)
-                                                    }
-                                                    saveFavoriteBuildings(prefs, favoriteBuildingIds)
-                                                },
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = ForestDeep.copy(alpha = 0.74f),
-                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(10.dp))
+                                }
+                                OutlinedTextField(
+                                    value = buildingKeyword,
+                                    onValueChange = { buildingKeyword = it },
+                                    label = { Text("\u641c\u7d22\u697c\u680b") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(20.dp),
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                if (filteredBuildings.isEmpty()) {
+                                    HintCard("\u672a\u627e\u5230\u697c\u680b", "\u8bf7\u6539\u4e00\u4e2a\u5173\u952e\u5b57\uff0c\u6216\u6e05\u7a7a\u641c\u7d22\u540e\u91cd\u8bd5\u3002")
+                                } else {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(filteredBuildings) { building ->
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                FilterChip(building.title, building.id == selectedBuildingId) {
+                                                    selectedBuildingId = building.id
+                                                }
+                                                Text(
+                                                    if (building.id in favoriteBuildingIds) "\u53d6\u6d88" else "\u6536\u85cf",
+                                                    modifier = Modifier.clickable {
+                                                        if (building.id in favoriteBuildingIds) {
+                                                            favoriteBuildingIds.remove(building.id)
+                                                        } else {
+                                                            favoriteBuildingIds.add(building.id)
+                                                        }
+                                                        saveFavoriteBuildings(prefs, favoriteBuildingIds)
+                                                    },
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = PoxiaoThemeState.palette.ink.copy(alpha = 0.74f),
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -631,17 +666,12 @@ fun CampusServicesScreen(
                 }
             }
         }
-        item { Header("\u6821\u56ed\u670d\u52a1", "\u5f53\u524d\u663e\u793a ${filteredServices.size} \u9879\u3002") }
+        item { Header("\u6821\u56ed\u670d\u52a1\u5217\u8868", "基础功能入口") }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 filteredServices.forEach { service ->
                     ServiceCard(
                         service = service,
-                        pinned = service.id in pinnedIds,
-                        onTogglePin = {
-                            if (service.id in pinnedIds) pinnedIds.remove(service.id) else pinnedIds.add(service.id)
-                            savePinnedCampusServices(prefs, pinnedIds)
-                        },
                         onOpen = { openService(service) },
                     )
                 }
@@ -652,33 +682,38 @@ fun CampusServicesScreen(
 
 @Composable
 private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White.copy(alpha = 0.18f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+    val palette = PoxiaoThemeState.palette
+    val haptic = rememberHapticManager()
+    LiquidGlassSurface(
+        cornerRadius = 24.dp,
+        tint = palette.primary.copy(alpha = 0.85f),
+        borderColor = palette.primary.copy(alpha = 0.3f),
+        glowColor = palette.primary.copy(alpha = 0.2f),
+        blurRadius = 12.dp,
+        refractionHeight = 8.dp,
+        refractionAmount = 10.dp,
     ) {
         Column(
             modifier = Modifier
-                .background(Brush.linearGradient(listOf(Color(0xFF1F5A4D), Color(0xFF2F6F61), Color.White.copy(alpha = 0.08f))))
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.82f))
                     Text(title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
                 }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
-                    modifier = Modifier.clickable(onClick = onBack),
+                LiquidGlassSurface(
+                    cornerRadius = 16.dp,
+                    tint = Color.White.copy(alpha = 0.2f),
+                    borderColor = Color.White.copy(alpha = 0.16f),
+                    modifier = Modifier.bouncyClick(hapticManager = haptic) { onBack() },
                 ) {
                     Text(
                         "\u8fd4\u56de",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = Color.White.copy(alpha = 0.95f),
                     )
                 }
             }
@@ -692,10 +727,11 @@ private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
 }
 
 @Composable private fun ServiceSearchField(value: String, onValueChange: (String) -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White.copy(alpha = 0.18f),
-        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f)),
+    val palette = PoxiaoThemeState.palette
+    LiquidGlassSurface(
+        cornerRadius = 22.dp,
+        tint = palette.card.copy(alpha = 0.4f),
+        borderColor = palette.cardBorder.copy(alpha = 0.2f),
     ) {
         OutlinedTextField(
             value = value,
@@ -709,52 +745,63 @@ private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
                 unfocusedContainerColor = Color.Transparent,
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent,
-                focusedLabelColor = ForestDeep.copy(alpha = 0.72f),
-                unfocusedLabelColor = ForestDeep.copy(alpha = 0.64f),
-                focusedTextColor = PineInk,
-                unfocusedTextColor = PineInk,
-                cursorColor = PineInk,
+                focusedLabelColor = palette.ink.copy(alpha = 0.72f),
+                unfocusedLabelColor = palette.ink.copy(alpha = 0.64f),
+                focusedTextColor = palette.ink,
+                unfocusedTextColor = palette.ink,
+                cursorColor = palette.primary,
             ),
         )
     }
 }
 
 @Composable private fun Header(title: String, body: String) {
+    val palette = PoxiaoThemeState.palette
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
         Column(modifier = Modifier.fillMaxWidth(0.78f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = PineInk)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.72f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.6f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         MiniPill("\u5206\u533a")
     }
 }
 
 @Composable private fun FilterChip(title: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) Color.White.copy(alpha = 0.32f) else Color.White.copy(alpha = 0.16f),
-        border = BorderStroke(1.dp, if (selected) Color.White.copy(alpha = 0.22f) else BambooStroke.copy(alpha = 0.12f)),
-        modifier = Modifier.clickable(onClick = onClick),
+    val palette = PoxiaoThemeState.palette
+    val haptic = rememberHapticManager()
+    LiquidGlassSurface(
+        cornerRadius = 16.dp,
+        tint = if (selected) palette.primary.copy(alpha = 0.15f) else palette.card.copy(alpha = 0.4f),
+        borderColor = if (selected) palette.primary.copy(alpha = 0.25f) else palette.cardBorder.copy(alpha = 0.2f),
+        glowColor = if (selected) palette.primary.copy(alpha = 0.1f) else Color.Transparent,
+        modifier = Modifier.bouncyClick(hapticManager = haptic, onClick = onClick),
     ) {
-        Text(title, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium, color = if (selected) PineInk else ForestDeep.copy(alpha = 0.72f))
+        Text(title, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium, color = if (selected) palette.primary else palette.ink.copy(alpha = 0.72f))
     }
 }
 
 @Composable private fun Panel(title: String, body: String, content: @Composable () -> Unit) {
-    Surface(shape = RoundedCornerShape(24.dp), color = Color.White.copy(alpha = 0.22f), border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.18f))) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = PineInk)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.72f))
+    val palette = PoxiaoThemeState.palette
+    LiquidGlassSurface(
+        cornerRadius = 24.dp, 
+        tint = palette.card.copy(alpha = 0.3f), 
+        borderColor = palette.cardBorder.copy(alpha = 0.2f),
+        blurRadius = 8.dp,
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.6f))
             content()
         }
     }
 }
 
 @Composable private fun DetailCard(card: FeedCard) {
+    val palette = PoxiaoThemeState.palette
     val badgeText = if (card.source.contains(" \u00b7 ")) card.source.substringBefore(" \u00b7 ") else card.title
     val headline = if (card.source.contains(" \u00b7 ")) card.title else card.source
     val summary = if (card.source.contains(" \u00b7 ")) {
@@ -764,24 +811,29 @@ private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
     }
     val detailLines = remember(card.id, card.source, card.description) { buildCardDetailLines(card) }
     var expanded by remember(card.id) { mutableStateOf(false) }
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.24f), border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.14f))) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    
+    LiquidGlassSurface(
+        cornerRadius = 22.dp, 
+        tint = palette.card.copy(alpha = 0.4f), 
+        borderColor = palette.cardBorder.copy(alpha = 0.15f)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusBadge(badgeText)
-            Text(headline, style = MaterialTheme.typography.titleMedium, color = PineInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(summary, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.78f))
+            Text(headline, style = MaterialTheme.typography.titleMedium, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.7f))
             if (detailLines.size > 1) {
                 Text(
                     if (expanded) "\u6536\u8d77\u6210\u7ee9\u7ec4\u6210" else "\u5c55\u5f00\u6210\u7ee9\u7ec4\u6210",
                     modifier = Modifier.clickable { expanded = !expanded },
                     style = MaterialTheme.typography.labelMedium,
-                    color = PineInk,
+                    color = palette.primary,
                 )
                 if (expanded) {
                     detailLines.forEach { line ->
                         Text(
                             "\u00b7 $line",
                             style = MaterialTheme.typography.bodySmall,
-                            color = ForestDeep.copy(alpha = 0.74f),
+                            color = palette.ink.copy(alpha = 0.6f),
                         )
                     }
                 }
@@ -791,32 +843,34 @@ private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
 }
 
 @Composable private fun MiniPill(text: String) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White.copy(alpha = 0.16f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+    val palette = PoxiaoThemeState.palette
+    LiquidGlassSurface(
+        cornerRadius = 12.dp,
+        tint = palette.card.copy(alpha = 0.5f),
+        borderColor = palette.cardBorder.copy(alpha = 0.2f),
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = ForestDeep.copy(alpha = 0.7f),
+            color = palette.ink.copy(alpha = 0.65f),
         )
     }
 }
 
 @Composable private fun StatusBadge(text: String) {
+    val palette = PoxiaoThemeState.palette
     val badgeColor = when {
         text.contains("\u4f18\u79c0") -> Color(0xFF3C8A63)
         text.contains("\u901a\u8fc7") -> Color(0xFF4C7C5A)
         text.contains("\u9884\u8b66") -> Color(0xFFAD6A3A)
-        text.contains("\u5f85") -> Color(0xFF6A7B7D)
-        else -> Color(0xFF5B7468)
+        text.contains("\u5f85") -> palette.ink.copy(alpha = 0.6f)
+        else -> palette.primary
     }
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = badgeColor.copy(alpha = 0.14f),
-        border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.18f)),
+    LiquidGlassSurface(
+        cornerRadius = 14.dp,
+        tint = badgeColor.copy(alpha = 0.15f),
+        borderColor = badgeColor.copy(alpha = 0.2f),
     ) {
         Text(
             text = text,
@@ -828,89 +882,105 @@ private fun SectionCard(label: String, title: String, onBack: () -> Unit) {
 }
 
 @Composable private fun HintCard(title: String, body: String) {
-    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.18f), border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f))) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = PineInk)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.74f))
+    val palette = PoxiaoThemeState.palette
+    LiquidGlassSurface(
+        cornerRadius = 20.dp, 
+        tint = palette.card.copy(alpha = 0.3f), 
+        borderColor = palette.cardBorder.copy(alpha = 0.15f)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = palette.ink)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.6f))
         }
     }
 }
 
 @Composable private fun QuickCard(card: FeedCard, onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White.copy(alpha = 0.2f), border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f)), modifier = Modifier.width(210.dp)) {
-        Column(modifier = Modifier.padding(14.dp).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val palette = PoxiaoThemeState.palette
+    val haptic = rememberHapticManager()
+    LiquidGlassSurface(
+        cornerRadius = 22.dp, 
+        tint = palette.card.copy(alpha = 0.4f), 
+        borderColor = palette.cardBorder.copy(alpha = 0.15f), 
+        modifier = Modifier.width(210.dp).bouncyClick(hapticManager = haptic, onClick = onClick)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Map, contentDescription = card.title, tint = PineInk, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Map, contentDescription = card.title, tint = palette.primary, modifier = Modifier.size(20.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(card.title, style = MaterialTheme.typography.titleSmall, color = PineInk)
+                    Text(card.title, style = MaterialTheme.typography.titleSmall, color = palette.ink)
                     MiniPill(card.source)
                 }
             }
-            Text(card.description, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.74f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(card.description, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.65f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable private fun ActionChip(text: String, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White.copy(alpha = 0.2f),
-        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f)),
-        modifier = Modifier.clickable(onClick = onClick),
+    val palette = PoxiaoThemeState.palette
+    val haptic = rememberHapticManager()
+    LiquidGlassSurface(
+        cornerRadius = 16.dp,
+        tint = palette.card.copy(alpha = 0.5f),
+        borderColor = palette.cardBorder.copy(alpha = 0.2f),
+        modifier = Modifier.bouncyClick(hapticManager = haptic, onClick = onClick),
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
-            color = PineInk,
+            color = palette.ink,
         )
     }
 }
 
 @Composable private fun QuickMetricCard(card: FeedCard) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.22f),
-        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.16f)),
+    val palette = PoxiaoThemeState.palette
+    LiquidGlassSurface(
+        cornerRadius = 20.dp,
+        tint = palette.card.copy(alpha = 0.35f),
+        borderColor = palette.cardBorder.copy(alpha = 0.15f),
         modifier = Modifier.width(170.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             MiniPill(card.title)
-            Text(card.source, style = MaterialTheme.typography.titleMedium, color = PineInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(card.description, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.74f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(card.source, style = MaterialTheme.typography.titleMedium, color = palette.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(card.description, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.6f), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
-@Composable private fun ServiceCard(service: CampusService, pinned: Boolean, onTogglePin: () -> Unit, onOpen: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White.copy(alpha = 0.22f),
-        border = BorderStroke(1.dp, BambooStroke.copy(alpha = 0.18f)),
-        modifier = Modifier.clickable(onClick = onOpen),
+@Composable private fun ServiceCard(service: CampusService, onOpen: () -> Unit) {
+    val palette = PoxiaoThemeState.palette
+    val haptic = rememberHapticManager()
+    LiquidGlassSurface(
+        cornerRadius = 22.dp,
+        tint = palette.card.copy(alpha = 0.4f),
+        borderColor = palette.cardBorder.copy(alpha = 0.15f),
+        modifier = Modifier.bouncyClick(hapticManager = haptic, onClick = onOpen),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier.size(if (service.featured) 56.dp else 48.dp).background(Color.White.copy(alpha = 0.24f), RoundedCornerShape(16.dp)),
+                modifier = Modifier.size(if (service.featured) 56.dp else 48.dp).background(palette.primary.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(service.icon, contentDescription = service.title, tint = PineInk)
+                Icon(service.icon, contentDescription = service.title, tint = palette.primary)
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(service.title, style = MaterialTheme.typography.titleMedium, color = PineInk)
+                    Text(service.title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
                     MiniPill(service.tag)
                 }
-                Text(service.body, style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.74f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(service.body, style = MaterialTheme.typography.bodySmall, color = palette.ink.copy(alpha = 0.65f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MiniPill(service.status)
-                Text(if (pinned) "\u53d6\u6d88\u7f6e\u9876" else "\u7f6e\u9876", modifier = Modifier.clickable(onClick = onTogglePin), color = PineInk)
-                Text("\u6253\u5f00", color = ForestDeep.copy(alpha = 0.76f))
+                Text("\u6253\u5f00", color = palette.ink.copy(alpha = 0.5f), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

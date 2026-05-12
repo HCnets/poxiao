@@ -126,6 +126,46 @@ internal fun HomeWorkbenchEditorCard(
 }
 
 @Composable
+internal fun HomeModuleRow(
+    rowModules: List<HomeModule>,
+    globalIndex: Int,
+    renderHomeModule: @Composable (HomeModule, Modifier, Boolean) -> Unit,
+) {
+    if (rowModules.size == 2) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            rowModules.forEachIndexed { innerIndex, module ->
+                val index = globalIndex * 2 + innerIndex
+                key(module.name) {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(tween(400, delayMillis = index * 80)) +
+                                scaleIn(tween(400, delayMillis = index * 80), initialScale = 0.94f),
+                    ) {
+                        renderHomeModule(module, Modifier.weight(1f), true)
+                    }
+                }
+            }
+        }
+    } else {
+        val firstModule = rowModules.first()
+        key(firstModule.name) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(400, delayMillis = globalIndex * 80)) +
+                        scaleIn(tween(400, delayMillis = globalIndex * 80), initialScale = 0.94f),
+            ) {
+                renderHomeModule(firstModule, Modifier.fillMaxWidth(), false)
+            }
+        }
+    }
+}
+
+// 兼容旧的调用（如有其他地方用到，虽然在这个项目中已经被我改掉了）
+@Composable
 internal fun HomeModuleRowsSection(
     moduleRows: List<List<HomeModule>>,
     renderHomeModule: @Composable (HomeModule, Modifier, Boolean) -> Unit,
@@ -136,33 +176,7 @@ internal fun HomeModuleRowsSection(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         moduleRows.forEach { rowModules ->
-            if (rowModules.size == 2) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    rowModules.forEach { module ->
-                        val index = globalIndex++
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(tween(400, delayMillis = index * 80)) +
-                                    scaleIn(tween(400, delayMillis = index * 80), initialScale = 0.94f),
-                        ) {
-                            renderHomeModule(module, Modifier.weight(1f), true)
-                        }
-                    }
-                }
-            } else {
-                val index = globalIndex++
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(tween(400, delayMillis = index * 80)) +
-                            scaleIn(tween(400, delayMillis = index * 80), initialScale = 0.94f),
-                ) {
-                    renderHomeModule(rowModules.first(), Modifier.fillMaxWidth(), false)
-                }
-            }
+            HomeModuleRow(rowModules, globalIndex++, renderHomeModule)
         }
     }
 }
