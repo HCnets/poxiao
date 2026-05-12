@@ -37,11 +37,12 @@ class MultiAgentRouter(
         val userMessage = messages.lastOrNull { it.role == "user" }?.content.orEmpty()
         val target = classify(userMessage)
 
-        // ── v1.10.0: 学情诊断场景自动注入图表 System Prompt ──
-        val augmentedMessages = if (shouldInjectChartPrompt(userMessage)) {
-            injectChartSystemPrompt(messages)
-        } else {
-            messages
+        // ── v1.10.0: 场景感知自动注入 System Prompt (图表/动作) ──
+        var augmentedMessages = messages
+        if (shouldInjectChartPrompt(userMessage)) {
+            augmentedMessages = injectSystemPrompt(augmentedMessages, CHART_SYSTEM_PROMPT)
+        } else if (shouldInjectActionPrompt(userMessage)) {
+            augmentedMessages = injectSystemPrompt(augmentedMessages, ACTION_SYSTEM_PROMPT)
         }
 
         val result = when (target) {
@@ -128,7 +129,7 @@ class MultiAgentRouter(
         AssistantProviderType.DEEPSEEK to deepSeekClient,
     )
 
-    // ──── v1.10.0: 图表 System Prompt 注入逻辑 ────
+    // ──── v1.10.0: 图表与动作 System Prompt 注入逻辑 ────
 
     /**
      * 图表输出引导 System Prompt。
@@ -162,12 +163,43 @@ class MultiAgentRouter(
 从雷达图可以看出，你的程序设计和高数掌握较好，但物理还有提升空间。
         """.trimIndent()
 
+        val ACTION_SYSTEM_PROMPT = """
+你是一个高效的个人管家。当用户要求你创建任务、安排番茄钟、添加待办时，你可以直接输出操作指令 (Action)，前端会自动渲染为可交互的按钮供用户点击。
+
+请严格使用以下格式之一（必须是合法的 JSON，不要嵌套 ```json 标签）：
+
+1. 新建待办：
+```action:create_todo
+{"title": "任务名称", "priority": "High"}
+```
+(priority 可选：High, Medium, Low)
+
+2. 开始专注 (番茄钟)：
+```action:start_focus
+{"title": "专注任务名称", "minutes": 25}
+```
+
+示例：
+用户："帮我建一个复习高数的待办"
+你："好的，已经为你准备了待办卡片，点击即可添加：
+```action:create_todo
+{"title": "复习高数", "priority": "High"}
+```"
+        """.trimIndent()
+
         /** 触发图表注入的关键词集合 */
         private val CHART_TRIGGER_KEYWORDS = listOf(
             "学情", "能力", "分布", "掌握", "雷达",
             "成绩分布", "各科", "学科分析", "学习报告",
             "强项", "弱项", "短板", "擅长", "不擅长",
             "评估", "诊断", "综合", "多维度",
+        )
+
+        /** 触发动作指令的关键词集合 */
+        private val ACTION_TRIGGER_KEYWORDS = listOf(
+            "新建", "添加", "创建", "安排", "计划",
+            "待办", "任务", "番茄", "专注", "自习",
+            "提醒", "记一下"
         )
     }
 
@@ -180,11 +212,19 @@ class MultiAgentRouter(
     }
 
     /**
-     * 在消息列表头部注入图表 System Prompt。
+     * 判断用户意图是否需要注入动作 System Prompt。
+     */
+    private fun shouldInjectActionPrompt(userMessage: String): Boolean {
+        val normalized = userMessage.lowercase().trim()
+        return ACTION_TRIGGER_KEYWORDS.any { normalized.contains(it) }
+    }
+
+    /**
+     * 在消息列表头部注入 System Prompt。
      * 如果已存在 system 消息，则替换；否则插入到最前面。
      */
-    private fun injectChartSystemPrompt(messages: List<Message>): List<Message> {
-        val systemMsg = Message(role = "system", content = CHART_SYSTEM_PROMPT)
+    private fun injectSystemPrompt(messages: List<Message>, promptText: String): List<Message> {
+        val systemMsg = Message(role = "system", content = promptText)
         val existingSystemIndex = messages.indexOfFirst { it.role == "system" }
         return if (existingSystemIndex >= 0) {
             messages.toMutableList().apply {

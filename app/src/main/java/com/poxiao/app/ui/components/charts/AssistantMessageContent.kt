@@ -39,8 +39,9 @@ fun AssistantMessageContent(
     textColor: androidx.compose.ui.graphics.Color,
     textStyle: androidx.compose.ui.text.TextStyle,
     modifier: Modifier = Modifier,
+    onActionClick: ((ParsedAction) -> Unit)? = null
 ) {
-    val segments = ChartMessageParser.parse(content)
+    val segments = AssistantMessageParser.parse(content)
 
     Column(modifier = modifier) {
         segments.forEachIndexed { index, segment ->
@@ -67,7 +68,6 @@ fun AssistantMessageContent(
                         }
 
                         else -> {
-                            // 未知图表类型，显示原始 JSON 作为兜底
                             Text(
                                 text = "[图表:${segment.chart.type}] ${segment.chart.rawJson}",
                                 color = textColor.copy(alpha = 0.5f),
@@ -76,9 +76,18 @@ fun AssistantMessageContent(
                         }
                     }
                 }
+                
+                is MessageSegment.Action -> {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AssistantActionPill(
+                        action = segment.action,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onActionClick?.invoke(segment.action) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
 
-            // 段间距（纯文本段之间不需要额外间距，图表段上下已有 Spacer）
             if (index < segments.lastIndex && segment is MessageSegment.Text) {
                 // 文本段之间自然换行由 Text 自身处理
             }

@@ -35,6 +35,7 @@ import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
 import com.poxiao.app.ui.components.charts.AssistantMessageContent
+import com.poxiao.app.ui.components.charts.ParsedAction
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -68,6 +69,7 @@ internal fun HomeAssistantModuleCard(
     onReplayExecution: (ReviewBridgeExecutionSummary) -> Unit,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onActionClick: ((ParsedAction) -> Unit)? = null
 ) {
     val palette = PoxiaoThemeState.palette
     GlassCard(modifier = modifier) {
@@ -267,6 +269,7 @@ internal fun HomeAssistantModuleCard(
                         modifier = Modifier.padding(14.dp),
                         textStyle = if (activeSize == HomeModuleSize.Hero) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
                         textColor = PineInk,
+                        onActionClick = onActionClick
                     )
                 }
                 if (index != visibleMessages.lastIndex) Spacer(modifier = Modifier.height(homeSecondarySpacing(activeSize)))

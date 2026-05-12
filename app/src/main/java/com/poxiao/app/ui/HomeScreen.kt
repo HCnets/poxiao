@@ -505,6 +505,39 @@ internal fun HomeScreen(
             capabilities = capabilities,
         )
     }
+    val handleAssistantAction: (com.poxiao.app.ui.components.charts.ParsedAction) -> Unit = { action ->
+        when (action.type) {
+            "create_todo" -> {
+                val title = action.payload.optString("title", "")
+                if (title.isNotBlank()) {
+                    val currentTasks = com.poxiao.app.ui.loadTodoTasks(todoPrefs).toMutableList()
+                    val newTask = com.poxiao.app.todo.TodoTask(
+                        id = "ai-todo-${System.currentTimeMillis()}",
+                        title = title,
+                        note = "由智能体助手添加。",
+                        priority = when(action.payload.optString("priority")) {
+                            "High" -> com.poxiao.app.todo.TodoPriority.High
+                            "Medium" -> com.poxiao.app.todo.TodoPriority.Medium
+                            "Low" -> com.poxiao.app.todo.TodoPriority.Low
+                            else -> com.poxiao.app.todo.TodoPriority.Medium
+                        },
+                        quadrant = com.poxiao.app.todo.TodoQuadrant.ImportantNotUrgent,
+                        dueText = "尽快完成",
+                        listName = "收集箱"
+                    )
+                    currentTasks.add(0, newTask)
+                    com.poxiao.app.ui.saveTodoTasks(todoPrefs, currentTasks)
+                }
+            }
+            "start_focus" -> {
+                val title = action.payload.optString("title", "")
+                if (title.isNotBlank()) {
+                    com.poxiao.app.security.SecurePrefs.putString(focusPrefs, "bound_task_title_secure", title)
+                }
+                onOpenPomodoro()
+            }
+        }
+    }
     val moduleActions = HomeModuleActionPack(
         onToggleModuleCollapsed = toggleCollapsedModule,
         onBindReviewFocus = bindReviewFocusAndOpenPomodoro,
@@ -599,6 +632,7 @@ internal fun HomeScreen(
                 onReplayExecution = moduleActions.onReplayExecution,
                 onPromptChange = moduleActions.onPromptChange,
                 onSend = moduleActions.onSend,
+                onActionClick = handleAssistantAction
             )
         }
     }

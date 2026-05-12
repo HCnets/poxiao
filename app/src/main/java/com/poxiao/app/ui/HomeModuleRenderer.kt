@@ -7,6 +7,7 @@ import com.poxiao.app.data.AssistantConversation
 import com.poxiao.app.data.AssistantToolDefinition
 import com.poxiao.app.review.ReviewItem
 import com.poxiao.app.todo.TodoTask
+import com.poxiao.app.ui.components.charts.ParsedAction
 
 @Composable
 internal fun HomeModuleRenderer(
@@ -56,6 +57,7 @@ internal fun HomeModuleRenderer(
     onReplayExecution: (ReviewBridgeExecutionSummary) -> Unit,
     onPromptChange: (String) -> Unit,
     onSend: () -> Unit,
+    onActionClick: ((ParsedAction) -> Unit)? = null
 ) {
     val moduleSize = moduleSizes[module] ?: defaultHomeModuleSize(module)
     val collapsed = module in collapsedModules && isHomeModuleCollapsible(module)
@@ -152,6 +154,7 @@ internal fun HomeModuleRenderer(
             onReplayExecution = onReplayExecution,
             onPromptChange = onPromptChange,
             onSend = onSend,
+            onActionClick = onActionClick
         )
     }
 }
