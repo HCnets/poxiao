@@ -355,6 +355,20 @@ internal fun HomeScreen(
     var reviewExecutionSummary by assistantUiState.reviewExecutionSummary
     var reviewExecutionHistory by assistantUiState.reviewExecutionHistory
     var expandedReviewExecutionAt by assistantUiState.expandedReviewExecutionAt
+
+    HomeAssistantGreetingEffect(
+        conversations = conversations,
+        activeConversationId = activeConversationId,
+        assistantSummaries = assistantSummaries,
+        onConversationUpdate = { updatedConversation ->
+            val index = conversations.indexOfFirst { it.id == updatedConversation.id }
+            if (index != -1) {
+                conversations[index] = updatedConversation
+                assistantStore.saveConversations(conversations, activeConversationId)
+            }
+        }
+    )
+
     HomeAssistantHistoryFocusEffect(
         initialAssistantHistoryFocusAt = initialAssistantHistoryFocusAt,
         onExpandedReviewExecutionAtChange = { expandedReviewExecutionAt = it },

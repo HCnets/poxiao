@@ -5,9 +5,18 @@ plugins {
 }
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+import java.io.FileInputStream
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
 
 fun projectSecret(name: String, default: String): String {
-    return (findProperty(name) as String?)?.takeIf { it.isNotBlank() }
+    return localProperties.getProperty(name)?.takeIf { it.isNotBlank() }
+        ?: (findProperty(name) as String?)?.takeIf { it.isNotBlank() }
         ?: System.getenv(name)?.takeIf { it.isNotBlank() }
         ?: default
 }
@@ -24,8 +33,8 @@ android {
         applicationId = "com.poxiao.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 17
-        versionName = "1.9.6"
+        versionCode = 18
+        versionName = "1.10.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -64,7 +73,7 @@ android {
         buildConfigField(
             "String",
             "DEEPSEEK_BASE_URL",
-            projectSecret("DEEPSEEK_BASE_URL", "").asBuildConfigValue(),
+            projectSecret("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1/chat/completions").asBuildConfigValue(),
         )
         buildConfigField(
             "String",
@@ -74,7 +83,7 @@ android {
         buildConfigField(
             "String",
             "DEEPSEEK_MODEL",
-            projectSecret("DEEPSEEK_MODEL", "").asBuildConfigValue(),
+            projectSecret("DEEPSEEK_MODEL", "deepseek-v4-pro").asBuildConfigValue(),
         )
     }
 

@@ -34,6 +34,7 @@ import com.poxiao.app.ui.theme.Ginkgo
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.theme.TeaGreen
 import com.poxiao.app.ui.theme.WarmMist
+import com.poxiao.app.ui.components.charts.AssistantMessageContent
 import java.time.Instant
 import java.time.LocalDateTime
 
@@ -261,11 +262,11 @@ internal fun HomeAssistantModuleCard(
                         else -> Color(0x2A2F7553)
                     },
                 ) {
-                    Text(
-                        text = message.content,
+                    AssistantMessageContent(
+                        content = message.content,
                         modifier = Modifier.padding(14.dp),
-                        style = if (activeSize == HomeModuleSize.Hero) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
-                        color = PineInk,
+                        textStyle = if (activeSize == HomeModuleSize.Hero) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        textColor = PineInk,
                     )
                 }
                 if (index != visibleMessages.lastIndex) Spacer(modifier = Modifier.height(homeSecondarySpacing(activeSize)))
@@ -294,11 +295,10 @@ internal fun HomeAssistantModuleCard(
                 }
             }
             Spacer(modifier = Modifier.height(homeSectionSpacing(activeSize) - 2.dp))
-            OutlinedTextField(
+            LiquidGlassTextField(
                 value = prompt,
                 onValueChange = onPromptChange,
-                label = { Text("给智能体一句话") },
-                shape = RoundedCornerShape(22.dp),
+                label = { Text("给智能体一句话...", style = MaterialTheme.typography.labelLarge, color = palette.softText) },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (assistantBusy) {
@@ -306,11 +306,10 @@ internal fun HomeAssistantModuleCard(
                 Text("智能体正在整理回复...", style = MaterialTheme.typography.bodySmall, color = ForestDeep.copy(alpha = 0.68f))
             }
             Spacer(modifier = Modifier.height(homeSecondarySpacing(activeSize) + 2.dp))
-            PrimaryActionButton(
+            ActionPill(
                 text = "发送",
                 onClick = onSend,
-                accent = ForestGreen,
-                enabled = prompt.isNotBlank() && !assistantBusy,
+                background = palette.primary,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

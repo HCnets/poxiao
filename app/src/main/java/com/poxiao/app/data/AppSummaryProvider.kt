@@ -192,17 +192,29 @@ class AppSummaryProvider(context: Context) {
         if (raw.isBlank()) return null
         val array = runCatching { JSONArray(raw) }.getOrNull() ?: return null
         if (array.length() == 0) return null
-        val first = array.optJSONObject(0)
+        
+        val grades = mutableListOf<String>()
+        for (i in 0 until minOf(array.length(), 6)) {
+            val item = array.optJSONObject(i) ?: continue
+            val title = item.optString("title")
+            val desc = item.optString("description")
+            if (title.isNotBlank() && desc.isNotBlank()) {
+                grades.add("$title: $desc")
+            }
+        }
+        
+        val bodyText = if (grades.isEmpty()) {
+            "最近同步了 ${array.length()} 条成绩记录。"
+        } else {
+            "近期成绩概览：\n" + grades.joinToString("\n") { "- $it" }
+        }
+        
         return AssistantContextSummary(
             id = "grade_summary",
-            title = "\u6210\u7ee9\u7f13\u5b58",
-            body = if (first == null) {
-                "\u6700\u8fd1\u540c\u6b65\u4e86 ${array.length()} \u6761\u6210\u7ee9\u8bb0\u5f55\u3002"
-            } else {
-                "\u6700\u8fd1\u540c\u6b65\u4e86 ${array.length()} \u6761\u6210\u7ee9\u8bb0\u5f55\uff0c\u53ef\u5148\u67e5\u770b ${first.optString("title")}\u3002"
-            },
-            source = "\u6821\u56ed\u670d\u52a1",
-            priority = 2,
+            title = "成绩缓存",
+            body = bodyText,
+            source = "校园服务",
+            priority = 8, // 提高优先级，确保能被 AI 看到
         )
     }
 

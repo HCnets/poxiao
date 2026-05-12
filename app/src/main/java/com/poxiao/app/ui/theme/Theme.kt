@@ -1,5 +1,8 @@
 package com.poxiao.app.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -7,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -202,32 +206,41 @@ fun PoxiaoTheme(
 ) {
     val basePalette = paletteFor(preset)
     val palette = basePalette.shifted(customHueOffset, customSaturation)
+    val colorAnimSpec = tween<Color>(durationMillis = 600, easing = FastOutSlowInEasing)
+    val animatedPrimary by animateColorAsState(palette.primary, colorAnimSpec, label = "primary")
+    val animatedOnPrimary by animateColorAsState(palette.pillOn, colorAnimSpec, label = "onPrimary")
+    val animatedSecondary by animateColorAsState(palette.secondary, colorAnimSpec, label = "secondary")
+    val animatedBackground by animateColorAsState(palette.backgroundTop, colorAnimSpec, label = "background")
+    val animatedInk by animateColorAsState(palette.ink, colorAnimSpec, label = "ink")
+    val animatedCard by animateColorAsState(palette.card, colorAnimSpec, label = "card")
+    val animatedCardGlow by animateColorAsState(palette.cardGlow, colorAnimSpec, label = "cardGlow")
+    val animatedCardBorder by animateColorAsState(palette.cardBorder, colorAnimSpec, label = "cardBorder")
     val colors = if (darkTheme) {
         darkColorScheme(
-            primary = palette.primary,
-            onPrimary = palette.pillOn,
-            secondary = palette.secondary,
-            background = palette.backgroundTop,
-            onBackground = palette.ink,
-            surface = palette.card,
-            onSurface = palette.ink,
-            surfaceVariant = palette.cardGlow,
-            outline = palette.cardBorder,
+            primary = animatedPrimary,
+            onPrimary = animatedOnPrimary,
+            secondary = animatedSecondary,
+            background = animatedBackground,
+            onBackground = animatedInk,
+            surface = animatedCard,
+            onSurface = animatedInk,
+            surfaceVariant = animatedCardGlow,
+            outline = animatedCardBorder,
         )
     } else {
         lightColorScheme(
-            primary = palette.primary,
-            onPrimary = palette.pillOn,
-            primaryContainer = palette.cardGlow,
-            onPrimaryContainer = palette.ink,
-            secondary = palette.secondary,
-            onSecondary = palette.ink,
-            background = palette.backgroundTop,
-            onBackground = palette.ink,
-            surface = palette.card,
-            onSurface = palette.ink,
-            surfaceVariant = palette.cardGlow,
-            outline = palette.cardBorder,
+            primary = animatedPrimary,
+            onPrimary = animatedOnPrimary,
+            primaryContainer = animatedCardGlow,
+            onPrimaryContainer = animatedInk,
+            secondary = animatedSecondary,
+            onSecondary = animatedInk,
+            background = animatedBackground,
+            onBackground = animatedInk,
+            surface = animatedCard,
+            onSurface = animatedInk,
+            surfaceVariant = animatedCardGlow,
+            outline = animatedCardBorder,
         )
     }
 

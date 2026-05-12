@@ -1,6 +1,7 @@
 
 package com.poxiao.app.ui
 
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +35,9 @@ fun PoxiaoApp() {
                 LocalCustomGlow provides uiState.customGlow,
                 LocalCustomAlpha provides uiState.customAlpha,
             ) {
-                PoxiaoAppScaffold(
-                    editionCapabilities = editionCapabilities,
+                SharedTransitionLayout {
+                    PoxiaoAppScaffold(
+                        editionCapabilities = editionCapabilities,
                     themePreset = uiState.themePreset,
                     densityPreset = uiState.densityPreset,
                     glassStrengthPreset = uiState.glassStrengthPreset,
@@ -55,6 +57,7 @@ fun PoxiaoApp() {
                     onCustomHueOffsetChange = uiState.onCustomHueOffsetChange,
                     onCustomSaturationChange = uiState.onCustomSaturationChange,
                 )
+                }
             }
         }
     }

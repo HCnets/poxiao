@@ -5,7 +5,7 @@
 > **“将大学生活里那些零碎、跳跃、失焦的时刻，重新组织成一个连贯的个人界面。”**
 
 <p>
-  <img src="https://img.shields.io/badge/Version-1.9.6_Final_Whiteout-0F172A?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.9.6" />
+  <img src="https://img.shields.io/badge/Version-1.10.0_Multi_Agent_Router-0F172A?style=for-the-badge&logo=git&logoColor=black" alt="Version 1.10.0" />
   <img src="https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Language-Kotlin_2.x-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Language Kotlin" />
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="UI Jetpack Compose" />
@@ -21,6 +21,10 @@
 
 `南工破晓` 是一个面向校园学习与个人效率场景的 Android 原生应用。
 它采用 **Kotlin + Jetpack Compose** 构建，并持续以 **Agent (智能体) 驱动** 的方式进行工程重构与演进。
+
+**v1.10.0 (Multi-Agent Router & Context-Aware AI)** 现已发布。本次更新标志着项目从“静态效率工具”全面进化为“全域主动式伴读管家”。我们抛弃了单一模型的限制，自主构建了**多智能体路由中枢 (Multi-Agent Router)**。系统能够根据用户的意图（闲聊/日程 vs. 高数/代码推理），动态将请求路由至“星火”或“DeepSeek V4 Pro”模型。此外，AI 现已具备**本地数据感知 (Context-Awareness)** 能力，可基于当前时间、真实课表、待办进度提供千人千面的问候，并通过**多模态仪表盘 (Multimodal Dashboard)** 自动拦截 AI 输出的 Markdown 并将其原生地渲染为雷达图，彻底实现本地数据联邦与 AI 隐私计算的完美结合。
+
+**v1.9.8 (Spatial Physics & Emotion Engine)** 现已发布。引入了更极致的空间物理引擎交互，全面铺装了 `bouncyClick` 弹簧物理触感与液态空状态 (`LiquidEmptyState`)，并在更多模块下发了基于陀螺仪的视差微交互。
 
 **v1.3.0 (Ultimate Calculator)** 现已发布。本次更新对标国际顶级 App 的终极交互形态，科学计算器引入全局撤销/重做堆栈 (Undo/Redo Stack) 以防长公式误删；全面引入键盘侧滑输入 (Swipe-on-Keys) 系统，彻底移除了占用空间的二级高级面板，将高级函数（如 sin, cos, ln, 根号, 幂次等）集成至主键盘的滑动交互中，实现操作零层级跃迁。
 
@@ -90,7 +94,10 @@
 | `32` | **v1.4.1** | **统计数据网格化 (Statistics Data Grid)** | 重构统计模块为专业数据网格布局，支持 X/Y 序列的可视化编辑与物理焦点导航。 |
 | `33` | **v1.5.0** | **灵动屏与视觉升级 (Dynamic Display & UX)** | 为科学计算器引入“灵动屏”视觉体系，增强 Liquid Glass 2.0 呼吸光效与卡片微动效；全面优化各专业模块的 UI 层次感。 |
 | `34` | **v1.9.0** | **UI品质大重构 (De-noise & Systematize)** | 字体SansSerif化、LiquidGlass参数收敛至克制、全局卡片切换为纯色Surface、语义色体系精简为中性灰阶，彻底消除"花哨廉价"感。 |
-| `当前` | **v1.9.6** | **全局硬编码清零 (Final Whiteout)** | 彻底清除 LearningDashboard(7处)/CourseNotes(6处)/HomeAssistantModuleCard(5处)/NotificationPreferences(4处) 四文件的 `Color.White.copy(alpha=...)` 硬编码为 `palette.card` 语义色；边框同步减半强化克制感；全局 UI 层除 LiquidGlass 视觉颜料和计算器双主题逻辑外已无裸 `Color.White`，语义色体系100%覆盖。 |
+| `35` | **v1.9.6** | **全局硬编码清零 (Final Whiteout)** | 彻底清除四文件的 `Color.White` 硬编码为 `palette.card` 语义色；边框同步减半强化克制感；全局 UI 层除 LiquidGlass 外已无裸白色，语义色体系 100% 覆盖，实现完美暗色模式与自适应。 |
+| `36` | **v1.9.7** | **UI/UX 维度再进化 (Dimension Upgrade)** | 全面升级二级功能目录 `MoreScreen.kt`。引入 `LiquidGlassTextField` 与 `CollapsingToolbar` 折叠视差过渡，并为版本号 Tag 赋予呼吸光晕动画，质感向 Apple/Craft 商业级水准靠拢。 |
+| `37` | **v1.9.8** | **空间与情感物理引擎 (Spatial Physics Engine)** | 彻底抛弃旧版死板交互，全面铺装高阶 `bouncyClick` 弹簧物理反馈与 `SharedTransitionLayout`；引入带有自适应主题流转颜色的液态空状态组件 `LiquidEmptyState`，进一步强化交互沉浸感。 |
+| `当前` | **v1.10.0** | **多智能体路由与全域伴读 (Multi-Agent Router)** | **AI 内核革命**：1. **路由中枢**：手写 `MultiAgentRouter` 桥接层，基于意图动态派发至星火 (Spark) 与 DeepSeek V4 Pro 双脑系统。2. **本地数据感知**：智能体通过读取本地 `SharedPreferences` 的日程、待办，结合 `LocalTime` 引擎输出千人千面的分时段感性问候。3. **多模态学情诊断**：利用正则拦截大模型生成的 `chart:radar` Markdown，并在本地原生渲染为 Compose 蜘蛛网雷达图，彻底解决数据隐私与 AI 幻觉，完成多模态仪表盘的基建闭环。 |
 | `历史版本` | **v1.8.3** | **UI重叠与陀螺仪性能修复 (UI & Gyroscope Fixes)** | 移除实验性 `SharedTransitionLayout` 以修复计算器与更多界面的重叠问题；将 LiquidGlass 陀螺仪动效由 `animateTo` 切换为 `snapTo`，消除计算延迟与卡顿，恢复极速响应；恢复稳定纯净的视觉参数。 |
 | `历史版本` | **v1.8.2** | **手势冲突修复与体验闭环 (Gesture & UX Finalization)** | 彻底解决拖拽手势与 LazyColumn 滚动的冲突问题，构建基于 `awaitPointerEventScope` 的状态机；清理白皮书相关的破坏性 UI 实验。 |
 | `历史版本` | **v1.8.1** | **深度数学渲染与矩阵演算 (Deep Math & Matrix CAS)** | 修复 `NaturalMathRenderer` 对 `y` 变量等单一字符的识别漏洞，彻底重构 `MatrixModulePro` 引入完整的 Cramer 法则行列式、伴随矩阵求逆以及点乘乘法，替换所有占位符，实现真实的计算能力 。 |

@@ -1,12 +1,12 @@
 package com.poxiao.app.ui.interactions
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,9 +17,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 
 /**
- * 为组件添加具有物理阻尼感 (Spring) 的按压缩放动效。
- * 替代原生生硬的 Ripple 点击效果，提升“高级物理实感”。
- * 
+ * 为组件添加具有物理阻尼感 (Advanced Spring) 的按压缩放动效。
+ * 替代原生生硬的 Ripple 点击效果，提升"高级物理实感"。
+ *
+ * v1.9.8 升级：采用方向感知的双弹簧规格：
+ *   - 按下 (Down)：stiffness=600, dampingRatio=0.6 (极快响应，微阻尼)
+ *   - 释放 (Up)：stiffness=400, dampingRatio=0.5 (Q 弹恢复)
+ *
  * @param scaleDown 按压时的缩放比例 (默认 0.94f)
  * @param hapticManager 触觉反馈管理器，如果传入会在按下时触发轻微震动
  * @param onClick 点击事件回调
@@ -30,28 +34,32 @@ fun Modifier.bouncyClick(
     onClick: () -> Unit
 ): Modifier = composed {
     var isPressed by remember { mutableStateOf(false) }
-    
-    // 使用 spring 动画打造 Q 弹感
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) scaleDown else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "bouncy_click_scale"
-    )
+    val scale = remember { Animatable(1f) }
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            scale.animateTo(
+                targetValue = scaleDown,
+                animationSpec = spring(stiffness = 600f, dampingRatio = 0.6f),
+            )
+        } else {
+            scale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(stiffness = 400f, dampingRatio = 0.5f),
+            )
+        }
+    }
 
     this
         .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
+            scaleX = scale.value
+            scaleY = scale.value
         }
         .clickable(
             interactionSource = remember { MutableInteractionSource() },
-            indication = null, // 移除系统默认的水波纹
-            onClick = { 
-                hapticManager?.playLightClick() // 释放时可能伴随操作反馈，由具体业务决定，此处默认不再震动避免重复
-                onClick() 
+            indication = null,
+            onClick = {
+                onClick()
             }
         )
         .pointerInput(Unit) {
@@ -62,7 +70,6 @@ fun Modifier.bouncyClick(
                     try {
                         hapticManager?.playLightClick()
                     } catch (e: Exception) {
-                        // 忽略震动异常
                     }
                     waitForUpOrCancellation()
                     isPressed = false

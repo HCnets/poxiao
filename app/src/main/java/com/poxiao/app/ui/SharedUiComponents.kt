@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,19 +24,31 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.poxiao.app.ui.theme.ForestDeep
 import com.poxiao.app.ui.theme.PineInk
 import com.poxiao.app.ui.interactions.bouncyClick
@@ -81,6 +94,63 @@ internal fun GlassCard(
         highlightAlpha = 0.5f,
         content = content,
     )
+}
+
+@Composable
+internal fun LiquidEmptyState(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    val palette = PoxiaoThemeState.palette
+    val densityPreset = LocalUiDensityPreset.current
+    val floatTransition = rememberInfiniteTransition(label = "empty-float")
+    val floatOffset by floatTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "float",
+    )
+    LiquidGlassSurface(
+        modifier = modifier.fillMaxWidth(),
+        cornerRadius = 24.dp * densityPreset.scale,
+        contentPadding = PaddingValues(vertical = 48.dp * densityPreset.scale, horizontal = 24.dp * densityPreset.scale),
+        tint = palette.card.copy(alpha = 0.24f),
+        borderColor = palette.cardBorder.copy(alpha = 0.08f),
+        glowColor = Color.Transparent,
+        blurRadius = 4.dp,
+        refractionHeight = 4.dp,
+        refractionAmount = 5.dp,
+        highlightAlpha = 0.06f,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp * densityPreset.scale),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = palette.softText.copy(alpha = 0.18f),
+                modifier = Modifier
+                    .graphicsLayer { translationY = floatOffset.dp.toPx() * densityPreset.scale },
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                color = palette.softText.copy(alpha = 0.4f),
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = palette.softText.copy(alpha = 0.28f),
+            )
+        }
+    }
 }
 
 @Composable
@@ -161,6 +231,57 @@ internal fun MetricCard(
             refractionAmount = 14.dp,
         ) {
             metricContent()
+        }
+    }
+}
+
+@Composable
+internal fun LiquidGlassTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    minLines: Int = 1,
+    maxLines: Int = Int.MAX_VALUE,
+    label: (@Composable () -> Unit)? = null,
+) {
+    val palette = PoxiaoThemeState.palette
+    val densityPreset = LocalUiDensityPreset.current
+    LiquidGlassSurface(
+        modifier = modifier,
+        cornerRadius = 16.dp * densityPreset.scale,
+        contentPadding = PaddingValues(horizontal = 16.dp * densityPreset.scale, vertical = 12.dp * densityPreset.scale),
+        tint = palette.card.copy(alpha = 0.5f),
+        borderColor = palette.cardBorder.copy(alpha = 0.22f),
+        glowColor = Color.Transparent,
+        blurRadius = 4.dp,
+        refractionHeight = 4.dp,
+        refractionAmount = 5.dp,
+        highlightAlpha = 0.12f,
+    ) {
+        Column {
+            if (label != null) {
+                label()
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = palette.ink),
+                cursorBrush = SolidColor(palette.primary),
+                modifier = Modifier.fillMaxWidth(),
+                minLines = minLines,
+                maxLines = maxLines,
+                decorationBox = { innerTextField ->
+                    if (value.isEmpty()) {
+                        Text(
+                            text = " ",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Transparent,
+                        )
+                    }
+                    innerTextField()
+                },
+            )
         }
     }
 }
