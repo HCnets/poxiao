@@ -22,6 +22,8 @@
 `南工破晓` 是一个面向校园学习与个人效率场景的 Android 原生应用。
 它采用 **Kotlin + Jetpack Compose** 构建，并持续以 **Agent (智能体) 驱动** 的方式进行工程重构与演进。
 
+**v1.10.1 (Knowledge Base Compliance & Isolation)** 现已发布。本次更新完成了 C库（自救群民间资料）的深度合规清洗与多级分类隔离，彻底剥离了可能触碰红线的严重违规与敏感文件，并重新生成了脱敏且干净的三维知识库压缩包。所有安全合规资料已准备就绪，确保火山 Agent 平台数据输入的纯净性。
+
 **v1.10.0 (Multi-Agent Router & Context-Aware AI)** 现已发布。本次更新标志着项目从“静态效率工具”全面进化为“全域主动式伴读管家”。我们抛弃了单一模型的限制，自主构建了**多智能体路由中枢 (Multi-Agent Router)**。系统能够根据用户的意图（闲聊/日程 vs. 高数/代码推理），动态将请求路由至“星火”或“DeepSeek V4 Pro”模型。此外，AI 现已具备**本地数据感知 (Context-Awareness)** 能力，可基于当前时间、真实课表、待办进度提供千人千面的问候，并通过**多模态仪表盘 (Multimodal Dashboard)** 自动拦截 AI 输出的 Markdown 并将其原生地渲染为雷达图，彻底实现本地数据联邦与 AI 隐私计算的完美结合。
 
 **v1.9.8 (Spatial Physics & Emotion Engine)** 现已发布。引入了更极致的空间物理引擎交互，全面铺装了 `bouncyClick` 弹簧物理触感与液态空状态 (`LiquidEmptyState`)，并在更多模块下发了基于陀螺仪的视差微交互。
@@ -97,7 +99,8 @@
 | `35` | **v1.9.6** | **全局硬编码清零 (Final Whiteout)** | 彻底清除四文件的 `Color.White` 硬编码为 `palette.card` 语义色；边框同步减半强化克制感；全局 UI 层除 LiquidGlass 外已无裸白色，语义色体系 100% 覆盖，实现完美暗色模式与自适应。 |
 | `36` | **v1.9.7** | **UI/UX 维度再进化 (Dimension Upgrade)** | 全面升级二级功能目录 `MoreScreen.kt`。引入 `LiquidGlassTextField` 与 `CollapsingToolbar` 折叠视差过渡，并为版本号 Tag 赋予呼吸光晕动画，质感向 Apple/Craft 商业级水准靠拢。 |
 | `37` | **v1.9.8** | **空间与情感物理引擎 (Spatial Physics Engine)** | 彻底抛弃旧版死板交互，全面铺装高阶 `bouncyClick` 弹簧物理反馈与 `SharedTransitionLayout`；引入带有自适应主题流转颜色的液态空状态组件 `LiquidEmptyState`，进一步强化交互沉浸感。 |
-| `当前` | **v1.10.0** | **多智能体路由与全域伴读 (Multi-Agent Router)** | **AI 内核革命**：1. **路由中枢**：手写 `MultiAgentRouter` 桥接层，基于意图动态派发至星火 (Spark) 与 DeepSeek V4 Pro 双脑系统。2. **本地数据感知**：智能体通过读取本地 `SharedPreferences` 的日程、待办，结合 `LocalTime` 引擎输出千人千面的分时段感性问候。3. **多模态学情诊断**：利用正则拦截大模型生成的 `chart:radar` Markdown，并在本地原生渲染为 Compose 蜘蛛网雷达图，彻底解决数据隐私与 AI 幻觉，完成多模态仪表盘的基建闭环。 |
+| `当前` | **v1.10.1** | **知识库合规隔离与脱敏 (Knowledge Base Compliance)** | **核心数据基建**：彻底完成 C 库资料的多级分类与合规筛查，剥离红线违规与黄线敏感文件，确保上传至火山 Agent 平台的语料符合数据安全与学术诚信规范，彻底消除 AI 幻觉引发的合规风险。 |
+| `历史版本` | **v1.10.0** | **多智能体路由与全域伴读 (Multi-Agent Router)** | **AI 内核革命**：1. **路由中枢**：手写 `MultiAgentRouter` 桥接层，基于意图动态派发至星火 (Spark) 与 DeepSeek V4 Pro 双脑系统。2. **本地数据感知**：智能体通过读取本地 `SharedPreferences` 的日程、待办，结合 `LocalTime` 引擎输出千人千面的分时段感性问候。3. **多模态学情诊断**：利用正则拦截大模型生成的 `chart:radar` Markdown，并在本地原生渲染为 Compose 蜘蛛网雷达图，彻底解决数据隐私与 AI 幻觉，完成多模态仪表盘的基建闭环。 |
 | `历史版本` | **v1.8.3** | **UI重叠与陀螺仪性能修复 (UI & Gyroscope Fixes)** | 移除实验性 `SharedTransitionLayout` 以修复计算器与更多界面的重叠问题；将 LiquidGlass 陀螺仪动效由 `animateTo` 切换为 `snapTo`，消除计算延迟与卡顿，恢复极速响应；恢复稳定纯净的视觉参数。 |
 | `历史版本` | **v1.8.2** | **手势冲突修复与体验闭环 (Gesture & UX Finalization)** | 彻底解决拖拽手势与 LazyColumn 滚动的冲突问题，构建基于 `awaitPointerEventScope` 的状态机；清理白皮书相关的破坏性 UI 实验。 |
 | `历史版本` | **v1.8.1** | **深度数学渲染与矩阵演算 (Deep Math & Matrix CAS)** | 修复 `NaturalMathRenderer` 对 `y` 变量等单一字符的识别漏洞，彻底重构 `MatrixModulePro` 引入完整的 Cramer 法则行列式、伴随矩阵求逆以及点乘乘法，替换所有占位符，实现真实的计算能力 。 |

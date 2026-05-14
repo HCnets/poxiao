@@ -31,3 +31,7 @@ zysjzs/
 # Signing files / secrets
 *.jks
 *.keystore
+
+# Data Archives
+*.tar.gz
+*.zip
